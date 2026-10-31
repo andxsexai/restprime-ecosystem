@@ -4,9 +4,13 @@ export default {
   theme: {
     extend: {
       colors: {
-        obsidian: '#0B0C10',
-        glass: '#141720',
-        gold: '#D4AF37',
+        obsidian: '#0A0F0B',
+        pine: '#0A0F0B',
+        surface: '#121A14',
+        glass: '#121A14',
+        gold: '#C9A96A',
+        signal: '#C6FF5E',
+        muted: '#7A8580',
         goldLight: '#F3E5AB',
         ink: 'rgb(var(--rgb-ink) / <alpha-value>)',
         paper: 'rgb(var(--rgb-paper) / <alpha-value>)',
@@ -18,9 +22,9 @@ export default {
         roseMetal: '#6B2D5C',
       },
       fontFamily: {
-        display: ['Fraunces', 'Georgia', 'serif'],
-        serif: ['"Source Serif 4"', 'Georgia', 'serif'],
-        sans: ['"Source Sans 3"', 'system-ui', 'sans-serif'],
+        display: ['"Cormorant Garamond"', 'Georgia', 'serif'],
+        serif: ['"Cormorant Garamond"', 'Georgia', 'serif'],
+        sans: ['Inter', 'system-ui', 'sans-serif'],
       },
     },
   },

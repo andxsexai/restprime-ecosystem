@@ -3,9 +3,9 @@
 @tailwind utilities;
 
 :root {
-  --rgb-ink: 244 244 246;
-  --rgb-paper: 11 12 16;
-  --rgb-card: 20 23 32;
+  --rgb-ink: 244 240 230;
+  --rgb-paper: 10 15 11;
+  --rgb-card: 18 26 20;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
   color-scheme: dark;
 }
@@ -15,11 +15,11 @@ html, body, #root { min-height: 100%; }
 body {
   margin: 0;
   color: rgb(var(--rgb-ink));
-  font-family: "Source Sans 3", system-ui, sans-serif;
+  font-family: Inter, system-ui, sans-serif;
   background:
-    radial-gradient(circle at 18% 12%, rgba(30, 77, 59, 0.22), transparent 42%),
-    radial-gradient(circle at 85% 22%, rgba(107, 45, 92, 0.18), transparent 46%),
-    #0b0c10;
+    radial-gradient(circle at 12% 0%, rgba(201, 169, 106, 0.08), transparent 32%),
+    radial-gradient(circle at 90% 10%, rgba(30, 77, 59, 0.35), transparent 42%),
+    #0A0F0B;
 }
 
 #root { position: relative; z-index: 1; }
@@ -28,10 +28,10 @@ body {
 
 .font-fraunces,
 .wordmark {
-  font-family: Fraunces, Georgia, serif;
+  font-family: "Cormorant Garamond", Georgia, serif;
   font-style: italic;
   font-weight: 500;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
 }
 
 .metal-slide {
@@ -52,11 +52,11 @@ body {
 .spatial-card,
 .liquid-panel,
 .liquid-bar {
-  background: rgba(20, 24, 34, 0.74);
-  backdrop-filter: blur(22px);
-  color: #f4f4f6;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 18px 40px -12px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  background: rgba(18, 26, 20, 0.6);
+  backdrop-filter: blur(16px);
+  color: #F4F0E6;
+  border: 1px solid rgba(201, 169, 106, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
   border-radius: 24px;
 }
 

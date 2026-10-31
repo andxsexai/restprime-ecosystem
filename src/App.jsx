@@ -4,8 +4,13 @@ import { contentPlan } from './data/contentPlan.js'
 import { newsFeed } from './data/news.js'
 import { FLAGSHIP } from './data/place.js'
 import { starterChat, starterFiles, starterTelegram, videoPresets } from './data/suite.js'
-import { ModuleNav, TopBar } from './components/Chrome.jsx'
-import TodayScreen from './components/TodayScreen.jsx'
+import { motion } from 'framer-motion'
+import Sidebar, { NAV } from './components/layout/Sidebar.jsx'
+import TopBar from './components/layout/TopBar.jsx'
+import Dashboard from './pages/Dashboard.jsx'
+import YearCalendar from './pages/Calendar.jsx'
+import AIAgent from './pages/AIAgent.jsx'
+import Analytics from './pages/Analytics.jsx'
 import ReleaseCorner from './components/ReleaseCorner.jsx'
 import AccessModal from './components/AccessModal.jsx'
 import DeveloperDesk from './components/DeveloperDesk.jsx'
@@ -28,7 +33,9 @@ const KEY = 'restprime-cabinet-v3'
 function loadState() {
   try {
     const saved = JSON.parse(localStorage.getItem(KEY) || 'null')
-    if (!saved?.days?.length || !String(saved.days[0]?.postText || '').startsWith('До Зайцево')) return null
+    if (!saved?.days?.length || saved.days[0]?.day !== 1) return null
+    if (saved.edition === 'readable' || saved.edition === 'bento') return saved
+    if (!String(saved.days[0]?.postText || '').startsWith('До Зайцево')) return null
     return saved
   } catch {
     return null
@@ -52,7 +59,8 @@ function uid() {
 export default function App() {
   const saved = useMemo(loadState, [])
   const todayNumber = useMemo(() => planDayForDate(new Date()), [])
-  const [tab, setTab] = useState('plan-30')
+  const [tab, setTab] = useState('overview')
+  const [navOpen, setNavOpen] = useState(false)
   const [days, setDays] = useState(saved?.days || contentPlan)
   const [focus, setFocus] = useState(todayNumber || saved?.focus || 1)
   const [status, setStatus] = useState('all')
@@ -211,6 +219,13 @@ export default function App() {
     patchDay(dayNumber, improveReel(item))
     setFocus(dayNumber)
     notify(`Сценарий дня ${dayNumber} собран заново.`)
+  }
+
+  function applyAgent(text) {
+    if (!requireAct()) return
+    patchDay(day.day, { format: 'short', postText: text })
+    setTab('posts-30')
+    notify(`Короткий пост дня ${day.day} поставлен из агента. Блюдо осталось из меню.`)
   }
 
   function writeChannel(channel, format) {
@@ -446,42 +461,67 @@ export default function App() {
     notify('Вы вышли. Снова открыт только просмотр.')
   }
 
+  const section = NAV.find((item) => item.id === tab)?.title || 'Обзор'
+
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen lg:flex">
+      <Sidebar
+        tab={tab}
+        onTab={setTab}
+        open={navOpen}
+        onClose={() => setNavOpen(false)}
+        isDeveloper={isDeveloper}
+        pendingCount={pending.length}
+        onDesk={() => setDeskOpen((open) => !open)}
+      />
+      <div className="min-w-0 flex-1">
       <TopBar
+        title={section}
+        onMenu={() => setNavOpen(true)}
         onAuth={() => {
           if (session) setModal('session')
           else { setAuthError(''); setAuthMode('login') }
         }}
         onRegister={() => { setAuthError(''); setAuthMode('register') }}
         account={session}
-        isDeveloper={isDeveloper}
-        pendingCount={pending.length}
-        onDesk={() => setDeskOpen((open) => !open)}
       />
-      <main className="relative z-10 mx-auto max-w-[1100px] space-y-6 px-4 pb-16 pt-6 sm:px-6">
+      <main className="relative z-10 mx-auto max-w-[1440px] space-y-6 px-4 pb-16 pt-6 sm:px-6">
         {!canAct && (
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-[24px] border border-ink/10 bg-card px-5 py-3 text-sm leading-relaxed text-ink/80">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-[24px] border border-[#C9A96A]/20 bg-[#121A14]/60 px-5 py-3 text-sm leading-relaxed text-[#F4F0E6]/80">
             <p>{session?.status === 'pending' ? 'Заявка отправлена. Пока можно читать план, посты и чат. Кнопки откроются после подтверждения.' : 'Сейчас открыт просмотр. Чтобы утверждать дни и писать команде, зарегистрируйтесь. Разработчик подтвердит вход.'}</p>
-            {!session && <button type="button" onClick={() => { setAuthError(''); setAuthMode('register') }} className="shrink-0 rounded-full bg-[#2f6b4f] px-4 py-2 text-sm font-semibold text-white">Регистрация</button>}
+            {!session && <button type="button" onClick={() => { setAuthError(''); setAuthMode('register') }} className="shrink-0 rounded-full bg-[#C9A96A] px-4 py-2 text-sm font-semibold text-[#0A0F0B]">Регистрация</button>}
           </div>
         )}
-        <TodayScreen
-          days={days}
-          day={day}
-          todayNumber={todayNumber}
-          news={recentNews}
-          canAct={canAct}
-          onPick={setFocus}
-          onFormat={(format) => setFormat(day.day, format)}
-          onImprove={() => improveDay(day.day)}
-          onImproveReel={() => refineReel(day.day)}
-          onApprove={() => approve(day.day)}
-          onReplace={() => rebuildDay(day.day)}
-          onChat={() => forwardDay(day, 'post')}
-          onToggleExtension={toggleExtension}
-        />
-        <ModuleNav tab={tab} onTab={setTab} />
+        <motion.div key={tab} initial={{ opacity: 0, filter: 'blur(8px)' }} animate={{ opacity: 1, filter: 'blur(0px)' }} transition={{ duration: 0.35 }}>
+        {tab === 'overview' && (
+          <Dashboard
+            day={day}
+            days={days}
+            todayNumber={todayNumber}
+            news={recentNews}
+            canAct={canAct}
+            onPublish={() => openChannel('telegram', day)}
+            onAdapt={(story) => writeNews(story, 'short')}
+            onOpenAgent={() => setTab('agent')}
+            onToggleExtension={toggleExtension}
+          />
+        )}
+        {tab === 'calendar-year' && (
+          <YearCalendar
+            days={days}
+            onOpenDay={(dayNumber) => { setFocus(dayNumber); setTab('plan-30') }}
+            onCopy={async (text) => { await navigator.clipboard.writeText(text); notify('Текст скопирован.') }}
+          />
+        )}
+        {tab === 'agent' && (
+          <AIAgent
+            day={day}
+            canAct={canAct}
+            onApply={applyAgent}
+            onCopy={async (text) => { await navigator.clipboard.writeText(text); notify('Текст агента скопирован.') }}
+          />
+        )}
+        {tab === 'analytics' && <Analytics days={days} todayNumber={todayNumber || day.day} />}
         {tab === 'plan-30' && (
           <PlanView
             days={days}
@@ -553,13 +593,15 @@ export default function App() {
             onForward={forwardDay}
           />
         )}
+        </motion.div>
       </main>
+      </div>
 
       <ReleaseCorner days={days} focus={focus} onPick={(item) => { setFocus(item.day); setTab('posts-30') }} />
       {isDeveloper && deskOpen && (
         <DeveloperDesk pending={pending} notices={access.notices} onClose={() => setDeskOpen(false)} onConfirm={confirmUser} onReject={rejectUser} />
       )}
-      {toast && <div className="fixed left-1/2 top-20 z-[120] -translate-x-1/2 rounded-full bg-[#d7e6d4] px-4 py-2 text-sm text-[#1a2e24] shadow-xl">{toast}</div>}
+      {toast && <div className="fixed left-1/2 top-20 z-[120] -translate-x-1/2 rounded-full bg-[#C9A96A] px-4 py-2 text-sm font-medium text-[#0A0F0B] shadow-xl">{toast}</div>}
 
       {(modal === 'instagram' || modal === 'telegram') && (
         <Modal title={modal === 'instagram' ? `Очередь ${FLAGSHIP.instagramHandle}` : `Очередь ${FLAGSHIP.telegramHandle}`} onClose={() => setModal(null)}>
