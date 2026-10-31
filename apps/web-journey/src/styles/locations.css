@@ -1,0 +1,51 @@
+.page-location .board__photo { object-position: center 42%; }
+
+.hours-table {
+  width: min(520px, 100%);
+  border-collapse: collapse;
+  margin: 1.6rem 0 0;
+  font-family: var(--sans);
+}
+
+.hours-table caption { text-align: left; }
+
+.hours-table th,
+.hours-table td {
+  text-align: left;
+  font-weight: 500;
+  padding: 0.55rem 0.8rem 0.55rem 0;
+  border-bottom: 1px solid rgba(244, 239, 228, 0.12);
+  vertical-align: top;
+}
+
+fieldset { border: 0; margin: 0; padding: 0; }
+
+.booking-wrap {
+  position: relative;
+  z-index: 5;
+  margin-top: -28px;
+  background: #10131a;
+  color: var(--ink);
+  border-radius: 36px 36px 0 0;
+  padding: 3.2rem 6vw 3.6rem;
+}
+
+.booking-grid {
+  display: grid;
+  grid-template-columns: 0.8fr 1.2fr;
+  gap: 1.6rem;
+  align-items: start;
+}
+
+.range-row { display: flex; align-items: center; gap: 0.8rem; }
+
+.range-row input[type="range"] { flex: 1; }
+
+.range-row output {
+  font-family: var(--sans);
+  min-width: 2ch;
+}
+
+@media (max-width: 800px) {
+  .booking-grid { grid-template-columns: 1fr; }
+}

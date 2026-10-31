@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>RESTPRIME — кабинет KEDR</title>
+    <meta name="description" content="RESTPRIME: матрица контента на 30 дней, радар трендов, память файлов и комната команды. Кейс ресторана «Кедр».">
+    <meta name="theme-color" content="#0B0C10">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="canonical" href="/">
+    <meta property="og:title" content="RESTPRIME — кабинет KEDR">
+    <meta property="og:description" content="AI-экосистема ресторанного маркетинга. Флагман — Кедр.">
+    <meta property="og:type" content="website">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@1,9..144,500;1,9..144,600&family=Source+Sans+3:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/src/styles/app.css">
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "RESTPRIME",
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "Web",
+        "inLanguage": "ru",
+        "description": "AI-экосистема ресторанного маркетинга и управления контентом. Флагманский кейс — ресторан Кедр.",
+        "url": "https://kedr-res.ru/"
+      }
+    </script>
+  </head>
+  <body>
+    <canvas id="gl" class="gl" aria-hidden="true"></canvas>
+    <div class="os">
+      <header class="topbar">
+        <a class="brand" href="/">
+          <img src="/images/logo.png" width="1032" height="336" alt="">
+          <span>
+            <strong>RESTPRIME</strong>
+            <em>2026 Gastro OS</em>
+          </span>
+        </a>
+        <label class="switcher">Проект
+          <select id="workspace" aria-label="Ресторан"></select>
+        </label>
+        <p id="place-meta" class="place-meta"></p>
+        <button type="button" id="add-place" class="btn-gold">+ Добавить ресторан</button>
+        <a class="journey-link" href="http://127.0.0.1:5173">Витрина KEDR</a>
+      </header>
+      <div id="traffic"></div>
+      <nav id="modes" class="modes" aria-label="Режимы кабинета"></nav>
+      <main id="view"></main>
+    </div>
+    <p id="toast" class="toast" hidden role="status"></p>
+    <dialog id="sheet">
+      <form method="dialog">
+        <header>
+          <p class="eyebrow">Сценарий агента</p>
+          <button value="cancel">Закрыть</button>
+        </header>
+        <pre id="sheet-body"></pre>
+        <button type="button" id="sheet-copy" class="btn-gold">Копировать</button>
+      </form>
+    </dialog>
+    <dialog id="place-dialog">
+      <form id="place-form">
+        <header>
+          <p class="eyebrow">Новый проект</p>
+          <h2>Ресторан по ссылке</h2>
+        </header>
+        <label>Название*
+          <input name="name" required placeholder="Название">
+        </label>
+        <label>Сайт
+          <input name="url" type="url" placeholder="https://">
+        </label>
+        <label>Город
+          <input name="city" placeholder="Город, адрес">
+        </label>
+        <label>Кухня
+          <input name="cuisine" placeholder="Коротко о кухне">
+        </label>
+        <label>Телефон
+          <input name="phone" placeholder="+7">
+        </label>
+        <label>Тон голоса
+          <textarea name="tone" rows="3" placeholder="Как агент говорит от имени этого дома"></textarea>
+        </label>
+        <div class="row-actions">
+          <button type="submit" class="btn-gold">Создать</button>
+          <button type="button" class="btn-quiet" onclick="this.closest('dialog').close()">Отмена</button>
+        </div>
+      </form>
+    </dialog>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

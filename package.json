@@ -1,0 +1,12 @@
+{
+  "name": "restprime-ecosystem",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev:journey": "npm --prefix apps/web-journey run dev",
+    "dev:dashboard": "npm --prefix apps/app-dashboard run dev",
+    "build": "npm --prefix apps/web-journey run build && npm --prefix apps/app-dashboard run build",
+    "preview:journey": "npm --prefix apps/web-journey run preview",
+    "preview:dashboard": "npm --prefix apps/app-dashboard run preview"
+  }
+}
