@@ -3,27 +3,57 @@ import { Check, Copy, Download, RefreshCw, Send, Sparkles, Upload } from 'lucide
 import Button3D from './ui/Button3D.jsx'
 import GlassCard from './ui/GlassCard.jsx'
 
-const PILLARS = ['Высокая маржа', 'Бар и Настойки', 'Атмосфера и Огонь', 'Шеф и Продукт']
+const TASKS = ['all', 'Быт', 'Гости', 'Зал', 'Меню', 'Напиток', 'Повод']
+const TASK_LABEL = { all: 'Все задания', Быт: 'Быт', Гости: 'Гости', Зал: 'Зал', Меню: 'Из меню', Напиток: 'Напиток', Повод: 'Повод' }
 
-export function PlanView({ days, status, pillar, onStatus, onApproveAll, onRebuild, onOpen, onApprove, onTelegram, onInstagram, onProject, onMatch, onReplace }) {
+export function PlanView({ days, status, pillar, onStatus, onPillar, onApproveAll, onRebuild, onOpen, onApprove, onTelegram, onInstagram, onProject, onMatch, onReplace, trends, boards }) {
   const visible = days.filter((day) => (status === 'all' || day.status === status) && (pillar === 'all' || day.pillar === pillar))
   return (
     <section className="space-y-5">
-      <GlassCard className="flex flex-wrap items-center justify-between gap-4 rounded-2xl p-4 sm:p-5">
-        <div>
-          <h2 className="font-fraunces text-2xl text-white">Матрица директора: контент-план на 30 дней</h2>
-          <p className="text-xs text-slate-400">Наведите на карточку или нажмите её — откроются сценарий, отправка и утверждение.</p>
-          {pillar !== 'all' && <p className="mt-1 text-xs text-gold">Фильтр столпа: {pillar}</p>}
+      <GlassCard className="space-y-4 rounded-[28px] p-5">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="font-fraunces text-3xl text-white">Задания на 30 дней</h2>
+            <p className="text-sm text-slate-300">Сначала сцена жизни, блюдо только если оно есть в меню от 23 октября.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button3D tone="kedr" className="px-3.5 py-2 text-xs" onClick={onApproveAll}><Check size={14} />Утвердить все</Button3D>
+            <Button3D className="px-3.5 py-2 text-xs" onClick={onRebuild}><Sparkles size={14} />Переделать все под тренды</Button3D>
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex rounded-xl border border-white/10 bg-obsidian/80 p-1 text-xs">
-            {[['all', 'Все (30)'], ['approved', 'Утверждено'], ['review', 'На проверке']].map(([id, label]) => (
-              <button key={id} type="button" onClick={() => onStatus(id)} className={`rounded-lg px-3 py-1.5 ${status === id ? 'bg-kedr font-semibold text-white' : 'text-slate-300'}`}>{label}</button>
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {TASKS.map((task) => (
+            <button key={task} type="button" onClick={() => onPillar(task)} className={`shrink-0 rounded-full px-4 py-2 text-sm ${pillar === task ? 'bg-[#f4efe6] text-[#1c1915]' : 'bg-white/5 text-slate-200'}`}>
+              {TASK_LABEL[task]}
+            </button>
+          ))}
+        </div>
+        <div className="flex rounded-full border border-white/10 bg-obsidian/80 p-1 text-xs w-fit">
+          {[['all', 'Все'], ['approved', 'Готово'], ['review', 'Черновик']].map(([id, label]) => (
+            <button key={id} type="button" onClick={() => onStatus(id)} className={`rounded-full px-3 py-1.5 ${status === id ? 'bg-kedr font-semibold text-white' : 'text-slate-300'}`}>{label}</button>
+          ))}
+        </div>
+        {boards?.length > 0 && (
+          <div className="grid gap-2 sm:grid-cols-2">
+            {boards.map((board) => (
+              <a key={board.url} href={board.url} target="_blank" rel="noreferrer" className="rounded-2xl border border-white/10 bg-white/5 p-4 hover:border-[#c4a574]/50">
+                <span className="text-xs uppercase tracking-[0.16em] text-[#c4a574]">Смотреть снаружи</span>
+                <span className="mt-1 block font-fraunces text-2xl text-white">{board.name}</span>
+                <span className="mt-1 block text-sm text-slate-300">{board.note}</span>
+              </a>
             ))}
           </div>
-          <Button3D tone="kedr" className="px-3.5 py-2 text-xs" onClick={onApproveAll}><Check size={14} />Утвердить все 30 дней</Button3D>
-          <Button3D tone="ghost" className="border-gold/40 px-3.5 py-2 text-xs text-gold" onClick={onRebuild}><Sparkles size={14} />Пересобрать месяц под тренды</Button3D>
-        </div>
+        )}
+        {trends?.length > 0 && (
+          <div className="flex gap-2 overflow-x-auto">
+            {trends.map((trend) => (
+              <button key={trend.id} type="button" onClick={() => onMatch(trend)} className="shrink-0 rounded-2xl border border-white/10 bg-[#1c2420] px-3 py-2 text-left text-xs text-slate-100">
+                <span className="block font-semibold text-white">{trend.name}</span>
+                <span className="text-slate-400">{trend.source}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </GlassCard>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {visible.map((day) => (
@@ -41,15 +71,16 @@ export function PlanView({ days, status, pillar, onStatus, onApproveAll, onRebui
               </div>
               <h3 className="text-base font-semibold leading-snug text-white">{day.title}</h3>
               <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-slate-200">{day.postText}</p>
-              <p className="mt-2 text-xs text-slate-400">{day.pillar} • маржа {day.margin}{day.formatName ? ` • ${day.formatName}` : ''}</p>
+              <p className="mt-2 text-xs text-slate-400">{day.pillar} · {day.scene}</p>
+              <p className="mt-1 text-xs text-[#c4a574]">{day.dish} · {day.margin}</p>
             </button>
-            <div className="hidden-3d-dock grid grid-cols-3 gap-2">
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button type="button" onClick={() => onReplace(day.day)} className="rounded-full bg-[#f4efe6] px-3 py-1.5 text-xs font-semibold text-[#1c1915]">Переделать</button>
               <Mini onClick={() => onApprove(day.day)}>Утвердить</Mini>
               <Mini onClick={() => onOpen(day)}>Сценарий</Mini>
-              <Mini onClick={() => onTelegram(day)}>В Telegram</Mini>
-              <Mini onClick={() => onInstagram(day)}>В Instagram</Mini>
+              <Mini onClick={() => onInstagram(day)}>Instagram</Mini>
+              <Mini onClick={() => onTelegram(day)}>Telegram</Mini>
               <Mini onClick={() => onProject(day)}>Проект</Mini>
-              <Mini onClick={() => onMatch(day.day)}>Формат</Mini>
             </div>
           </GlassCard>
         ))}
@@ -125,10 +156,10 @@ export function ThemesView({ days }) {
     <section className="space-y-5">
       <GlassCard className="rounded-2xl p-5">
         <h2 className="font-fraunces text-2xl text-white">Темы и воронка прогревов на 30 дней</h2>
-        <p className="text-xs text-slate-400">Высокая маржа, бар, атмосфера огня и голос шефа — по столпам из плана KEDR.</p>
+        <p className="text-sm text-slate-300">Быт, гости, зал, меню и повод. Блюда только из карты KEDR.</p>
         <div className="mt-3 flex flex-wrap gap-2">
-          {PILLARS.map((pillar) => (
-            <span key={pillar} className="rounded-full border border-white/10 px-3 py-1 text-[11px] text-slate-300">{pillar}: {days.filter((day) => day.pillar === pillar).length}</span>
+          {TASKS.filter((task) => task !== 'all').map((task) => (
+            <span key={task} className="rounded-full border border-white/10 px-3 py-1 text-[11px] text-slate-300">{TASK_LABEL[task]}: {days.filter((day) => day.pillar === task).length}</span>
           ))}
         </div>
       </GlassCard>

@@ -5,7 +5,8 @@ import { newsFeed } from './data/news.js'
 import { starterChat, starterFiles, starterTelegram, videoPresets } from './data/suite.js'
 import { HeroBoard, ModuleNav, RESTAURANTS, TopBar } from './components/Chrome.jsx'
 import ReleaseCorner from './components/ReleaseCorner.jsx'
-import { applyFormat, applyNews, rankFormats } from './lib/matchDay.js'
+import { applyNews } from './lib/matchDay.js'
+import { applyTrend, nextTrend, trendBoards, trends } from './data/trends.js'
 import { dateForDay, formatLong } from './lib/planDates.js'
 import {
   DayModalBody, FilesView, InstaView, PlanView, PostsView, ReelsView, TeamView, ThemesView, VideoView,
@@ -13,12 +14,12 @@ import {
 import Button3D from './components/ui/Button3D.jsx'
 import Modal from './components/ui/Modal.jsx'
 
-const KEY = 'restprime-kedr-suite-v1'
+const KEY = 'restprime-kedr-menu-v2'
 
 function loadState() {
   try {
     const saved = JSON.parse(localStorage.getItem(KEY) || 'null')
-    if (!saved?.days?.length) return null
+    if (!saved?.days?.length || !saved.days[0]?.scene) return null
     return saved
   } catch {
     return null
@@ -100,13 +101,18 @@ export default function App() {
     notify(`День ${dayNumber} утверждён на этом устройстве.`)
   }
 
-  function matchDay(dayNumber) {
+  function rebuildDay(dayNumber, trend) {
     const item = days.find((entry) => entry.day === dayNumber)
     if (!item) return
-    const best = rankFormats(item)[0]
-    patchDay(dayNumber, applyFormat(item, best))
+    const picked = trend?.post ? trend : nextTrend(item.trendId)
+    patchDay(dayNumber, applyTrend(item, picked))
     setFocus(dayNumber)
-    notify(`День ${dayNumber}: формат «${best.name}».`)
+    notify(`День ${dayNumber} пересобран: «${picked.name}».`)
+  }
+
+  function rebuildAll() {
+    setDays((current) => current.map((item) => ({ ...item, ...applyTrend(item, nextTrend(item.trendId)) })))
+    notify('Все задания сдвинуты на следующий приём из трендов.')
   }
 
   function openChannel(kind, item) {
@@ -171,13 +177,13 @@ export default function App() {
           day={day}
           approved={day.status === 'approved'}
           onPillar={(next) => { setPillar(next); setTab('plan-30') }}
-          onOpenAi={() => setTab('video-ai')}
+          onOpenAi={() => setTab('plan-30')}
           onApprove={() => approve(day.day)}
-          onReplace={() => replaceDay(day.day)}
+          onReplace={() => rebuildDay(day.day)}
           onInstagram={() => setModal('instagram')}
           onTelegram={() => setModal('telegram')}
           onProject={() => setModal('project')}
-          onMatch={() => matchDay(day.day)}
+          onMatch={() => rebuildDay(day.day)}
         />
         <ModuleNav tab={tab} onTab={setTab} />
         {tab === 'plan-30' && (
@@ -186,15 +192,18 @@ export default function App() {
             status={status}
             pillar={pillar}
             onStatus={setStatus}
+            onPillar={setPillar}
+            trends={trends}
+            boards={trendBoards}
             onApproveAll={() => { setDays((current) => current.map((item) => ({ ...item, status: 'approved' }))); notify('Все 30 дней утверждены на этом устройстве.') }}
-            onRebuild={() => { setDays((current) => current.map((item) => ([4, 9, 17].includes(item.day) ? { ...item, reelAudio: 'Живой треск дров, без студийной музыки' } : item))); notify('В дни 4, 9 и 17 поставлен живой звук огня.') }}
+            onRebuild={rebuildAll}
             onOpen={(item) => { setFocus(item.day); setModal('day') }}
             onApprove={approve}
             onTelegram={(item) => openChannel('telegram', item)}
             onInstagram={(item) => openChannel('instagram', item)}
             onProject={(item) => openChannel('project', item)}
-            onMatch={matchDay}
-            onReplace={replaceDay}
+            onMatch={(trend) => rebuildDay(focus, trend)}
+            onReplace={rebuildDay}
           />
         )}
         {tab === 'posts-30' && <PostsView days={days} onCopy={async (text) => { await navigator.clipboard.writeText(text); notify('Текст поста скопирован.') }} onExport={exportCsv} />}

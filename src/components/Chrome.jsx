@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion'
 import {
   CalendarCheck, PenLine, Clapperboard, Compass, Eye, FileUp, ChartLine, MessagesSquare,
-  Sparkles, UserRound, Coins, Flame, Film, TreePine,
+  Sparkles, UserRound, Coins, Flame, Film,
 } from 'lucide-react'
 
 const TABS = [
@@ -16,45 +16,35 @@ const TABS = [
 ]
 
 export const RESTAURANTS = {
-  kedr: { label: 'KEDR (kedr-res.ru) — Флагман', badge: 'Объект: Ресторан KEDR • kedr-res.ru', title: 'Вкус северного леса, огня и дичи — без рутины в маркетинге' },
+  kedr: { label: 'KEDR (kedr-res.ru) — Флагман', badge: 'Объект: Ресторан KEDR • kedr-res.ru', title: 'Дорога, зал и стол — без рутины в маркетинге' },
   taiga: { label: 'Тайга и Дым (Bistro Demo)', badge: 'Объект: Тайга и Дым • демо', title: 'Дым, дрова и короткая посадка — тот же контур для второго зала' },
   korner: { label: 'Korner Wine и Izakaya', badge: 'Объект: Korner • демо', title: 'Вино, огонь и короткие подачи — кабинет того же контура' },
 }
 
 export function TopBar({ restaurant, onRestaurant, onAudit, onAuth, account }) {
   return (
-    <header className="sticky top-0 z-50 border-b border-white/10 bg-obsidian/75 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
-        <div className="flex items-center gap-3.5">
-          <div className="metal-slide grid h-11 w-11 place-items-center rounded-2xl border border-gold/40 text-gold">
-            <TreePine size={18} />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-fraunces text-2xl tracking-tight text-white">RESTPRIME</span>
-              <span className="rounded-full border border-gold/30 bg-gold/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-widest text-gold">2026 OS</span>
-            </div>
-            <p className="hidden text-xs text-slate-400 sm:block">Кабинет директора: план, ролики, файлы и команда</p>
-          </div>
+    <header className="sticky top-0 z-50 border-b border-white/10 bg-[#14110e]/80 backdrop-blur-xl">
+      <div className="relative mx-auto flex min-h-[76px] max-w-[1440px] items-center justify-between gap-3 px-4 py-3 sm:px-6">
+        <label className="flex max-w-[34%] items-center rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs">
+          <span className="sr-only">Выбрать ресторан</span>
+          <select value={restaurant} onChange={(event) => onRestaurant(event.target.value)} className="w-full cursor-pointer bg-transparent text-white/80 focus:outline-none">
+            {Object.entries(RESTAURANTS).map(([id, place]) => (
+              <option key={id} value={id} className="bg-obsidian">{place.label}</option>
+            ))}
+          </select>
+        </label>
+        <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-center">
+          <div className="font-fraunces text-3xl tracking-tight text-[#f4efe6] sm:text-4xl">RESTPRIME</div>
+          <p className="text-[10px] uppercase tracking-[0.35em] text-[#c4a574]">гипер натурал</p>
         </div>
-        <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
-          <label className="flex items-center rounded-xl border border-white/15 bg-glass px-3 py-1.5 text-xs sm:text-sm">
-            <span className="mr-2 h-2 w-2 rounded-full bg-emerald-400" />
-            <span className="sr-only">Выбрать ресторан</span>
-            <select value={restaurant} onChange={(event) => onRestaurant(event.target.value)} className="cursor-pointer bg-transparent pr-2 text-white focus:outline-none">
-              {Object.entries(RESTAURANTS).map(([id, place]) => (
-                <option key={id} value={id} className="bg-obsidian">{place.label}</option>
-              ))}
-            </select>
-          </label>
-          <button type="button" onClick={onAudit} className="nav-3d-btn flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-medium text-gold sm:text-sm">
-            <Sparkles size={15} />
-            <span className="hidden md:inline">Загрузить ресторан (URL-аудит)</span>
-            <span className="md:hidden">URL</span>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={onAudit} className="nav-3d-btn hidden items-center gap-2 rounded-full px-3 py-2 text-xs text-[#c4a574] md:flex">
+            <Sparkles size={14} />
+            URL
           </button>
-          <button type="button" onClick={onAuth} className="flex items-center gap-2 rounded-xl border border-gold/40 bg-gradient-to-r from-kedr to-emerald-700 px-3.5 py-2 text-xs font-semibold text-white sm:text-sm">
-            <UserRound size={15} className="text-gold" />
-            <span className="hidden sm:inline">{account ? account.name : 'Регистрация / Аккаунт'}</span>
+          <button type="button" onClick={onAuth} className="flex items-center gap-2 rounded-full border border-white/15 px-3 py-2 text-xs text-[#f4efe6]">
+            <UserRound size={14} />
+            <span className="hidden sm:inline">{account ? account.name : 'Аккаунт'}</span>
           </button>
         </div>
       </div>
@@ -80,10 +70,11 @@ export function HeroBoard({ place, day, onPillar, onOpenAi, onApprove, onReplace
         </motion.div>
         <div className="relative z-10 flex flex-wrap items-center justify-between gap-4 border-t border-white/15 pt-2">
           <div className="flex items-center gap-3 overflow-x-auto pb-1">
-            <Portal onClick={() => onPillar('all')} icon="30" label="Все дни" />
-            <Portal onClick={() => onPillar('Высокая маржа')} icon={<Coins size={14} />} label="Фудкост / Маржа" />
-            <Portal onClick={() => onPillar('Атмосфера и Огонь')} icon={<Flame size={14} />} label="Огонь и Кедр" />
-            <Portal onClick={onOpenAi} icon={<Film size={14} />} label="Разбор Reels ИИ" />
+            <Portal onClick={() => onPillar('all')} icon="30" label="Все задания" />
+            <Portal onClick={() => onPillar('Быт')} icon={<Coins size={14} />} label="Быт" />
+            <Portal onClick={() => onPillar('Гости')} icon={<Flame size={14} />} label="Гости" />
+            <Portal onClick={() => onPillar('Меню')} icon={<Film size={14} />} label="Из меню" />
+            <Portal onClick={onOpenAi} icon={<Film size={14} />} label="Тренды" />
           </div>
           <span className="hidden text-xs italic text-slate-300 sm:inline">Наведите на карточку дня — откроются кнопки</span>
         </div>
@@ -101,7 +92,7 @@ export function HeroBoard({ place, day, onPillar, onOpenAi, onApprove, onReplace
             </span>
           </div>
           <h2 className="font-fraunces mb-1 text-2xl text-white sm:text-3xl">День {day.day}: {day.title}</h2>
-          <p className="mb-4 text-xs text-slate-300">Сверено с фудкостом: маржа {day.margin}. Блюдо — {day.dish}.</p>
+          <p className="mb-4 text-sm leading-relaxed text-slate-200">{day.scene}. Опора: {day.dish}. {day.margin}.</p>
           <div className="space-y-2.5 rounded-2xl border border-white/10 bg-obsidian/55 p-3.5 text-xs backdrop-blur-md">
             <Row label="Пост (13:30)" value={day.postText} />
             <Row label="Reels (18:00)" value={day.reelHook} />
@@ -116,8 +107,8 @@ export function HeroBoard({ place, day, onPillar, onOpenAi, onApprove, onReplace
           <button type="button" onClick={onTelegram} className="rounded-xl bg-sky-500/20 px-3 py-2.5 text-xs font-semibold text-sky-100">В Telegram · 13:30</button>
           <button type="button" onClick={onProject} className="rounded-xl bg-white/10 px-3 py-2.5 text-xs font-semibold text-white">Новый проект</button>
           <button type="button" onClick={onMatch} className="rounded-xl border border-gold/40 bg-gold/15 px-3 py-2.5 text-xs font-semibold text-gold">Подобрать формат</button>
-          <button type="button" onClick={onReplace} className="col-span-2 rounded-xl border border-white/15 bg-white/10 px-3.5 py-2.5 text-xs font-semibold text-white hover:bg-white/20">
-            ИИ-замена текста
+          <button type="button" onClick={onReplace} className="col-span-2 rounded-xl bg-[#f4efe6] px-3.5 py-2.5 text-xs font-semibold text-[#1c1915] hover:brightness-105">
+            Переделать задание
           </button>
         </div>
       </div>

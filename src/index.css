@@ -15,9 +15,9 @@ html, body, #root { min-height: 100%; }
 body {
   margin: 0;
   background:
-    radial-gradient(circle at 18% 12%, rgba(30, 77, 59, 0.22), transparent 42%),
-    radial-gradient(circle at 85% 22%, rgba(107, 45, 92, 0.18), transparent 46%),
-    #0b0c10;
+    radial-gradient(circle at 50% 0%, rgba(196, 165, 116, 0.16), transparent 28%),
+    radial-gradient(circle at 12% 20%, rgba(47, 74, 58, 0.35), transparent 40%),
+    #14110e;
   color: #f4f4f6;
   font-family: "Source Sans 3", system-ui, sans-serif;
 }
