@@ -23,6 +23,8 @@ import { dateForDay, formatLong, isoDate, moscowToday, planDayForDate } from './
 import { adaptSourceToToday } from './lib/generateContent.js'
 import PostWorkshop from './pages/PostWorkshop.jsx'
 import SiteDesk from './pages/SiteDesk.jsx'
+import ReviewSheet from './components/ReviewSheet.jsx'
+import { EVENT_FORMATS } from './data/eventFormats.js'
 import { loadAccess, saveAccess } from './lib/access.js'
 import { hashPassword, normalizePhrase, roleLabel } from './lib/auth.js'
 import {
@@ -43,6 +45,14 @@ function loadState() {
   } catch {
     return null
   }
+}
+
+const MENU_FILE = starterFiles[0]
+const REEL_SOURCE_IDS = ['viterno', 'aubrium', 'velocity', 'metaroots', 'foodinstitute', 'nra-hot', 'nrn-scrolls', 'sevenrooms', 'kedr-site']
+
+function cabinetFiles(saved) {
+  const own = (saved?.files || []).filter((file) => file?.url && file.url !== MENU_FILE.url && !/фудкост|редполитика|основное_меню|винная/i.test(file.name || ''))
+  return [MENU_FILE, ...own]
 }
 
 function initialChat(saved) {
@@ -69,10 +79,11 @@ export default function App() {
   const [focus, setFocus] = useState(() => planDayForDate(moscowToday()) || saved?.focus || 1)
   const [goalOpen, setGoalOpen] = useState(false)
   const [goalSource, setGoalSource] = useState(null)
+  const [reviewDay, setReviewDay] = useState(null)
   const [siteNotes, setSiteNotes] = useState(saved?.siteNotes || '')
   const [status, setStatus] = useState('all')
   const [pillar, setPillar] = useState('all')
-  const [files, setFiles] = useState(saved?.files || starterFiles)
+  const [files, setFiles] = useState(() => cabinetFiles(saved))
   const [telegram, setTelegram] = useState(saved?.telegram || starterTelegram)
   const [chat, setChat] = useState(() => initialChat(saved))
   const news = newsFeed
@@ -107,7 +118,8 @@ export default function App() {
   const todayLabel = formatLong(clock)
 
   useEffect(() => {
-    localStorage.setItem(KEY, JSON.stringify({ edition: 'readable', days, focus, files, telegram, chat, siteNotes }))
+    const storedFiles = files.map((file) => (String(file.url || '').startsWith('blob:') ? { ...file, url: '' } : file))
+    localStorage.setItem(KEY, JSON.stringify({ edition: 'readable', days, focus, files: storedFiles, telegram, chat, siteNotes }))
   }, [days, focus, files, telegram, chat, siteNotes])
 
   useEffect(() => {
@@ -271,11 +283,62 @@ export default function App() {
     notify(`Сценарий дня ${dayNumber} собран заново.`)
   }
 
-  function applyAgent(text) {
+  function placeAgentText(dayNumber, text) {
     if (!requireAct()) return
-    patchDay(day.day, { format: 'short', postText: text })
-    setTab('posts-30')
-    notify(`Короткий пост дня ${day.day} поставлен из агента. Блюдо осталось из меню.`)
+    patchDay(dayNumber, { format: 'short', postText: text, status: 'review' })
+    setFocus(dayNumber)
+    notify(`День ${dayNumber} пересобран и поставлен на проверку.`)
+  }
+
+  function openReview(item) {
+    if (!requireAct()) return
+    patchDay(item.day, { status: 'review' })
+    setReviewDay(item.day)
+    notify(`День ${item.day} на проверке. Можно утвердить или переделать.`)
+  }
+
+  function applyFormat(dayNumber, format) {
+    if (!requireAct()) return
+    const item = days.find((entry) => entry.day === dayNumber)
+    if (!item) return
+    const scene = item.scene ? item.scene.charAt(0).toUpperCase() + item.scene.slice(1) : item.title
+    const plate = String(item.dish || '').startsWith('без тарелки')
+      ? 'В этом кадре нет тарелки. Есть зал.'
+      : `Из меню этого дня: ${item.dish}${item.margin && item.margin !== 'зал' ? `, ${item.margin}` : ''}.`
+    patchDay(dayNumber, {
+      warmupTheme: format.title,
+      format: 'short',
+      status: 'review',
+      postText: `${format.title}.\n\n${scene}. ${format.note}.\n\n${plate}\n\nkedr-res.ru`,
+    })
+    notify(`Тема «${format.title}» поставлена на ${formatLong(dateForDay(dayNumber))} и ушла на проверку.`)
+  }
+
+  function applyReelSource(dayNumber, source) {
+    if (!requireAct()) return
+    const item = days.find((entry) => entry.day === dayNumber)
+    if (!item) return
+    const dish = String(item.dish || '').startsWith('без тарелки') ? 'зал без тарелки' : item.dish
+    patchDay(dayNumber, {
+      reelHook: String(source.hook || source.title).replaceAll('{dish}', dish),
+      reelScript: `По заметке «${source.source}»: ${source.title}. Снимаем в KEDR сцену «${item.scene}». В кадре: ${dish}. В конце kedr-res.ru.`,
+      reelAudio: 'Живой звук зала, без закадровой музыки',
+    })
+    notify(`Сценарий ${formatLong(dateForDay(dayNumber))} собран по источнику «${source.source}».`)
+  }
+
+  function restoreDay(dayNumber) {
+    const source = contentPlan.find((item) => item.day === dayNumber)
+    if (!source) return
+    patchDay(dayNumber, {
+      title: source.title,
+      postText: source.postText,
+      wideText: '',
+      reelHook: source.reelHook,
+      reelScript: source.reelScript,
+      warmupTheme: source.warmupTheme,
+    })
+    notify(`День ${dayNumber} возвращён к исходному тексту плана.`)
   }
 
   function writeChannel(channel, format) {
@@ -355,7 +418,8 @@ export default function App() {
       name: file.name,
       type: file.name.split('.').pop().toUpperCase(),
       size: `${Math.max(1, Math.round(file.size / 1024))} КБ`,
-      insight: 'Файл в списке кабинета. Разбор техкарт подключится с хранилищем.',
+      url: URL.createObjectURL(file),
+      insight: 'Открывается отдельной ссылкой, пока эта вкладка браузера не закрыта.',
     }))
     setFiles((current) => [...picked, ...current])
     notify(picked.length ? `В список добавлено файлов: ${picked.length}.` : 'Файл не выбран.')
@@ -511,7 +575,9 @@ export default function App() {
     notify('Вы вышли. Снова открыт только просмотр.')
   }
 
-  const section = NAV.find((item) => item.id === tab)?.title || 'Обзор'
+  const section = NAV.find((item) => item.id === tab)?.title || 'Сегодня'
+  const reviewItem = days.find((item) => item.day === reviewDay) || null
+  const reelSources = news.filter((item) => REEL_SOURCE_IDS.includes(item.id))
 
   return (
     <div className="min-h-screen lg:flex">
@@ -547,13 +613,13 @@ export default function App() {
         {tab === 'overview' && (
           <Dashboard
             day={todayDay}
-            days={days}
-            todayNumber={todayNumber}
-            news={recentNews}
             canAct={canAct}
             onPublish={() => openChannel('telegram', todayDay)}
-            onAdapt={(story) => adaptForToday(`${story.title}. ${story.watch}`)}
+            onOpenPlan={() => setTab('plan-30')}
             onOpenAgent={() => setTab('agent')}
+            onOpenChannels={() => setTab('tg-channels')}
+            onReview={openReview}
+            onStatus={setDayStatus}
             onToggleExtension={toggleExtension}
           />
         )}
@@ -567,9 +633,11 @@ export default function App() {
         )}
         {tab === 'agent' && (
           <AIAgent
+            days={days}
             day={day}
             canAct={canAct}
-            onApply={applyAgent}
+            onPick={setFocus}
+            onRebuild={placeAgentText}
             onCopy={async (text) => { await navigator.clipboard.writeText(text); notify('Текст агента скопирован.') }}
           />
         )}
@@ -592,6 +660,7 @@ export default function App() {
             onRebuild={rebuildAll}
             onOpen={(item) => { setFocus(item.day); setModal('day') }}
             onSetStatus={setDayStatus}
+            onReview={openReview}
             onTelegram={(item) => openChannel('telegram', item)}
             onInstagram={(item) => openChannel('instagram', item)}
             onProject={(item) => openChannel('project', item)}
@@ -602,7 +671,7 @@ export default function App() {
             onImproveReel={refineReel}
           />
         )}
-        {tab === 'posts-30' && <PostsView days={days} canAct={canAct} onToggleExtension={toggleExtension} onCopy={async (text) => { await navigator.clipboard.writeText(text); notify('Текст поста скопирован.') }} onExport={exportCsv} />}
+        {tab === 'posts-30' && <PostsView days={days} canAct={canAct} onToggleExtension={toggleExtension} onSetStatus={setDayStatus} onReview={openReview} onCopy={async (text) => { await navigator.clipboard.writeText(text); notify('Текст поста скопирован.') }} onExport={exportCsv} />}
         {tab === 'posts-edit' && (
           <PostWorkshop
             days={days}
@@ -624,12 +693,13 @@ export default function App() {
             onNotes={(text) => { setSiteNotes(text); notify('Заметка кабинета сохранена.') }}
             onStatus={setDayStatus}
             onPatch={(dayNumber, patch) => { patchDay(dayNumber, patch); notify(`День ${dayNumber} записан.`) }}
+            onRestore={restoreDay}
           />
         )}
-        {tab === 'news-feed' && <TrendFeed items={recentNews} days={days} day={day} todayLabel={todayLabel} canAct={canAct} onPick={setFocus} onWrite={writeNews} onAdaptToday={adaptForToday} />}
+        {tab === 'news-feed' && <TrendFeed items={recentNews} days={days} day={day} canAct={canAct} onPick={setFocus} onWrite={writeNews} />}
         {tab === 'tg-channels' && <ChannelDesk canAct={canAct} onWrite={writeChannel} onRework={openGoal} />}
-        {tab === 'reels-30' && <ReelsView days={days} canAct={canAct} onImprove={refineReel} />}
-        {tab === 'themes-30' && <ThemesView days={days} />}
+        {tab === 'reels-30' && <ReelsView days={days} day={day} sources={reelSources} canAct={canAct} onPick={setFocus} onImprove={refineReel} onApplySource={applyReelSource} />}
+        {tab === 'themes-30' && <ThemesView days={days} day={day} formats={EVENT_FORMATS} canAct={canAct} onPick={setFocus} onApply={applyFormat} />}
         {tab === 'files-tg' && (
           <FilesView
             files={files}
@@ -672,6 +742,13 @@ export default function App() {
       </main>
       </div>
 
+      <ReviewSheet
+        day={reviewItem}
+        onClose={() => setReviewDay(null)}
+        onApprove={() => { setDayStatus(reviewItem.day, 'approved'); setReviewDay(null) }}
+        onAgree={() => { setDayStatus(reviewItem.day, 'agreed'); setReviewDay(null) }}
+        onRedo={() => { improveDay(reviewItem.day); setReviewDay(null) }}
+      />
       <ReleaseCorner
         days={days}
         focus={focus}

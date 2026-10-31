@@ -1,78 +1,49 @@
-import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { FLAGSHIP } from '../data/place.js'
 import { shownPost } from '../lib/compose.js'
-import { weekSeries } from '../lib/mockData.js'
-import { dateForDay, formatLong } from '../lib/planDates.js'
+import { dateForDay, formatLong, formatWeekday } from '../lib/planDates.js'
+import StatusButtons from '../components/StatusButtons.jsx'
 import GlassCard from '../components/ui/GlassCard.jsx'
 import PremiumButton from '../components/ui/PremiumButton.jsx'
 import ExtensionBar from '../components/ExtensionBar.jsx'
 
 export default function Dashboard({
-  day, days, todayNumber, news, canAct, onPublish, onAdapt, onOpenAgent, onToggleExtension,
+  day, canAct, onPublish, onOpenPlan, onOpenAgent, onOpenChannels, onReview, onStatus, onToggleExtension,
 }) {
-  const series = weekSeries(days, todayNumber || day.day)
-  const text = shownPost(day)
-
+  const date = dateForDay(day.day)
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-      <GlassCard className="lg:col-span-7">
-        <p className="text-[11px] uppercase tracking-[0.18em] text-[#C9A96A]">Сегодня по Москве</p>
-        <h2 className="font-display mt-2 text-4xl italic text-[#F4F0E6]">{day.title}</h2>
-        <p className="mt-1 text-sm text-[#7A8580]">{formatLong(dateForDay(day.day))} · {day.day} день плана</p>
-        <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-[#F4F0E6]/90">{text}</p>
+      <GlassCard className="lg:col-span-8">
+        <p className="text-[11px] uppercase tracking-[0.18em] text-[#C9A96A]">Сегодня</p>
+        <h2 className="font-display mt-2 text-4xl italic text-[#F4F0E6]">Пост этого дня</h2>
+        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[#7A8580]">
+          Обзор нужен для одного: прочитать текст на сегодняшнюю дату, поставить его на проверку и открыть Telegram. Календарь, агент и каналы живут в своих вкладках.
+        </p>
+        <p className="mt-4 text-sm text-[#C9A96A]">{formatLong(date)} · {formatWeekday(date)} · день {day.day}</p>
+        <h3 className="font-display mt-1 text-3xl italic text-[#F4F0E6]">{day.title}</h3>
+        <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-[#F4F0E6]/90">{shownPost(day)}</p>
+        <div className="mt-4">
+          <StatusButtons value={day.status} disabled={!canAct} onChange={(status) => onStatus(day.day, status)} onReview={() => onReview(day)} />
+        </div>
         <ExtensionBar day={day} canAct={canAct} onToggle={(id) => onToggleExtension(day.day, id)} />
         <div className="mt-4">
           <PremiumButton disabled={!canAct} onClick={onPublish}>Скопировать и открыть Telegram</PremiumButton>
         </div>
       </GlassCard>
-
-      <GlassCard className="lg:col-span-5">
-        <p className="text-[11px] uppercase tracking-[0.18em] text-[#C6FF5E]">Тексты семи дней</p>
-        <h2 className="font-display mt-2 text-3xl italic text-[#F4F0E6]">Объём постов</h2>
-        <p className="mt-1 text-xs leading-relaxed text-[#7A8580]">Слова в текстах плана. Это не охват Instagram: живых цифр Meta в кабинете нет.</p>
-        <div className="mt-4 h-52">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={series}>
-              <CartesianGrid stroke="rgba(201,169,106,0.12)" vertical={false} />
-              <XAxis dataKey="label" stroke="#7A8580" fontSize={12} tickLine={false} axisLine={false} />
-              <YAxis stroke="#7A8580" fontSize={12} tickLine={false} axisLine={false} width={32} />
-              <Tooltip contentStyle={{ background: '#121A14', border: '1px solid rgba(201,169,106,0.3)', borderRadius: 12, color: '#F4F0E6' }} />
-              <Line type="monotone" dataKey="words" name="Слова" stroke="#C6FF5E" strokeWidth={2} dot={{ r: 3, fill: '#C6FF5E' }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </GlassCard>
-
-      <GlassCard className="lg:col-span-4">
-        <p className="text-[11px] uppercase tracking-[0.18em] text-[#C9A96A]">Радар</p>
-        <h2 className="font-display mt-2 text-3xl italic text-[#F4F0E6]">Новости до сегодня</h2>
-        <ul className="mt-4 space-y-3">
-          {news.slice(0, 3).map((item) => (
-            <li key={item.id} className="border-t border-[#C9A96A]/15 pt-3">
-              <p className="text-xs text-[#7A8580]">{item.dateLabel} · {item.source}</p>
-              <p className="mt-1 text-sm text-[#F4F0E6]">{item.title}</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                <a href={item.url} target="_blank" rel="noreferrer" className="rounded-xl border border-[#C9A96A]/35 px-3 py-1.5 text-xs text-[#F4F0E6]">Посмотреть</a>
-                <PremiumButton tone="signal" className="px-3 py-1.5 text-xs" disabled={!canAct} onClick={() => onAdapt(item)}>Переделать под сегодня</PremiumButton>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </GlassCard>
-
-      <GlassCard className="lg:col-span-4">
-        <p className="text-[11px] uppercase tracking-[0.18em] text-[#C9A96A]">Флагман</p>
-        <h2 className="font-display mt-2 text-4xl italic text-[#F4F0E6]">{FLAGSHIP.name}</h2>
-        <p className="mt-2 text-sm leading-relaxed text-[#F4F0E6]/80">Один зал. д. Зайцево, ул. Сосновая, 3. Каждый день с 12:00 до 24:00.</p>
-        <p className="mt-2 text-sm text-[#7A8580]">+7 (495) 274-53-54 · +7 (929) 979-53-54</p>
-        <a href={FLAGSHIP.site} target="_blank" rel="noreferrer" className="mt-3 inline-block text-sm text-[#C9A96A]">kedr-res.ru</a>
-      </GlassCard>
-
-      <GlassCard className="lg:col-span-4">
-        <p className="text-[11px] uppercase tracking-[0.18em] text-[#C6FF5E]">Агент</p>
-        <h2 className="font-display mt-2 text-3xl italic text-[#F4F0E6]">Тон для Telegram</h2>
-        <p className="mt-2 text-sm leading-relaxed text-[#7A8580]">Семьдесят процентов — сцена вечера. Тридцать — адрес, часы и стол. Блюдо берётся из меню дня, не из чужого канала.</p>
-        <PremiumButton tone="signal" className="mt-4" onClick={onOpenAgent}>Открыть агента</PremiumButton>
+      <GlassCard className="space-y-3 lg:col-span-4">
+        <p className="text-[11px] uppercase tracking-[0.18em] text-[#C9A96A]">Куда идти дальше</p>
+        <button type="button" onClick={onOpenPlan} className="w-full rounded-2xl border border-[#C9A96A]/30 px-4 py-3 text-left">
+          <span className="block text-sm font-semibold text-[#F4F0E6]">План</span>
+          <span className="mt-1 block text-xs text-[#7A8580]">Все 30 дней, статусы и проверка</span>
+        </button>
+        <button type="button" onClick={onOpenAgent} className="w-full rounded-2xl border border-[#C9A96A]/30 px-4 py-3 text-left">
+          <span className="block text-sm font-semibold text-[#F4F0E6]">Агент</span>
+          <span className="mt-1 block text-xs text-[#7A8580]">Выбрать день и пересобрать текст</span>
+        </button>
+        <button type="button" onClick={onOpenChannels} className="w-full rounded-2xl border border-[#C9A96A]/30 px-4 py-3 text-left">
+          <span className="block text-sm font-semibold text-[#F4F0E6]">Каналы</span>
+          <span className="mt-1 block text-xs text-[#7A8580]">Чужие посты за два дня и переработка</span>
+        </button>
+        <a href={FLAGSHIP.site} target="_blank" rel="noreferrer" className="block rounded-2xl border border-white/10 px-4 py-3 text-sm text-[#C9A96A]">Сайт зала · kedr-res.ru</a>
       </GlassCard>
     </div>
   )

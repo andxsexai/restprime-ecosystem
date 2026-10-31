@@ -8,7 +8,7 @@ export function statusLabel(id) {
   return DAY_STATUSES.find((item) => item.id === id)?.label || 'На проверку'
 }
 
-export default function StatusButtons({ value, disabled, onChange }) {
+export default function StatusButtons({ value, disabled, onChange, onReview }) {
   return (
     <div className="flex flex-wrap gap-1.5">
       {DAY_STATUSES.map((item) => {
@@ -18,7 +18,7 @@ export default function StatusButtons({ value, disabled, onChange }) {
             key={item.id}
             type="button"
             disabled={disabled}
-            onClick={() => onChange(item.id)}
+            onClick={() => (item.id === 'review' && onReview ? onReview() : onChange(item.id))}
             className={`rounded-full px-3 py-1.5 text-xs font-semibold disabled:opacity-40 ${active ? 'bg-[#C9A96A] text-[#0A0F0B]' : 'border border-[#C9A96A]/35 text-[#F4F0E6]'}`}
           >
             {item.label}

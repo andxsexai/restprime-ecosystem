@@ -13,7 +13,7 @@ import GlassCard from './ui/GlassCard.jsx'
 const TASKS = ['all', 'Быт', 'Гости', 'Зал', 'Меню', 'Напиток', 'Повод']
 const TASK_LABEL = { all: 'Все задания', Быт: 'Быт', Гости: 'Гости', Зал: 'Зал', Меню: 'Из меню', Напиток: 'Напиток', Повод: 'Повод' }
 
-export function PlanView({ days, status, pillar, onStatus, onPillar, onApproveAll, onRebuild, onOpen, onSetStatus, onMatch, onReplace, onForward, onImprove, onImproveReel, trends, boards, canAct }) {
+export function PlanView({ days, status, pillar, onStatus, onPillar, onApproveAll, onRebuild, onOpen, onSetStatus, onReview, onMatch, onReplace, onForward, onImprove, onImproveReel, trends, boards, canAct }) {
   const visible = days.filter((day) => (status === 'all' || day.status === status) && (pillar === 'all' || day.pillar === pillar))
   return (
     <section className="space-y-5">
@@ -80,7 +80,7 @@ export function PlanView({ days, status, pillar, onStatus, onPillar, onApproveAl
               <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-ink/70">Reels: {day.reelHook} {day.reelScript}</p>
             </button>
             <div className="mt-3 border-t border-gold/25 pt-3">
-              <StatusButtons value={day.status} disabled={!canAct} onChange={(next) => onSetStatus(day.day, next)} />
+              <StatusButtons value={day.status} disabled={!canAct} onChange={(next) => onSetStatus(day.day, next)} onReview={() => onReview(day)} />
             </div>
             <div className="mt-2 flex flex-wrap gap-2">
               <button type="button" disabled={!canAct} onClick={() => onImprove(day.day)} className="press rounded-full border border-ink/10 px-3 py-1.5 text-xs text-ink disabled:opacity-40">Улучшить пост</button>
@@ -95,7 +95,7 @@ export function PlanView({ days, status, pillar, onStatus, onPillar, onApproveAl
   )
 }
 
-export function PostsView({ days, onCopy, onExport, canAct, onToggleExtension }) {
+export function PostsView({ days, onCopy, onExport, canAct, onToggleExtension, onSetStatus, onReview }) {
   const [query, setQuery] = useState('')
   const visible = days.filter((day) => `${day.title} ${day.dish} ${shownPost(day)}`.toLowerCase().includes(query.toLowerCase()))
   return (
@@ -113,8 +113,8 @@ export function PostsView({ days, onCopy, onExport, canAct, onToggleExtension })
       <div className="grid gap-4 lg:grid-cols-2">
         {visible.map((day) => (
           <GlassCard key={day.day} className="rounded-2xl p-5">
-            <div className="mb-2 flex items-center justify-between text-xs text-ink/50">
-              <span>День {day.day} • {day.pillar}</span>
+            <div className="mb-2 flex items-center justify-between gap-2 text-xs text-ink/50">
+              <span>{formatLong(dateForDay(day.day))} · {formatWeekday(dateForDay(day.day))} · {day.pillar}</span>
               <button type="button" onClick={() => onCopy(shownPost(day))} className="press inline-flex items-center gap-1 text-gold"><Copy size={13} />Копировать</button>
             </div>
             <DayPhoto day={day.day} className="mb-3 h-44 w-full rounded-2xl object-cover" />
@@ -122,6 +122,9 @@ export function PostsView({ days, onCopy, onExport, canAct, onToggleExtension })
             <p className="mt-1 text-xs text-gold">{(day.format === 'wide' ? 'Широкий' : 'Короткий')} · {wordCount(shownPost(day))} слов</p>
             <p className="mt-4 whitespace-pre-wrap text-base leading-relaxed text-ink/75">{shownPost(day)}</p>
             {onToggleExtension && <ExtensionBar day={day} canAct={canAct} onToggle={(id) => onToggleExtension(day.day, id)} />}
+            <div className="mt-3">
+              <StatusButtons value={day.status} disabled={!canAct} onChange={(next) => onSetStatus(day.day, next)} onReview={() => onReview(day)} />
+            </div>
             <p className="mt-3 text-base text-gold">{day.reelHook}</p>
           </GlassCard>
         ))}
@@ -130,43 +133,97 @@ export function PostsView({ days, onCopy, onExport, canAct, onToggleExtension })
   )
 }
 
-export function ReelsView({ days, canAct, onImprove }) {
+export function ReelsView({ days, day, sources, canAct, onPick, onImprove, onApplySource }) {
+  const [pane, setPane] = useState('scripts')
   return (
     <section className="space-y-5">
-      <GlassCard className="flex flex-wrap items-center justify-between gap-4 rounded-2xl p-5">
-        <div>
-          <h2 className="font-fraunces text-2xl text-ink">Reels и Shorts: 30 сценариев</h2>
-          <p className="text-xs text-ink/50">Хук первых секунд, раскадровка, звук и привязка к блюду.</p>
+      <GlassCard className="space-y-4 rounded-2xl p-5">
+        <h2 className="font-fraunces text-2xl text-ink">Reels</h2>
+        <p className="max-w-3xl text-sm text-ink/70">Сценарии — готовые ролики дней меню. Тренды — заметки изданий про еду и рестораны: сначала источник, потом сценарий KEDR на выбранный день. Чужие блюда в кадр не переносятся.</p>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => setPane('scripts')} className={`rounded-full px-4 py-2 text-sm ${pane === 'scripts' ? 'bg-[#C9A96A] font-semibold text-[#0A0F0B]' : 'border border-white/15 text-ink'}`}>Сценарии</button>
+          <button type="button" onClick={() => setPane('trends')} className={`rounded-full px-4 py-2 text-sm ${pane === 'trends' ? 'bg-[#C6FF5E] font-semibold text-[#0A0F0B]' : 'border border-white/15 text-ink'}`}>Тренды</button>
         </div>
-        <span className="rounded-xl border border-pink-400/30 bg-pink-500/15 px-3 py-1.5 text-xs font-semibold text-pink-300">ASMR, честная кухня, голос шефа</span>
       </GlassCard>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {days.map((day) => (
-          <GlassCard key={day.day} className="rounded-2xl p-4">
-            <DayPhoto day={day.day} className="mb-3 h-32 w-full rounded-2xl object-cover" />
-            <p className="text-[11px] uppercase tracking-widest text-gold">День {day.day}</p>
-            <h3 className="mt-1 text-sm font-semibold text-ink">{day.title}</h3>
-            <p className="mt-3 text-sm text-gold">{day.reelHook}</p>
-            <p className="mt-2 text-sm leading-relaxed text-ink/75">{day.reelScript}</p>
-            <p className="mt-3 text-[11px] text-ink/50">Звук: {day.reelAudio}</p>
-            <button type="button" disabled={!canAct} onClick={() => onImprove(day.day)} className="press mt-3 rounded-full border border-ink/10 px-3 py-1.5 text-xs text-ink disabled:opacity-40">Улучшить сценарий</button>
+      {pane === 'scripts' && (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {days.map((item) => (
+            <GlassCard key={item.day} className="rounded-2xl p-4">
+              <DayPhoto day={item.day} className="mb-3 h-32 w-full rounded-2xl object-cover" />
+              <p className="text-[11px] uppercase tracking-widest text-gold">{formatLong(dateForDay(item.day))}</p>
+              <h3 className="mt-1 text-sm font-semibold text-ink">{item.title}</h3>
+              <p className="mt-3 text-sm text-gold">{item.reelHook}</p>
+              <p className="mt-2 text-sm leading-relaxed text-ink/75">{item.reelScript}</p>
+              <p className="mt-3 text-[11px] text-ink/50">Звук: {item.reelAudio}</p>
+              <p className="mt-1 text-[11px] text-ink/45">Ситуация: {item.scene}</p>
+              <button type="button" disabled={!canAct} onClick={() => onImprove(item.day)} className="press mt-3 rounded-full border border-ink/10 px-3 py-1.5 text-xs text-ink disabled:opacity-40">Пересобрать сценарий</button>
+            </GlassCard>
+          ))}
+        </div>
+      )}
+      {pane === 'trends' && (
+        <div className="space-y-4">
+          <GlassCard className="rounded-2xl p-4">
+            <p className="text-sm text-ink/70">День, на который собрать ролик</p>
+            <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+              {days.map((item) => (
+                <button key={item.day} type="button" onClick={() => onPick(item.day)} className={`shrink-0 rounded-2xl border px-3 py-2 text-left text-xs ${item.day === day.day ? 'border-[#C9A96A] bg-[#C9A96A] text-[#0A0F0B]' : 'border-white/10 text-ink'}`}>
+                  <span className="block font-semibold">{formatLong(dateForDay(item.day))}</span>
+                  <span className="mt-0.5 block max-w-[140px] opacity-70">{item.scene}</span>
+                </button>
+              ))}
+            </div>
           </GlassCard>
-        ))}
-      </div>
+          <div className="grid gap-4 lg:grid-cols-2">
+            {sources.map((source) => (
+              <GlassCard key={source.id} className="rounded-2xl p-4">
+                <p className="text-xs font-semibold text-[#C9A96A]">{source.source}</p>
+                <p className="mt-1 text-[11px] text-ink/50">{source.service} · {source.dateLabel}</p>
+                <h3 className="mt-2 text-base font-semibold text-ink">{source.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-ink/75">{source.watch}</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <a href={source.url} target="_blank" rel="noreferrer" className="rounded-xl border border-[#C9A96A]/35 px-3 py-1.5 text-xs text-[#F4F0E6]">Открыть источник</a>
+                  <button type="button" disabled={!canAct} onClick={() => onApplySource(day.day, source)} className="rounded-xl bg-[#C6FF5E] px-3 py-1.5 text-xs font-semibold text-[#0A0F0B] disabled:opacity-40">Пересобрать на {formatLong(dateForDay(day.day))}</button>
+                </div>
+              </GlassCard>
+            ))}
+          </div>
+        </div>
+      )}
     </section>
   )
 }
 
-export function ThemesView({ days }) {
+export function ThemesView({ days, day, formats, canAct, onPick, onApply }) {
   return (
     <section className="space-y-5">
       <GlassCard className="rounded-2xl p-5">
-        <h2 className="font-fraunces text-2xl text-ink">Темы и воронка прогревов на 30 дней</h2>
-        <p className="text-sm text-ink/75">Быт, гости, зал, меню и повод. Блюда только из карты KEDR.</p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {TASKS.filter((task) => task !== 'all').map((task) => (
-            <span key={task} className="rounded-full border border-ink/10 px-3 py-1 text-[11px] text-ink/75">{TASK_LABEL[task]}: {days.filter((day) => day.pillar === task).length}</span>
-          ))}
+        <h2 className="font-fraunces text-2xl text-ink">Темы вечера</h2>
+        <p className="text-sm text-ink/75">Тридцать форматов для поста: кино, мафия, йога, чай и остальные поводы. Это рубрикатор идей, не афиша зала. Блюдо дня остаётся из меню.</p>
+        <label className="mt-4 block text-sm text-ink/70">
+          День
+          <select value={day.day} onChange={(event) => onPick(Number(event.target.value))} className="mt-2 w-full rounded-2xl border border-white/15 bg-[#0A0F0B] px-3 py-3 text-ink">
+            {days.map((item) => (
+              <option key={item.day} value={item.day}>{formatLong(dateForDay(item.day))} · {item.warmupTheme} · {item.title}</option>
+            ))}
+          </select>
+        </label>
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+          {formats.map((format) => {
+            const active = day.warmupTheme === format.title
+            return (
+              <button
+                key={format.id}
+                type="button"
+                disabled={!canAct}
+                onClick={() => onApply(day.day, format)}
+                className={`rounded-2xl border px-3 py-3 text-left disabled:opacity-40 ${active ? 'border-[#C9A96A] bg-[#C9A96A] text-[#0A0F0B]' : 'border-[#C9A96A]/25 text-ink hover:border-[#C9A96A]'}`}
+              >
+                <span className="font-fraunces block text-xl leading-tight">{format.title}</span>
+                <span className={`mt-1 block text-[11px] leading-snug ${active ? 'text-[#0A0F0B]/70' : 'text-ink/55'}`}>{format.note}</span>
+              </button>
+            )
+          })}
         </div>
       </GlassCard>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -255,7 +312,7 @@ export function FilesView({ files, onUpload, telegram, onAddTelegram, onDigest, 
           <h2 className="font-fraunces text-2xl text-ink">База знаний ресторана</h2>
           <span className="rounded-full bg-emerald-500/20 px-2.5 py-1 text-xs font-semibold text-emerald-300">Список на этом устройстве</span>
         </div>
-        <p className="text-sm text-ink/75">Word, Excel и PDF остаются в списке кабинета. Разбор содержимого подключится вместе с хранилищем.</p>
+        <p className="text-sm text-ink/75">PDF и DOC открываются отдельной ссылкой. Меню зала уже подключено. Загруженный файл можно смотреть, пока эта вкладка браузера открыта.</p>
         <label className={`block rounded-2xl border-2 border-dashed border-[#2f6b4f]/30 bg-card p-6 text-center ${canAct ? 'cursor-pointer hover:border-gold' : 'cursor-not-allowed opacity-40'}`}>
           <input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.csv" className="hidden" disabled={!canAct} onChange={onUpload} />
           <Upload className="mx-auto mb-3 text-gold" />
@@ -270,6 +327,13 @@ export function FilesView({ files, onUpload, telegram, onAddTelegram, onDigest, 
                 <span className="text-[11px] text-gold">{file.type} • {file.size}</span>
               </div>
               <p className="mt-2 text-xs text-ink/75">{file.insight}</p>
+              {file.url ? (
+                <a href={file.url} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1 rounded-xl bg-[#C9A96A] px-3 py-1.5 text-xs font-semibold text-[#0A0F0B]">
+                  <ExternalLink size={13} /> Открыть {file.type === 'PDF' || file.type === 'DOC' || file.type === 'DOCX' ? file.type : 'файл'}
+                </a>
+              ) : (
+                <p className="mt-2 text-xs text-ink/45">Ссылка была только в этой сессии. Загрузите файл ещё раз.</p>
+              )}
             </div>
           ))}
         </div>
