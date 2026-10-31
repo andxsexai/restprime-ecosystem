@@ -1,8 +1,8 @@
 const tones = {
-  gold: 'bg-[#2f6b4f] text-white font-semibold hover:bg-[#275c43]',
-  lime: 'bg-[#2f6b4f] text-white font-semibold hover:bg-[#275c43]',
-  ghost: 'bg-card text-ink border border-ink/10 hover:border-[#2f6b4f]/40',
-  kedr: 'bg-[#e7f0ea] text-kedr border border-[#2f6b4f]/20 font-semibold hover:bg-[#dce8e1]',
+  gold: 'bg-gradient-to-r from-gold to-amber-500 text-obsidian font-bold hover:brightness-110',
+  lime: 'bg-gradient-to-r from-kedr to-emerald-800 text-white font-semibold border border-gold/30',
+  ghost: 'bg-white/10 text-white border border-white/15 hover:bg-white/20',
+  kedr: 'bg-kedr/40 text-goldLight border border-gold/30 font-semibold',
 }
 
 export default function Button3D({ tone = 'gold', className = '', children, ...props }) {

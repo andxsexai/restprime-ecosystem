@@ -3,9 +3,9 @@
 @tailwind utilities;
 
 :root {
-  --rgb-ink: 244 239 230;
-  --rgb-paper: 16 26 22;
-  --rgb-card: 28 42 36;
+  --rgb-ink: 244 244 246;
+  --rgb-paper: 11 12 16;
+  --rgb-card: 20 23 32;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
   color-scheme: dark;
 }
@@ -17,69 +17,102 @@ body {
   color: rgb(var(--rgb-ink));
   font-family: "Source Sans 3", system-ui, sans-serif;
   background:
-    radial-gradient(900px 520px at 0% -8%, rgba(47, 107, 79, 0.42), transparent 52%),
-    radial-gradient(680px 420px at 100% 0%, rgba(168, 124, 72, 0.22), transparent 46%),
-    radial-gradient(800px 480px at 50% 110%, rgba(20, 48, 36, 0.9), transparent 48%),
-    linear-gradient(165deg, #121c18 0%, #0c1411 48%, #16241d 100%);
-}
-
-body::before {
-  content: "";
-  position: fixed;
-  inset: -20%;
-  z-index: 0;
-  pointer-events: none;
-  background:
-    radial-gradient(circle at 16% 18%, rgba(186, 214, 176, 0.14), transparent 24%),
-    radial-gradient(circle at 82% 8%, rgba(255, 244, 220, 0.08), transparent 20%);
-  filter: blur(10px);
+    radial-gradient(circle at 18% 12%, rgba(30, 77, 59, 0.22), transparent 42%),
+    radial-gradient(circle at 85% 22%, rgba(107, 45, 92, 0.18), transparent 46%),
+    #0b0c10;
 }
 
 #root { position: relative; z-index: 1; }
 
-.font-fraunces {
-  font-family: Fraunces, Georgia, serif;
-  font-style: normal;
-  font-weight: 560;
-  letter-spacing: -0.03em;
-}
+.font-editorial { font-family: "Source Serif 4", Georgia, serif; }
 
+.font-fraunces,
 .wordmark {
   font-family: Fraunces, Georgia, serif;
   font-style: italic;
-  font-weight: 560;
+  font-weight: 500;
+  letter-spacing: -0.02em;
 }
 
-.liquid-bar,
-.liquid-panel,
-.spatial-card,
-.nav-3d-btn,
 .metal-slide {
-  background:
-    linear-gradient(180deg, rgba(62, 88, 74, 0.55), rgba(18, 30, 26, 0.72));
-  color: rgb(var(--rgb-ink));
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.18),
-    0 24px 40px -28px rgba(0, 0, 0, 0.85);
-  backdrop-filter: blur(22px) saturate(1.35);
-  border-radius: 28px;
+  background: linear-gradient(135deg, #120b1e 0%, #2b1329 30%, #4e1e40 62%, #1e3b30 100%);
+  background-size: 260% 260%;
+  animation: metalSheen 34s ease infinite;
+  border: 1px solid rgba(212, 175, 55, 0.24);
+  box-shadow: 0 24px 60px -15px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  color: #f4f4f6;
+}
+
+@keyframes metalSheen {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.spatial-card,
+.liquid-panel,
+.liquid-bar {
+  background: rgba(20, 24, 34, 0.74);
+  backdrop-filter: blur(22px);
+  color: #f4f4f6;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 18px 40px -12px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  border-radius: 24px;
+}
+
+.spatial-card {
+  transition: transform 0.55s var(--ease), border-color 0.4s var(--ease), box-shadow 0.55s var(--ease);
+}
+
+.spatial-card:hover {
+  transform: translateY(-6px);
+  border-color: rgba(212, 175, 55, 0.42);
+  box-shadow: 0 28px 55px -12px rgba(0, 0, 0, 0.85), 0 0 25px -5px rgba(212, 175, 55, 0.18);
+}
+
+.nav-3d-btn {
+  background: linear-gradient(180deg, rgba(31, 36, 48, 0.88), rgba(16, 19, 27, 0.95));
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: 0 8px 20px -4px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  color: #f4f4f6;
+  transition: transform 0.4s var(--ease), border-color 0.4s var(--ease), box-shadow 0.4s var(--ease);
+}
+
+.nav-3d-btn:hover {
+  transform: translateY(-3px);
+  border-color: rgba(212, 175, 55, 0.45);
+}
+
+.nav-3d-btn.active {
+  background: linear-gradient(135deg, rgba(30, 77, 59, 0.92), rgba(59, 28, 50, 0.92));
+  border-color: #d4af37;
+  box-shadow: 0 12px 30px -4px rgba(212, 175, 55, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+
+.hidden-3d-dock {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height 0.48s var(--ease), opacity 0.38s var(--ease), margin-top 0.38s var(--ease);
+}
+
+.spatial-card:hover .hidden-3d-dock,
+.spatial-card:focus-within .hidden-3d-dock {
+  max-height: 240px;
+  opacity: 1;
+  margin-top: 0.85rem;
 }
 
 .press {
-  transition: transform 0.22s var(--ease), box-shadow 0.22s var(--ease), background 0.22s var(--ease);
+  transition: transform 0.22s var(--ease), box-shadow 0.22s var(--ease);
 }
 
-.press:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 14px 28px -18px rgba(120, 176, 140, 0.7);
-}
-
+.press:hover:not(:disabled) { transform: translateY(-2px); }
 .press:active:not(:disabled) { transform: translateY(0); }
-
 button:disabled { cursor: not-allowed; }
 
 @media (prefers-reduced-motion: reduce) {
-  .press { transition: none; }
-  .press:hover:not(:disabled) { transform: none; }
+  .metal-slide { animation: none; }
+  .spatial-card, .nav-3d-btn, .press, .hidden-3d-dock { transition: none; }
+  .spatial-card:hover, .nav-3d-btn:hover, .press:hover:not(:disabled) { transform: none; }
 }

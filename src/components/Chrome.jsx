@@ -1,48 +1,45 @@
-import { Bell, UserRound } from 'lucide-react'
+import { Bell, CalendarCheck, Clapperboard, Compass, FolderUp, Instagram, MessagesSquare, Newspaper, PenLine, UserRound } from 'lucide-react'
 import { roleLabel } from '../lib/auth.js'
 
 const TABS = [
-  { id: 'news-feed', title: 'Лента' },
-  { id: 'plan-30', title: 'План' },
-  { id: 'posts-30', title: 'Посты' },
-  { id: 'reels-30', title: 'Reels' },
-  { id: 'themes-30', title: 'Темы' },
-  { id: 'insta-analytics', title: 'Instagram' },
-  { id: 'files-tg', title: 'Файлы' },
-  { id: 'github-tz', title: 'Чат команды' },
+  { id: 'news-feed', title: 'Лента', note: 'Новости до сегодня', icon: Newspaper },
+  { id: 'plan-30', title: 'План на 30 дней', note: 'Задания', icon: CalendarCheck },
+  { id: 'posts-30', title: 'Посты', note: 'Короткий и широкий', icon: PenLine },
+  { id: 'reels-30', title: 'Reels', note: 'Сценарии', icon: Clapperboard },
+  { id: 'themes-30', title: 'Темы', note: 'Прогрев', icon: Compass },
+  { id: 'insta-analytics', title: 'Instagram', note: 'Профиль и разбор', icon: Instagram },
+  { id: 'files-tg', title: 'Файлы', note: 'Документы', icon: FolderUp },
+  { id: 'github-tz', title: 'Чат команды', note: 'Посты и темы', icon: MessagesSquare },
 ]
 
 export function TopBar({ onAuth, onRegister, account, isDeveloper, pendingCount, onDesk }) {
   return (
-    <header className="liquid-bar sticky top-0 z-50 rounded-none border-x-0 border-t-0">
-      <div className="mx-auto grid min-h-[76px] max-w-[1100px] grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 py-3 sm:px-6">
-        <div className="flex items-center gap-2 text-sm text-ink/70">
-          <div>
-            <p className="text-[11px] text-[#9dccb0]">Флагман</p>
-            <p className="font-semibold text-ink">KEDR</p>
+    <header className="sticky top-0 z-[80] border-b border-white/10 bg-obsidian/80 backdrop-blur-xl">
+      <div className="mx-auto flex h-20 max-w-[1440px] items-center justify-between gap-3 px-4 sm:px-6">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="font-fraunces text-3xl text-white">RESTPRIME</span>
+            <span className="rounded-full border border-gold/30 bg-gold/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-widest text-gold">2026</span>
           </div>
+          <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Дашборд ресторатора</p>
         </div>
-        <div className="text-center">
-          <div className="wordmark text-3xl text-ink sm:text-4xl">RESTPRIME</div>
-          <p className="text-[10px] uppercase tracking-[0.22em] text-[#9dccb0]">Дашборд ресторатора</p>
-        </div>
-        <div className="flex items-center justify-end gap-2">
+        <div className="flex items-center gap-2">
           {isDeveloper && (
-            <button type="button" onClick={onDesk} className="press relative flex items-center gap-2 rounded-full border border-[#9dccb0]/30 bg-card px-3 py-2 text-sm text-[#c5e0d2]">
+            <button type="button" onClick={onDesk} className="nav-3d-btn relative flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-gold">
               <Bell size={15} />
               <span className="hidden sm:inline">Заявки</span>
-              {pendingCount > 0 && <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[#2f6b4f] px-1 text-[10px] font-bold text-white">{pendingCount}</span>}
+              {pendingCount > 0 && <span className="grid h-5 min-w-5 place-items-center rounded-full bg-gold px-1 text-[10px] font-bold text-obsidian">{pendingCount}</span>}
             </button>
           )}
           {account ? (
-            <button type="button" onClick={onAuth} className="press flex items-center gap-2 rounded-full bg-card px-3 py-2 text-sm text-ink">
-              <UserRound size={15} />
+            <button type="button" onClick={onAuth} className="nav-3d-btn flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-white">
+              <UserRound size={15} className="text-gold" />
               <span className="hidden sm:inline">{account.name} · {roleLabel(account.role)}</span>
             </button>
           ) : (
             <>
-              <button type="button" onClick={onAuth} className="press rounded-full px-3 py-2 text-sm text-ink/80">Войти</button>
-              <button type="button" onClick={onRegister} className="press rounded-full bg-[#2f6b4f] px-4 py-2 text-sm font-semibold text-white">Регистрация</button>
+              <button type="button" onClick={onAuth} className="nav-3d-btn rounded-xl px-3 py-2 text-sm text-gold">Войти</button>
+              <button type="button" onClick={onRegister} className="rounded-xl border border-gold/40 bg-gradient-to-r from-kedr to-emerald-800 px-3.5 py-2 text-sm font-semibold text-white">Регистрация</button>
             </>
           )}
         </div>
@@ -53,17 +50,27 @@ export function TopBar({ onAuth, onRegister, account, isDeveloper, pendingCount,
 
 export function ModuleNav({ tab, onTab }) {
   return (
-    <nav aria-label="Разделы кабинета" className="flex gap-2 overflow-x-auto pb-1">
-      {TABS.map((item) => (
-        <button
-          key={item.id}
-          type="button"
-          onClick={() => onTab(item.id)}
-          className={`press shrink-0 rounded-full px-4 py-2 text-sm ${tab === item.id ? 'bg-[#2f6b4f] font-semibold text-white' : 'bg-card text-ink/70'}`}
-        >
-          {item.title}
-        </button>
-      ))}
+    <nav aria-label="Разделы кабинета" className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 lg:grid-cols-8">
+      {TABS.map((item) => {
+        const Icon = item.icon
+        const active = tab === item.id
+        return (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => onTab(item.id)}
+            className={`nav-3d-btn flex h-24 flex-col justify-between rounded-2xl p-3 text-left ${active ? 'active' : ''}`}
+          >
+            <span className="grid h-8 w-8 place-items-center rounded-xl border border-gold/30 bg-kedr/60 text-gold">
+              <Icon size={15} />
+            </span>
+            <span>
+              <span className="block text-xs font-bold leading-tight text-white">{item.title}</span>
+              <span className="text-[10px] text-slate-400">{item.note}</span>
+            </span>
+          </button>
+        )
+      })}
     </nav>
   )
 }

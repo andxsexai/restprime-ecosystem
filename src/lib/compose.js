@@ -4,9 +4,24 @@ export function wordCount(text) {
   return String(text || '').trim().split(/\s+/).filter(Boolean).length
 }
 
+export const POST_EXTENSIONS = [
+  { id: 'booking', label: 'Бронь', build: () => '📩 Стол можно занять заранее: kedr-res.ru' },
+  { id: 'address', label: 'Адрес и часы', build: () => 'д. Зайцево, ул. Сосновая, 3. Каждый день с 12:00 до 24:00.' },
+  { id: 'phones', label: 'Телефон', build: () => '+7 (495) 274-53-54 · +7 (929) 979-53-54' },
+  { id: 'hashtags', label: 'Хештеги', build: () => '#KEDR #Зайцево #kedr_zaytsevo' },
+  { id: 'close', label: 'Тёплое закрытие', build: () => 'Пусть этот вечер начнётся там, где уже всё готово для спокойного разговора.' },
+]
+
+export function extensionText(day) {
+  const picked = day?.extensions || []
+  return POST_EXTENSIONS.filter((item) => picked.includes(item.id)).map((item) => item.build(day)).join('\n\n')
+}
+
 export function shownPost(day) {
-  if (day?.format === 'wide') return day.wideText || wideFromDay(day)
-  return day?.postText || ''
+  const base = day?.format === 'wide' ? (day.wideText || wideFromDay(day)) : (day?.postText || '')
+  const extra = extensionText(day)
+  const joined = extra ? `${base}\n\n${extra}` : base
+  return day?.format === 'wide' ? capWords(joined) : joined
 }
 
 function capWords(text, limit = WIDE_LIMIT) {

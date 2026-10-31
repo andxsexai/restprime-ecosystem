@@ -10,7 +10,7 @@ export default function TrendFeed({ items, days, day, canAct, onWrite, onPick })
   return (
     <section className="space-y-5">
       <div className="rounded-[28px] border border-ink/10 bg-card p-6">
-        <p className="text-xs uppercase tracking-[0.18em] text-[#9dccb0]">Мировая лента</p>
+        <p className="text-xs uppercase tracking-[0.18em] text-gold">Мировая лента</p>
         <h2 className="font-fraunces mt-1 text-3xl text-ink">Новости ресторанного года</h2>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink/70">
           Материал до сегодняшнего дня. Из него можно переписать пост на любой день плана: короткий или широкий, до 500 слов.
@@ -23,7 +23,7 @@ export default function TrendFeed({ items, days, day, canAct, onWrite, onPick })
             ))}
           </select>
         </label>
-        <button type="button" onClick={() => setSample((value) => !value)} className="press mt-4 text-sm text-[#9dccb0]">
+        <button type="button" onClick={() => setSample((value) => !value)} className="press mt-4 text-sm text-gold">
           {sample ? 'Скрыть образец широкого поста' : 'Показать образец широкого поста'}
         </button>
         {sample && (
@@ -39,17 +39,17 @@ export default function TrendFeed({ items, days, day, canAct, onWrite, onPick })
               onClick={() => setOpenId(item.id)}
               className={`press w-full rounded-2xl border p-4 text-left ${item.id === current?.id ? 'border-[#2f6b4f] bg-card' : 'border-ink/10 bg-card'}`}
             >
-              <p className="text-xs text-[#9dccb0]">{item.dateLabel} · {item.source}</p>
+              <p className="text-xs text-gold">{item.dateLabel} · {item.source}</p>
               <p className="mt-1 font-semibold text-ink">{item.title}</p>
             </button>
           ))}
         </div>
         {current && (
           <article className="rounded-[28px] border border-ink/10 bg-card p-6 lg:col-span-7">
-            <p className="text-xs text-[#9dccb0]">{current.service}</p>
+            <p className="text-xs text-gold">{current.service}</p>
             <h3 className="font-fraunces mt-2 text-3xl text-ink">{current.title}</h3>
             <p className="mt-4 text-base leading-relaxed text-ink/80">{current.watch}</p>
-            <a href={current.url} target="_blank" rel="noreferrer" className="mt-4 inline-block text-sm text-[#9dccb0] underline-offset-4 hover:underline">Открыть источник</a>
+            <a href={current.url} target="_blank" rel="noreferrer" className="mt-4 inline-block text-sm text-gold underline-offset-4 hover:underline">Открыть источник</a>
             <div className="mt-6 rounded-2xl bg-paper p-4 text-sm leading-relaxed text-ink/80">
               <p className="font-semibold text-ink">Как ляжет на день {day.day}</p>
               <p className="mt-2">{current.title}. Сцена дня: {day.scene}. Опора меню: {day.dish}.</p>

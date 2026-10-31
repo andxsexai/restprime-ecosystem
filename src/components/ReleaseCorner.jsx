@@ -30,7 +30,7 @@ export default function ReleaseCorner({ days, focus, onPick }) {
             onClick={() => onPick(day)}
             className={`w-full rounded-xl px-2 py-1.5 text-left ${day.day === focus ? 'bg-paper' : ''}`}
           >
-            <span className="block text-[11px] text-[#9dccb0]">{formatLong(dateForDay(day.day))}</span>
+            <span className="block text-[11px] text-gold">{formatLong(dateForDay(day.day))}</span>
             <span className="block text-xs leading-snug text-ink/80">{day.title}</span>
           </button>
         ))}

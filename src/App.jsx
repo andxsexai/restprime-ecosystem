@@ -193,6 +193,15 @@ export default function App() {
     setFocus(dayNumber)
   }
 
+  function toggleExtension(dayNumber, id) {
+    if (!requireAct()) return
+    const item = days.find((entry) => entry.day === dayNumber)
+    if (!item) return
+    const current = item.extensions || []
+    const extensions = current.includes(id) ? current.filter((entry) => entry !== id) : [...current, id]
+    patchDay(dayNumber, { extensions })
+  }
+
   function refineReel(dayNumber) {
     if (!requireAct()) return
     const item = days.find((entry) => entry.day === dayNumber)
@@ -458,6 +467,7 @@ export default function App() {
           onApprove={() => approve(day.day)}
           onReplace={() => rebuildDay(day.day)}
           onChat={() => forwardDay(day, 'post')}
+          onToggleExtension={toggleExtension}
         />
         <ModuleNav tab={tab} onTab={setTab} />
         {tab === 'plan-30' && (
@@ -488,7 +498,7 @@ export default function App() {
             onImproveReel={refineReel}
           />
         )}
-        {tab === 'posts-30' && <PostsView days={days} onCopy={async (text) => { await navigator.clipboard.writeText(text); notify('Текст поста скопирован.') }} onExport={exportCsv} />}
+        {tab === 'posts-30' && <PostsView days={days} canAct={canAct} onToggleExtension={toggleExtension} onCopy={async (text) => { await navigator.clipboard.writeText(text); notify('Текст поста скопирован.') }} onExport={exportCsv} />}
         {tab === 'news-feed' && <TrendFeed items={recentNews} days={days} day={day} canAct={canAct} onPick={setFocus} onWrite={writeNews} />}
         {tab === 'reels-30' && <ReelsView days={days} canAct={canAct} onImprove={refineReel} />}
         {tab === 'themes-30' && <ThemesView days={days} />}
@@ -601,7 +611,7 @@ export default function App() {
       {modal === 'session' && session && (
         <Modal title={session.name} onClose={() => setModal(null)}>
           <p className="text-sm text-ink/70">{session.email}</p>
-          <p className="mt-1 text-sm text-[#9dccb0]">{roleLabel(session.role)} · {session.status === 'active' ? 'доступ открыт' : 'ожидает подтверждения'}</p>
+          <p className="mt-1 text-sm text-gold">{roleLabel(session.role)} · {session.status === 'active' ? 'доступ открыт' : 'ожидает подтверждения'}</p>
           <p className="mt-4 text-sm text-ink/70">{session.secretHash ? 'Секретная фраза сохранена в этом кабинете. Её нельзя посмотреть повторно.' : 'Фраза ещё не задана. Придумайте её один раз — по ней восстанавливается пароль.'}</p>
           {!session.secretHash && (
             <form className="mt-3 space-y-3" onSubmit={savePhrase}>

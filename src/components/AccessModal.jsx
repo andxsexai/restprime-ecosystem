@@ -73,7 +73,7 @@ export default function AccessModal({ mode, error, busy, onMode, onClose, onLogi
           {mode === 'register' ? 'Отправить заявку' : mode === 'recover' ? 'Создать новый пароль' : 'Войти'}
         </Button3D>
         {mode === 'recover' && (
-          <button type="button" className="w-full text-sm text-[#9dccb0]" onClick={() => onRequest(email)}>
+          <button type="button" className="w-full text-sm text-gold" onClick={() => onRequest(email)}>
             Не помню фразу — отправить заявку разработчику
           </button>
         )}

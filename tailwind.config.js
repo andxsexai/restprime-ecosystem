@@ -4,10 +4,10 @@ export default {
   theme: {
     extend: {
       colors: {
-        obsidian: '#1e3328',
-        glass: '#fffcf8',
-        gold: '#2f6b4f',
-        goldLight: '#e7f0ea',
+        obsidian: '#0B0C10',
+        glass: '#141720',
+        gold: '#D4AF37',
+        goldLight: '#F3E5AB',
         ink: 'rgb(var(--rgb-ink) / <alpha-value>)',
         paper: 'rgb(var(--rgb-paper) / <alpha-value>)',
         card: 'rgb(var(--rgb-card) / <alpha-value>)',
