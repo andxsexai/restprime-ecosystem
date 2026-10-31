@@ -3,7 +3,7 @@ import { SIGNUP_ROLES } from '../lib/auth.js'
 import Button3D from './ui/Button3D.jsx'
 import Modal from './ui/Modal.jsx'
 
-const field = 'w-full rounded-2xl border border-ink/10 bg-white px-4 py-3 text-base text-ink outline-none focus:border-[#2f6b4f]'
+const field = 'w-full rounded-2xl border border-ink/10 bg-card px-4 py-3 text-base text-ink outline-none focus:border-[#2f6b4f]'
 
 export default function AccessModal({ mode, error, busy, onMode, onClose, onLogin, onRegister }) {
   const [name, setName] = useState('')
@@ -14,8 +14,8 @@ export default function AccessModal({ mode, error, busy, onMode, onClose, onLogi
   return (
     <Modal title={mode === 'register' ? 'Регистрация' : 'Вход'} onClose={onClose}>
       <div className="mb-5 grid grid-cols-2 rounded-full bg-paper p-1 text-sm">
-        <button type="button" onClick={() => onMode('login')} className={`rounded-full py-2.5 ${mode === 'login' ? 'bg-white font-semibold text-ink shadow-sm' : 'text-ink/60'}`}>Вход</button>
-        <button type="button" onClick={() => onMode('register')} className={`rounded-full py-2.5 ${mode === 'register' ? 'bg-white font-semibold text-ink shadow-sm' : 'text-ink/60'}`}>Регистрация</button>
+        <button type="button" onClick={() => onMode('login')} className={`rounded-full py-2.5 ${mode === 'login' ? 'bg-card font-semibold text-ink shadow-sm' : 'text-ink/60'}`}>Вход</button>
+        <button type="button" onClick={() => onMode('register')} className={`rounded-full py-2.5 ${mode === 'register' ? 'bg-card font-semibold text-ink shadow-sm' : 'text-ink/60'}`}>Регистрация</button>
       </div>
       <form className="space-y-3" onSubmit={(event) => {
         event.preventDefault()

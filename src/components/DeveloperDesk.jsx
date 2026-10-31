@@ -2,7 +2,7 @@ import { roleLabel } from '../lib/auth.js'
 
 export default function DeveloperDesk({ pending, notices, onClose, onConfirm, onReject }) {
   return (
-    <aside className="fixed bottom-4 right-4 top-24 z-[90] flex w-[min(100%-2rem,400px)] flex-col overflow-hidden rounded-[28px] border border-ink/10 bg-[#fffcf8] shadow-2xl">
+    <aside className="fixed bottom-4 right-4 top-24 z-[90] flex w-[min(100%-2rem,400px)] flex-col overflow-hidden rounded-[28px] border border-ink/10 bg-card shadow-2xl">
       <div className="flex items-center justify-between border-b border-ink/10 px-5 py-4">
         <div>
           <p className="text-xs text-[#2f6b4f]">Окно разработчика</p>

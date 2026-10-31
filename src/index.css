@@ -3,23 +3,48 @@
 @tailwind utilities;
 
 :root {
+  --rgb-ink: 30 51 40;
+  --rgb-paper: 243 239 230;
+  --rgb-card: 255 252 248;
   --bg: #f3efe6;
-  --ink: #1e3328;
-  --matcha: #2f6b4f;
+  --glow-a: rgba(47, 107, 79, 0.16);
+  --glow-b: rgba(196, 148, 74, 0.12);
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
   color-scheme: light;
+}
+
+html[data-theme="dark"] {
+  --rgb-ink: 244 239 230;
+  --rgb-paper: 16 22 20;
+  --rgb-card: 26 36 32;
+  --bg: #101614;
+  --glow-a: rgba(47, 107, 79, 0.34);
+  --glow-b: rgba(196, 140, 70, 0.16);
+  color-scheme: dark;
 }
 
 html, body, #root { min-height: 100%; }
 
 body {
   margin: 0;
-  background:
-    radial-gradient(circle at 80% 0%, rgba(47, 107, 79, 0.08), transparent 32%),
-    #f3efe6;
-  color: var(--ink);
+  background: var(--bg);
+  color: rgb(var(--rgb-ink));
   font-family: "Source Sans 3", system-ui, sans-serif;
 }
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 8% 0%, var(--glow-a), transparent 32%),
+    radial-gradient(circle at 92% 8%, var(--glow-b), transparent 28%),
+    radial-gradient(circle at 50% 100%, rgba(30, 77, 59, 0.12), transparent 36%);
+}
+
+#root { position: relative; z-index: 1; }
 
 .font-fraunces {
   font-family: Fraunces, Georgia, serif;
@@ -34,35 +59,31 @@ body {
   font-weight: 560;
 }
 
-.spatial-card {
-  background: #fffcf8;
-  color: var(--ink);
-  border: 1px solid rgba(30, 51, 40, 0.08);
-  box-shadow: 0 16px 40px -28px rgba(30, 51, 40, 0.45);
-}
-
-.spatial-card:hover {
-  border-color: rgba(47, 107, 79, 0.28);
-}
-
+.spatial-card,
 .nav-3d-btn,
 .metal-slide {
-  background: #fffcf8;
-  color: var(--ink);
-  border: 1px solid rgba(30, 51, 40, 0.08);
-  box-shadow: 0 16px 40px -28px rgba(30, 51, 40, 0.35);
+  background: rgb(var(--rgb-card));
+  color: rgb(var(--rgb-ink));
+  border: 1px solid rgb(var(--rgb-ink) / 0.08);
+  box-shadow: 0 18px 40px -28px rgb(var(--rgb-ink) / 0.45);
 }
 
-.nav-3d-btn.active {
-  background: #2f6b4f;
-  color: white;
-  border-color: #2f6b4f;
+.press {
+  transition: transform 0.22s var(--ease), box-shadow 0.22s var(--ease), background 0.22s var(--ease);
 }
 
-button:disabled {
-  cursor: not-allowed;
+.press:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px -16px rgba(47, 107, 79, 0.85);
 }
+
+.press:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+button:disabled { cursor: not-allowed; }
 
 @media (prefers-reduced-motion: reduce) {
-  .spatial-card, .nav-3d-btn { transition: none; }
+  .press { transition: none; }
+  .press:hover:not(:disabled) { transform: none; }
 }

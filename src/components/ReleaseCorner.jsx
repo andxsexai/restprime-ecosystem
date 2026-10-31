@@ -9,7 +9,7 @@ export default function ReleaseCorner({ days, focus, onPick }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed right-0 top-1/2 z-[70] -translate-y-1/2 rounded-l-md border border-ink/10 border-r-0 bg-[#fffcf8]/80 px-1 py-2 text-[10px] tracking-[0.18em] text-ink/35 [writing-mode:vertical-rl]"
+        className="fixed right-0 top-1/2 z-[70] -translate-y-1/2 rounded-l-md border border-ink/10 border-r-0 bg-card/80 px-1 py-2 text-[10px] tracking-[0.18em] text-ink/35 [writing-mode:vertical-rl]"
         aria-label="Открыть угол выхода"
       >
         выход
@@ -18,7 +18,7 @@ export default function ReleaseCorner({ days, focus, onPick }) {
   }
 
   return (
-    <aside className="fixed bottom-6 right-0 z-[70] flex max-h-[58vh] w-[240px] flex-col rounded-l-2xl border border-ink/10 border-r-0 bg-[#fffcf8] shadow-xl">
+    <aside className="fixed bottom-6 right-0 z-[70] flex max-h-[58vh] w-[240px] flex-col rounded-l-2xl border border-ink/10 border-r-0 bg-card shadow-xl">
       <button type="button" onClick={() => setOpen(false)} className="px-3 py-2 text-left text-[10px] uppercase tracking-[0.16em] text-ink/45">
         свернуть вбок
       </button>

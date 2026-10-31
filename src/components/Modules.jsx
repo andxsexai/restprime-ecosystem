@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Check, Copy, Download, ExternalLink, RefreshCw, Send, Sparkles, Upload } from 'lucide-react'
 import { FLAGSHIP } from '../data/place.js'
+import { shownPost, wordCount } from '../lib/compose.js'
 import { roleLabel } from '../lib/auth.js'
 import Button3D from './ui/Button3D.jsx'
 import GlassCard from './ui/GlassCard.jsx'
@@ -30,7 +31,7 @@ export function PlanView({ days, status, pillar, onStatus, onPillar, onApproveAl
             </button>
           ))}
         </div>
-        <div className="flex rounded-full border border-ink/10 bg-white p-1 text-xs w-fit">
+        <div className="flex rounded-full border border-ink/10 bg-card p-1 text-xs w-fit">
           {[['all', 'Все'], ['approved', 'Готово'], ['review', 'Черновик']].map(([id, label]) => (
             <button key={id} type="button" onClick={() => onStatus(id)} className={`rounded-full px-3 py-1.5 ${status === id ? 'bg-[#2f6b4f] font-semibold text-white' : 'text-ink/75'}`}>{label}</button>
           ))}
@@ -49,7 +50,7 @@ export function PlanView({ days, status, pillar, onStatus, onPillar, onApproveAl
         {trends?.length > 0 && (
           <div className="flex gap-2 overflow-x-auto">
             {trends.map((trend) => (
-              <button key={trend.id} type="button" disabled={!canAct} onClick={() => onMatch(trend)} className="shrink-0 rounded-2xl border border-ink/10 bg-white px-3 py-2 text-left text-xs text-ink/75 disabled:cursor-not-allowed disabled:opacity-40">
+              <button key={trend.id} type="button" disabled={!canAct} onClick={() => onMatch(trend)} className="shrink-0 rounded-2xl border border-ink/10 bg-card px-3 py-2 text-left text-xs text-ink/75 disabled:cursor-not-allowed disabled:opacity-40">
                 <span className="block font-semibold text-ink">{trend.name}</span>
                 <span className="text-ink/50">{trend.source}</span>
               </button>
@@ -68,7 +69,7 @@ export function PlanView({ days, status, pillar, onStatus, onPillar, onApproveAl
                 </span>
               </div>
               <h3 className="text-base font-semibold leading-snug text-ink">{day.title}</h3>
-              <p className="mt-3 line-clamp-4 whitespace-pre-wrap text-sm leading-relaxed text-ink/75">{day.postText}</p>
+              <p className="mt-3 line-clamp-4 whitespace-pre-wrap text-sm leading-relaxed text-ink/75">{shownPost(day)}</p>
               <p className="mt-2 text-xs text-ink/50">{day.pillar} · {day.scene}</p>
               <p className="mt-1 text-xs text-[#2f6b4f]">{day.dish} · {day.margin}</p>
             </button>
@@ -86,7 +87,7 @@ export function PlanView({ days, status, pillar, onStatus, onPillar, onApproveAl
 
 export function PostsView({ days, onCopy, onExport }) {
   const [query, setQuery] = useState('')
-  const visible = days.filter((day) => `${day.title} ${day.dish} ${day.postText}`.toLowerCase().includes(query.toLowerCase()))
+  const visible = days.filter((day) => `${day.title} ${day.dish} ${shownPost(day)}`.toLowerCase().includes(query.toLowerCase()))
   return (
     <section className="space-y-5">
       <GlassCard className="flex flex-wrap items-center justify-between gap-4 rounded-2xl p-5">
@@ -95,7 +96,7 @@ export function PostsView({ days, onCopy, onExport }) {
           <p className="text-sm text-ink/50">Сначала ситуация гостя, потом блюдо из меню, в конце одна ссылка на бронь.</p>
         </div>
         <div className="flex items-center gap-2">
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Поиск по блюду или теме" className="rounded-xl border border-ink/10 bg-white px-3.5 py-2 text-xs text-ink focus:border-[#2f6b4f] focus:outline-none" />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Поиск по блюду или теме" className="rounded-xl border border-ink/10 bg-card px-3.5 py-2 text-xs text-ink focus:border-[#2f6b4f] focus:outline-none" />
           <Button3D tone="ghost" className="border-[#2f6b4f]/30 px-3.5 py-2 text-xs text-[#2f6b4f]" onClick={onExport}><Download size={14} />Скачать CSV</Button3D>
         </div>
       </GlassCard>
@@ -104,10 +105,11 @@ export function PostsView({ days, onCopy, onExport }) {
           <GlassCard key={day.day} className="rounded-2xl p-5">
             <div className="mb-2 flex items-center justify-between text-xs text-ink/50">
               <span>День {day.day} • {day.pillar}</span>
-              <button type="button" onClick={() => onCopy(day.postText)} className="inline-flex items-center gap-1 text-[#2f6b4f]"><Copy size={13} />Копировать</button>
+              <button type="button" onClick={() => onCopy(shownPost(day))} className="press inline-flex items-center gap-1 text-[#2f6b4f]"><Copy size={13} />Копировать</button>
             </div>
             <h3 className="font-fraunces text-3xl text-ink">{day.title}</h3>
-            <p className="mt-4 whitespace-pre-wrap text-base leading-relaxed text-ink/75">{day.postText}</p>
+            <p className="mt-1 text-xs text-[#2f6b4f]">{(day.format === 'wide' ? 'Широкий' : 'Короткий')} · {wordCount(shownPost(day))} слов</p>
+            <p className="mt-4 whitespace-pre-wrap text-base leading-relaxed text-ink/75">{shownPost(day)}</p>
             <p className="mt-3 text-base text-[#2f6b4f]">{day.reelHook}</p>
           </GlassCard>
         ))}
@@ -178,7 +180,7 @@ export function VideoView({ url, setUrl, presets, onAnalyze, busy, result, news,
         <h2 className="font-fraunces text-2xl text-ink sm:text-3xl">Разбор фуд-ролика и адаптация под <span className="text-[#2f6b4f]">KEDR</span></h2>
         <p className="text-sm text-ink/75">Вставьте ссылку или выберите пример. Ответ собирается на этом экране, без внешнего API.</p>
         <div className="flex flex-col gap-2.5 sm:flex-row">
-          <input value={url} onChange={(event) => setUrl(event.target.value)} className="flex-1 rounded-xl border border-ink/10 bg-white px-4 py-3 text-sm text-ink focus:border-[#2f6b4f] focus:outline-none" />
+          <input value={url} onChange={(event) => setUrl(event.target.value)} className="flex-1 rounded-xl border border-ink/10 bg-card px-4 py-3 text-sm text-ink focus:border-[#2f6b4f] focus:outline-none" />
           <Button3D onClick={onAnalyze} disabled={busy}>{busy ? 'Смотрим ролик…' : 'Разобрать'}</Button3D>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -189,7 +191,7 @@ export function VideoView({ url, setUrl, presets, onAnalyze, busy, result, news,
           ))}
         </div>
         {result && (
-          <div className="space-y-3 rounded-2xl border border-[#2f6b4f]/30 bg-white p-5 text-sm">
+          <div className="space-y-3 rounded-2xl border border-[#2f6b4f]/30 bg-card p-5 text-sm">
             <h3 className="font-fraunces text-xl text-ink">{result.title}</h3>
             <p><span className="text-[#2f6b4f]">Хук. </span>{result.hookAnalysis}</p>
             <p><span className="text-[#2f6b4f]">Ритм. </span>{result.pacing}</p>
@@ -207,7 +209,7 @@ export function VideoView({ url, setUrl, presets, onAnalyze, busy, result, news,
           <h3 className="font-fraunces mb-4 text-2xl text-ink">Что работает в ресторанах сейчас</h3>
           <div className="space-y-3">
             {news.map((item) => (
-              <div key={item.id || item.title} className="rounded-2xl border border-ink/10 bg-white p-3">
+              <div key={item.id || item.title} className="rounded-2xl border border-ink/10 bg-card p-3">
                 <p className="text-[11px] text-[#2f6b4f]">{item.dateLabel || item.tag} · {item.source || item.time}</p>
                 <p className="mt-1 text-base text-ink">{item.title}</p>
                 <p className="mt-1 text-sm text-ink/75">{item.watch || item.action}</p>
@@ -240,7 +242,7 @@ export function FilesView({ files, onUpload, telegram, onAddTelegram, onDigest, 
           <span className="rounded-full bg-emerald-500/20 px-2.5 py-1 text-xs font-semibold text-emerald-300">Список на этом устройстве</span>
         </div>
         <p className="text-sm text-ink/75">Word, Excel и PDF остаются в списке кабинета. Разбор содержимого подключится вместе с хранилищем.</p>
-        <label className={`block rounded-2xl border-2 border-dashed border-[#2f6b4f]/30 bg-white p-6 text-center ${canAct ? 'cursor-pointer hover:border-gold' : 'cursor-not-allowed opacity-40'}`}>
+        <label className={`block rounded-2xl border-2 border-dashed border-[#2f6b4f]/30 bg-card p-6 text-center ${canAct ? 'cursor-pointer hover:border-gold' : 'cursor-not-allowed opacity-40'}`}>
           <input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.csv" className="hidden" disabled={!canAct} onChange={onUpload} />
           <Upload className="mx-auto mb-3 text-[#2f6b4f]" />
           <div className="text-sm font-semibold text-ink">Перетащите файлы или выберите с компьютера</div>
@@ -248,7 +250,7 @@ export function FilesView({ files, onUpload, telegram, onAddTelegram, onDigest, 
         </label>
         <div className="space-y-3">
           {files.map((file) => (
-            <div key={file.name} className="rounded-2xl border border-ink/10 bg-white p-4">
+            <div key={file.name} className="rounded-2xl border border-ink/10 bg-card p-4">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-sm font-semibold text-ink">{file.name}</p>
                 <span className="text-[11px] text-[#2f6b4f]">{file.type} • {file.size}</span>
@@ -264,17 +266,17 @@ export function FilesView({ files, onUpload, telegram, onAddTelegram, onDigest, 
           <p className="text-xs text-ink/75">Канал гостей, бот директора и чат кухни. Отправка пока отмечается в кабинете, без Bot API.</p>
           <div className="space-y-2.5">
             {telegram.map((item) => (
-              <div key={item.handle} className="rounded-2xl border border-ink/10 bg-white p-3 text-xs">
+              <div key={item.handle} className="rounded-2xl border border-ink/10 bg-card p-3 text-xs">
                 <p className="font-semibold text-ink">{item.handle}</p>
                 <p className="text-ink/50">{item.role}</p>
                 <p className="text-emerald-300">{item.status}</p>
               </div>
             ))}
           </div>
-          <div className="space-y-3 rounded-2xl border border-ink/10 bg-white p-4">
+          <div className="space-y-3 rounded-2xl border border-ink/10 bg-card p-4">
             <div className="flex gap-2">
-              <input value={handle} onChange={(event) => setHandle(event.target.value)} placeholder="@kedr_vip_club" className="flex-1 rounded-xl border border-ink/10 bg-white px-3 py-2 text-xs text-ink focus:border-[#2f6b4f] focus:outline-none" />
-              <select value={role} onChange={(event) => setRole(event.target.value)} className="rounded-xl border border-ink/10 bg-white px-2 text-xs text-ink/75">
+              <input value={handle} onChange={(event) => setHandle(event.target.value)} placeholder="@kedr_vip_club" className="flex-1 rounded-xl border border-ink/10 bg-card px-3 py-2 text-xs text-ink focus:border-[#2f6b4f] focus:outline-none" />
+              <select value={role} onChange={(event) => setRole(event.target.value)} className="rounded-xl border border-ink/10 bg-card px-2 text-xs text-ink/75">
                 <option>Канал гостей</option>
                 <option>Бот директора</option>
                 <option>Чат кухни/SMM</option>
@@ -343,7 +345,7 @@ export function TeamView({ messages, members, approved, canAct, onSend, onForwar
         </div>
         <div className="flex-1 space-y-3 overflow-y-auto pr-1">
           {messages.map((message) => (
-            <article key={message.id || `${message.time}-${message.sender}`} className="rounded-2xl border border-ink/10 bg-white p-4">
+            <article key={message.id || `${message.time}-${message.sender}`} className="rounded-2xl border border-ink/10 bg-card p-4">
               <div className="flex items-center justify-between gap-3 text-xs">
                 <span className="font-semibold text-[#2f6b4f]">{message.sender}{message.role ? ` · ${message.role}` : ''}</span>
                 <span className="text-ink/50">{message.time}</span>
@@ -364,7 +366,7 @@ export function TeamView({ messages, members, approved, canAct, onSend, onForwar
         </div>
         {canAct ? (
           <form className="mt-4 flex gap-2 border-t border-ink/10 pt-4" onSubmit={(event) => { event.preventDefault(); onSend(text); setText('') }}>
-            <input value={text} onChange={(event) => setText(event.target.value)} placeholder="Написать команде" className="flex-1 rounded-xl border border-ink/10 bg-white px-3 py-3 text-sm text-ink focus:border-[#2f6b4f] focus:outline-none" />
+            <input value={text} onChange={(event) => setText(event.target.value)} placeholder="Написать команде" className="flex-1 rounded-xl border border-ink/10 bg-card px-3 py-3 text-sm text-ink focus:border-[#2f6b4f] focus:outline-none" />
             <button type="submit" className="rounded-xl bg-[#2f6b4f] px-4 text-sm font-semibold text-white" aria-label="Отправить"><Send size={16} /></button>
           </form>
         ) : (
@@ -377,10 +379,10 @@ export function TeamView({ messages, members, approved, canAct, onSend, onForwar
         <div className="mt-4 max-h-[560px] space-y-3 overflow-y-auto pr-1">
           {approved.length === 0 && <p className="text-sm text-ink/50">Пока пусто. Утвердите день в плане — он появится здесь.</p>}
           {approved.map((day) => (
-            <div key={day.day} className="rounded-2xl border border-ink/10 bg-white p-3">
+            <div key={day.day} className="rounded-2xl border border-ink/10 bg-card p-3">
               <p className="text-xs text-[#2f6b4f]">День {day.day}</p>
               <p className="mt-1 font-semibold text-ink">{day.title}</p>
-              <p className="mt-1 line-clamp-2 text-sm text-ink/75">{day.postText}</p>
+              <p className="mt-1 line-clamp-2 text-sm text-ink/75">{shownPost(day)}</p>
               <div className="mt-3 flex gap-2">
                 <button type="button" disabled={!canAct} onClick={() => onForward(day, 'post')} className="rounded-full bg-[#2f6b4f] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40">Пост</button>
                 <button type="button" disabled={!canAct} onClick={() => onForward(day, 'theme')} className="rounded-full border border-ink/10 px-3 py-1.5 text-xs text-ink disabled:opacity-40">Тема</button>
@@ -397,12 +399,12 @@ export function DayModalBody({ day, onCopy }) {
   return (
     <div className="space-y-3 text-base leading-relaxed text-ink/75">
       <p className="text-sm text-[#2f6b4f]">{day.pillar} • {day.dish} • {day.margin}</p>
-      <p className="whitespace-pre-wrap text-base leading-relaxed text-ink/80">{day.postText}</p>
+      <p className="whitespace-pre-wrap text-base leading-relaxed text-ink/80">{shownPost(day)}</p>
       <p className="text-xs text-ink/75"><span className="text-[#2f6b4f]">Хук. </span>{day.reelHook}</p>
       <p className="text-xs text-ink/75"><span className="text-[#2f6b4f]">Сценарий. </span>{day.reelScript}</p>
       <p className="text-xs text-ink/50">Звук: {day.reelAudio}</p>
       <p className="text-xs text-emerald-300">{day.warmupTheme} • {day.kpi}</p>
-      <Button3D tone="ghost" className="text-xs" onClick={() => onCopy(day.postText)}><Copy size={14} />Скопировать пост</Button3D>
+      <Button3D tone="ghost" className="text-xs" onClick={() => onCopy(shownPost(day))}><Copy size={14} />Скопировать пост</Button3D>
     </div>
   )
 }

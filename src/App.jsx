@@ -9,6 +9,8 @@ import ReleaseCorner from './components/ReleaseCorner.jsx'
 import AccessModal from './components/AccessModal.jsx'
 import DeveloperDesk from './components/DeveloperDesk.jsx'
 import { applyNews } from './lib/matchDay.js'
+import { improveShort, improveWide, shownPost, wideFromDay, wordCount, writeFromNews } from './lib/compose.js'
+import TrendFeed from './components/TrendFeed.jsx'
 import { applyTrend, nextTrend, trendBoards, trends } from './data/trends.js'
 import { dateForDay, formatLong } from './lib/planDates.js'
 import { loadAccess, saveAccess } from './lib/access.js'
@@ -70,6 +72,7 @@ export default function App() {
   const [auditUrl, setAuditUrl] = useState('https://kedr-res.ru/')
   const [auditResult, setAuditResult] = useState('')
   const [auditBusy, setAuditBusy] = useState(false)
+  const [theme, setTheme] = useState(() => localStorage.getItem('restprime-theme') || 'light')
 
   const day = days.find((item) => item.day === focus) || days[0]
   const session = access.users.find((user) => user.email === access.sessionEmail) || null
@@ -84,6 +87,13 @@ export default function App() {
   }, [days, focus, files, telegram, chat])
 
   useEffect(() => { saveAccess(access) }, [access])
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+    localStorage.setItem('restprime-theme', theme)
+    const meta = document.querySelector('meta[name="theme-color"]')
+    if (meta) meta.setAttribute('content', theme === 'dark' ? '#101614' : '#f3efe6')
+  }, [theme])
 
   useEffect(() => {
     if (!toast) return undefined
@@ -141,7 +151,7 @@ export default function App() {
         kind: 'post',
         day: item.day,
         title: item.title,
-        body: item.postText,
+        body: shownPost(item),
       })
     }
     notify(`День ${dayNumber} утверждён и отправлен в комнату.`)
@@ -153,10 +163,45 @@ export default function App() {
       kind,
       day: item.day,
       title: item.title,
-      body: kind === 'theme' ? item.warmupTheme : item.postText,
+      body: kind === 'theme' ? item.warmupTheme : shownPost(item),
     })
     setTab('github-tz')
     notify(kind === 'theme' ? 'Тема в комнате команды.' : 'Пост в комнате команды.')
+  }
+
+  function setFormat(dayNumber, format) {
+    if (!requireAct()) return
+    const item = days.find((entry) => entry.day === dayNumber)
+    if (!item) return
+    const patch = { format }
+    if (format === 'wide' && !item.wideText) patch.wideText = wideFromDay(item)
+    patchDay(dayNumber, patch)
+    setFocus(dayNumber)
+  }
+
+  function improveDay(dayNumber) {
+    if (!requireAct()) return
+    const item = days.find((entry) => entry.day === dayNumber)
+    if (!item) return
+    if (item.format === 'wide') {
+      const wideText = improveWide({ ...item, wideText: item.wideText || wideFromDay(item) })
+      patchDay(dayNumber, { format: 'wide', wideText })
+      notify(`Широкий пост дня ${dayNumber}: ${wordCount(wideText)} слов.`)
+    } else {
+      const postText = improveShort(item)
+      patchDay(dayNumber, { format: 'short', postText })
+      notify(`Короткий пост дня ${dayNumber} собран заново.`)
+    }
+    setFocus(dayNumber)
+  }
+
+  function writeNews(story, format) {
+    if (!requireAct()) return
+    const text = writeFromNews(day, story, format)
+    if (format === 'wide') patchDay(day.day, { format: 'wide', wideText: text })
+    else patchDay(day.day, { format: 'short', postText: text })
+    setTab('posts-30')
+    notify(`${format === 'wide' ? 'Широкий' : 'Короткий'} пост дня ${day.day} собран из «${story.source}». ${wordCount(text)} слов.`)
   }
 
   function rebuildDay(dayNumber, trend) {
@@ -164,7 +209,9 @@ export default function App() {
     const item = days.find((entry) => entry.day === dayNumber)
     if (!item) return
     const picked = trend?.post ? trend : nextTrend(item.trendId)
-    patchDay(dayNumber, applyTrend(item, picked))
+    const next = applyTrend(item, picked)
+    if (item.format === 'wide') next.wideText = wideFromDay({ ...item, ...next })
+    patchDay(dayNumber, next)
     setFocus(dayNumber)
     notify(`День ${dayNumber} пересобран: «${picked.name}».`)
   }
@@ -199,7 +246,7 @@ export default function App() {
 
   function exportCsv() {
     const header = 'day,title,pillar,status,dish,post\n'
-    const body = days.map((item) => [item.day, item.title, item.pillar, item.status, item.dish, item.postText]
+    const body = days.map((item) => [item.day, item.title, item.pillar, item.status, item.dish, shownPost(item)]
       .map((value) => `"${String(value).replaceAll('"', '""')}"`).join(',')).join('\n')
     const blob = new Blob([header + body], { type: 'text/csv;charset=utf-8' })
     const link = document.createElement('a')
@@ -317,10 +364,12 @@ export default function App() {
         isDeveloper={isDeveloper}
         pendingCount={pending.length}
         onDesk={() => setDeskOpen((open) => !open)}
+        theme={theme}
+        onTheme={() => setTheme((value) => (value === 'dark' ? 'light' : 'dark'))}
       />
       <main className="relative z-10 mx-auto max-w-[1100px] space-y-6 px-4 pb-16 pt-6 sm:px-6">
         {!canAct && (
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-[24px] border border-ink/10 bg-white px-5 py-3 text-sm leading-relaxed text-ink/80">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-[24px] border border-ink/10 bg-card px-5 py-3 text-sm leading-relaxed text-ink/80">
             <p>{session?.status === 'pending' ? 'Заявка отправлена. Пока можно читать план, посты и чат. Кнопки откроются после подтверждения.' : 'Сейчас открыт просмотр. Чтобы утверждать дни и писать команде, зарегистрируйтесь. Разработчик подтвердит вход.'}</p>
             {!session && <button type="button" onClick={() => { setAuthError(''); setAuthMode('register') }} className="shrink-0 rounded-full bg-[#2f6b4f] px-4 py-2 text-sm font-semibold text-white">Регистрация</button>}
           </div>
@@ -331,6 +380,11 @@ export default function App() {
           approved={day.status === 'approved'}
           canAct={canAct}
           onPillar={(next) => { setPillar(next); setTab('plan-30') }}
+          text={shownPost(day)}
+          words={wordCount(shownPost(day))}
+          format={day.format || 'short'}
+          onFormat={(format) => setFormat(day.day, format)}
+          onImprove={() => improveDay(day.day)}
           onApprove={() => approve(day.day)}
           onReplace={() => rebuildDay(day.day)}
           onChat={() => forwardDay(day, 'post')}
@@ -363,6 +417,7 @@ export default function App() {
           />
         )}
         {tab === 'posts-30' && <PostsView days={days} onCopy={async (text) => { await navigator.clipboard.writeText(text); notify('Текст поста скопирован.') }} onExport={exportCsv} />}
+        {tab === 'news-feed' && <TrendFeed items={news.filter((item) => item.id !== 'instagram' && item.id !== 'telegram')} day={day} canAct={canAct} onWrite={writeNews} />}
         {tab === 'reels-30' && <ReelsView days={days} />}
         {tab === 'themes-30' && <ThemesView days={days} />}
         {tab === 'video-ai' && (
@@ -426,9 +481,9 @@ export default function App() {
           <p className="mb-3 text-sm text-ink/60">
             {formatLong(dateForDay(day.day))} · день {day.day}
           </p>
-          <p className="mb-4 whitespace-pre-wrap text-lg leading-relaxed text-ink">{modal === 'instagram' ? `${day.postText}\n\n${day.reelHook}` : day.postText}</p>
+          <p className="mb-4 whitespace-pre-wrap text-lg leading-relaxed text-ink">{modal === 'instagram' ? `${shownPost(day)}\n\n${day.reelHook}` : shownPost(day)}</p>
           <Button3D className="w-full" onClick={async () => {
-            const text = modal === 'instagram' ? `${day.postText}\n\n${day.reelHook}` : day.postText
+            const text = modal === 'instagram' ? `${shownPost(day)}\n\n${day.reelHook}` : shownPost(day)
             await navigator.clipboard.writeText(text)
             window.open(modal === 'instagram' ? FLAGSHIP.instagram : FLAGSHIP.telegram, '_blank', 'noopener')
             notify(modal === 'instagram' ? 'Текст скопирован, открыт профиль KEDR в Instagram.' : 'Текст скопирован, открыт канал KEDR в Telegram.')
@@ -447,14 +502,14 @@ export default function App() {
             notify(`Проект привязан к дню ${day.day}.`)
           }}>
             <p className="text-sm text-ink/60">{formatLong(dateForDay(day.day))} · {day.title}</p>
-            <input required value={projectDraft.title} onChange={(event) => setProjectDraft({ ...projectDraft, title: event.target.value })} placeholder="Название" className="w-full rounded-2xl border border-ink/10 bg-white px-3 py-2 text-sm text-ink focus:border-[#2f6b4f] focus:outline-none" />
-            <select value={projectDraft.channel} onChange={(event) => setProjectDraft({ ...projectDraft, channel: event.target.value })} className="w-full rounded-2xl border border-ink/10 bg-white px-3 py-2 text-sm text-ink">
+            <input required value={projectDraft.title} onChange={(event) => setProjectDraft({ ...projectDraft, title: event.target.value })} placeholder="Название" className="w-full rounded-2xl border border-ink/10 bg-card px-3 py-2 text-sm text-ink focus:border-[#2f6b4f] focus:outline-none" />
+            <select value={projectDraft.channel} onChange={(event) => setProjectDraft({ ...projectDraft, channel: event.target.value })} className="w-full rounded-2xl border border-ink/10 bg-card px-3 py-2 text-sm text-ink">
               <option>Съёмка</option>
               <option>Банкет</option>
               <option>Меню</option>
               <option>Спецпроект</option>
             </select>
-            <textarea value={projectDraft.note} onChange={(event) => setProjectDraft({ ...projectDraft, note: event.target.value })} rows={3} placeholder="Что сделать" className="w-full rounded-2xl border border-ink/10 bg-white px-3 py-2 text-sm text-ink focus:border-[#2f6b4f] focus:outline-none" />
+            <textarea value={projectDraft.note} onChange={(event) => setProjectDraft({ ...projectDraft, note: event.target.value })} rows={3} placeholder="Что сделать" className="w-full rounded-2xl border border-ink/10 bg-card px-3 py-2 text-sm text-ink focus:border-[#2f6b4f] focus:outline-none" />
             <Button3D type="submit" className="w-full">Создать проект</Button3D>
           </form>
         </Modal>
@@ -469,7 +524,7 @@ export default function App() {
       {modal === 'audit' && (
         <Modal title="Аудит ресторана по ссылке" icon={<Sparkles className="text-gold" size={18} />} onClose={() => setModal(null)}>
           <p className="mb-3 text-sm text-ink/60">Короткий конспект по адресу, без внешнего разбора сайта.</p>
-          <input value={auditUrl} onChange={(event) => setAuditUrl(event.target.value)} className="mb-3 w-full rounded-2xl border border-ink/10 bg-white px-3 py-2 text-sm text-ink focus:border-[#2f6b4f] focus:outline-none" />
+          <input value={auditUrl} onChange={(event) => setAuditUrl(event.target.value)} className="mb-3 w-full rounded-2xl border border-ink/10 bg-card px-3 py-2 text-sm text-ink focus:border-[#2f6b4f] focus:outline-none" />
           <Button3D disabled={auditBusy} onClick={() => {
             setAuditBusy(true)
             window.setTimeout(() => {
