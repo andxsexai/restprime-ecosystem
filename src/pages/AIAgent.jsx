@@ -18,7 +18,7 @@ export default function AIAgent({ days, day, canAct, onPick, onRebuild, onUndo, 
   const [rubricId, setRubricId] = useState('sense')
   const current = days.find((item) => item.day === picked) || day
   const rubric = RUBRICS.find((item) => item.id === rubricId) || RUBRICS[0]
-  const text = generateTelegramPost(rubricId, current.scene, { dish: current.dish, margin: current.margin })
+  const text = generateTelegramPost(rubricId, current)
   const when = formatLong(dateForDay(current.day))
 
   function choose(dayNumber) {
@@ -36,7 +36,7 @@ export default function AIAgent({ days, day, canAct, onPick, onRebuild, onUndo, 
         <p className="text-[11px] uppercase tracking-[0.18em] text-[#C6FF5E]">Агент</p>
         <h2 className="font-display text-4xl italic text-[#F4F0E6]">Пересобрать день</h2>
         <p className="text-sm leading-relaxed text-[#7A8580]">
-          Выбранный день подсвечен сразу. «Пересобрать» пишет тот текст, который виден справа, именно на эту дату. Раньше уведомление называло номер плана, и казалось, что текст ушёл в другой день.
+          Выберите дату и рубрику. «Пересобрать» запишет на эту дату ровно тот текст, который виден справа. Адрес, часы и телефоны стоят в тексте один раз.
         </p>
         <div className="flex max-h-64 flex-col gap-2 overflow-y-auto pr-1">
           {days.map((item) => (

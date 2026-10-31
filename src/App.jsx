@@ -14,13 +14,15 @@ import Analytics from './pages/Analytics.jsx'
 import ReleaseCorner from './components/ReleaseCorner.jsx'
 import AccessModal from './components/AccessModal.jsx'
 import DeveloperDesk from './components/DeveloperDesk.jsx'
-import { improveReel, improveShort, improveWide, shownPost, wideFromDay, wordCount, writeFromNews, writeLikeChannel } from './lib/compose.js'
+import { improveReel, shownPost, wideFromDay, wordCount, writeFromNews, writeLikeChannel } from './lib/compose.js'
 import ChannelDesk from './components/ChannelDesk.jsx'
 import telegramFeed from './data/telegramFeed.json'
 import TrendFeed from './components/TrendFeed.jsx'
 import { applyTrend, nextTrend, trendBoards, trends } from './data/trends.js'
 import { dateForDay, formatLong, isoDate, moscowToday, planDayForDate } from './lib/planDates.js'
 import { adaptSourceToToday } from './lib/generateContent.js'
+import { autoPlan, findRepeats } from './lib/autoPlan.js'
+import { readSignals } from './lib/signals.js'
 import PostWorkshop from './pages/PostWorkshop.jsx'
 import SiteDesk from './pages/SiteDesk.jsx'
 import ReviewSheet from './components/ReviewSheet.jsx'
@@ -52,6 +54,14 @@ function loadState() {
 }
 
 const MENU_FILE = starterFiles[0]
+
+function feedLabel(iso) {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return 'последней сборки'
+  const time = new Intl.DateTimeFormat('ru-RU', { timeZone: 'Europe/Moscow', hour: '2-digit', minute: '2-digit' }).format(date)
+  const [year, month, day] = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Moscow' }).format(date).split('-').map(Number)
+  return `${formatLong(new Date(year, month - 1, day))}, ${time}`
+}
 const REEL_SOURCE_IDS = ['viterno', 'aubrium', 'velocity', 'metaroots', 'foodinstitute', 'nra-hot', 'nrn-scrolls', 'sevenrooms', 'kedr-site']
 
 function cabinetFiles(saved) {
@@ -113,6 +123,7 @@ export default function App() {
   const [tasks, setTasks] = useState(saved?.tasks || [])
   const [taskLog, setTaskLog] = useState(saved?.taskLog || [])
   const [tasksOpen, setTasksOpen] = useState(false)
+  const [autoFeedAt, setAutoFeedAt] = useState(saved?.autoFeedAt || '')
   const [cookiesOn, setCookiesOn] = useState(() => {
     try { return localStorage.getItem('restprime-cookies') === 'yes' } catch { return false }
   })
@@ -163,15 +174,27 @@ export default function App() {
   }, [])
   const todayDay = days.find((item) => item.day === todayNumber) || days[0]
   const todayLabel = formatLong(clock)
+  const signals = useMemo(() => readSignals(telegramFeed, recentNews.slice(0, 20)), [recentNews])
+  const repeats = useMemo(() => findRepeats(days), [days])
 
   useEffect(() => {
     try {
       const storedFiles = files.map((file) => (String(file.url || '').startsWith('blob:') ? { ...file, url: '' } : file))
-      localStorage.setItem(KEY, JSON.stringify({ edition: 'readable', days, focus, files: storedFiles, telegram, chat, siteNotes, extraReels, tasks, taskLog }))
+      localStorage.setItem(KEY, JSON.stringify({ edition: 'readable', days, focus, files: storedFiles, telegram, chat, siteNotes, extraReels, tasks, taskLog, autoFeedAt }))
     } catch {
       /* браузер закрыл память: кабинет остаётся только на этот заход */
     }
-  }, [days, focus, files, telegram, chat, siteNotes, extraReels, tasks, taskLog])
+  }, [days, focus, files, telegram, chat, siteNotes, extraReels, tasks, taskLog, autoFeedAt])
+
+  useEffect(() => {
+    if (!cookiesOn || !signals.fetchedAt || autoFeedAt === signals.fetchedAt) return
+    const result = autoPlan(days, { signals, fromDay: (todayNumber || 0) + 1 })
+    setAutoFeedAt(signals.fetchedAt)
+    if (!result.changed.length) return
+    remember({ kind: 'days', items: days })
+    setDays(result.days)
+    notify(`Автоплан: лента от ${feedLabel(signals.fetchedAt)}, пересобрано дней: ${result.changed.length}. Утверждённые и ручные правки не тронуты.`)
+  }, [cookiesOn, signals, autoFeedAt])
 
   useEffect(() => {
     const timer = setInterval(() => setClock(moscowToday()), 30000)
@@ -182,7 +205,7 @@ export default function App() {
 
   useEffect(() => {
     if (!toast) return undefined
-    const timer = setTimeout(() => setToast(''), 6000)
+    const timer = setTimeout(() => setToast(''), 8000)
     return () => clearTimeout(timer)
   }, [toast])
 
@@ -348,16 +371,39 @@ export default function App() {
     const item = days.find((entry) => entry.day === dayNumber)
     if (!item) return
     remember(item)
-    if (item.format === 'wide') {
-      const wideText = improveWide({ ...item, wideText: item.wideText || wideFromDay(item) })
-      patchDay(dayNumber, { format: 'wide', wideText })
-      notify(`Широкий пост: ${formatLong(dateForDay(item.day))} · «${item.title}», ${wordCount(wideText)} слов.`)
-    } else {
-      const postText = improveShort(item)
-      patchDay(dayNumber, { format: 'short', postText })
-      notify(`Короткий пост собран заново: ${formatLong(dateForDay(item.day))} · «${item.title}».`)
-    }
+    const variant = (item.variant || 0) + 1
+    const result = autoPlan(days, { signals, only: [dayNumber], force: true, variant })
+    const next = result.days.find((entry) => entry.day === dayNumber)
+    patchDay(dayNumber, { postText: next.postText, wideText: next.wideText, auto: next.auto, variant, manual: false, status: 'review' })
+    notify(`${item.format === 'wide' ? `Широкий пост, ${wordCount(shownPost(next))} слов` : 'Новая версия поста'}: ${formatLong(dateForDay(item.day))} · «${item.title}». Фразы других дней не повторяются.`)
     setFocus(dayNumber)
+  }
+
+  function runAutoPlan() {
+    if (!requireAct()) return
+    const result = autoPlan(days, { signals, fromDay: Math.max(1, todayNumber || 1) })
+    if (!result.changed.length) {
+      notify('Пересобирать нечего: все дни впереди утверждены или правились вручную.')
+      return
+    }
+    remember({ kind: 'days', items: days })
+    setDays(result.days)
+    setAutoFeedAt(signals.fetchedAt)
+    notify(`Автоплан по ленте от ${feedLabel(signals.fetchedAt)}: пересобрано дней — ${result.changed.length}. Утверждённые и ручные не тронуты.`)
+  }
+
+  function fixRepeats() {
+    if (!requireAct()) return
+    const flagged = Object.keys(repeats).map(Number)
+    const only = flagged.filter((dayNumber) => !days.find((entry) => entry.day === dayNumber)?.manual)
+    if (!only.length) {
+      notify(flagged.length ? 'Повторы остались только в днях с ручной правкой. Их меняйте в «Редакторе».' : 'Повторов нет.')
+      return
+    }
+    remember({ kind: 'days', items: days })
+    const result = autoPlan(days, { signals, only, force: true, variant: 1 })
+    setDays(result.days)
+    notify(`Повторы убраны: пересобрано дней — ${result.changed.length}. Эти дни снова «На проверку».`)
   }
 
   function toggleExtension(dayNumber, id) {
@@ -473,20 +519,13 @@ export default function App() {
     if (!requireAct()) return
     const item = days.find((entry) => entry.day === dayNumber)
     if (!item) return
-    const picked = trend?.post ? trend : nextTrend(item.trendId)
-    const next = applyTrend(item, picked)
-    if (item.format === 'wide') next.wideText = wideFromDay({ ...item, ...next })
+    const picked = trend?.id ? trend : nextTrend(item.trendId)
+    const variant = (item.variant || 0) + 1
+    const text = autoPlan(days, { signals, only: [dayNumber], force: true, variant }).days.find((entry) => entry.day === dayNumber)
     remember(item)
-    patchDay(dayNumber, next)
+    patchDay(dayNumber, { ...applyTrend(item, picked), postText: text.postText, wideText: text.wideText, auto: text.auto, variant, manual: false, status: 'review' })
     setFocus(dayNumber)
-    notify(`Пересобрано: ${formatLong(dateForDay(item.day))} · «${item.title}». Приём «${picked.name}».`)
-  }
-
-  function rebuildAll() {
-    if (!requireAct()) return
-    remember({ kind: 'days', items: days })
-    setDays((current) => current.map((item) => ({ ...item, ...applyTrend(item, nextTrend(item.trendId)) })))
-    notify('Все задания сдвинуты на следующий приём из трендов.')
+    notify(`Пересобрано: ${formatLong(dateForDay(item.day))} · «${item.title}». Рилс по приёму «${picked.name}».`)
   }
 
   function logTask(text) {
@@ -835,6 +874,7 @@ export default function App() {
             day={todayDay}
             canAct={canAct}
             onPublish={() => openChannel('telegram', todayDay)}
+            onEdit={() => { setFocus(todayDay.day); setTab('posts-edit') }}
             onOpenPlan={() => setTab('plan-30')}
             onOpenAgent={() => setTab('agent')}
             onOpenChannels={() => setTab('tg-channels')}
@@ -878,7 +918,10 @@ export default function App() {
               setDays((current) => current.map((item) => ({ ...item, status: 'approved' })))
               notify('Все 30 дней утверждены.')
             }}
-            onRebuild={rebuildAll}
+            onAutoPlan={runAutoPlan}
+            onFixRepeats={fixRepeats}
+            repeats={repeats}
+            signals={signals}
             onOpen={(item) => { setFocus(item.day); setModal('day') }}
             onSetStatus={setDayStatus}
             onReview={openReview}
@@ -898,14 +941,19 @@ export default function App() {
             days={days}
             day={day}
             canAct={canAct}
+            repeats={repeats}
             onPick={setFocus}
             onStatus={setDayStatus}
+            onFormat={setFormat}
+            onToggleExtension={toggleExtension}
+            onAuto={improveDay}
+            onCopy={async (text) => { await copyText(text); notify('Текст поста скопирован.') }}
             onSave={(dayNumber, patch) => {
               if (!requireAct()) return
               const item = days.find((entry) => entry.day === dayNumber)
               if (item) remember(item)
-              patchDay(dayNumber, patch)
-              notify(item ? `Правка сохранена: ${formatLong(dateForDay(item.day))} · «${item.title}».` : 'Правка сохранена.')
+              patchDay(dayNumber, { ...patch, manual: true })
+              notify(item ? `Правка сохранена: ${formatLong(dateForDay(item.day))} · «${patch.title || item.title}». Автоплан этот день больше не трогает.` : 'Правка сохранена.')
             }}
           />
         )}
@@ -1036,8 +1084,8 @@ export default function App() {
       {isDeveloper && deskOpen && (
         <DeveloperDesk pending={pending} notices={access.notices} onClose={() => setDeskOpen(false)} onConfirm={confirmUser} onReject={rejectUser} />
       )}
-      {(toast || undoCount > 0) && (
-        <div className="fixed bottom-6 left-1/2 z-[120] flex w-[min(92vw,460px)] -translate-x-1/2 items-start justify-between gap-3 rounded-2xl bg-[#C9A96A] px-4 py-3 text-sm leading-snug text-[#0A0F0B] shadow-xl">
+      {toast && (
+        <div className="fixed left-1/2 top-[76px] sm:top-auto sm:bottom-6 z-[120] flex w-[min(92vw,460px)] -translate-x-1/2 items-start justify-between gap-3 rounded-2xl bg-[#C9A96A] px-4 py-3 text-sm leading-snug text-[#0A0F0B] shadow-xl">
           <p>{toast || 'Последнее действие можно убрать.'}</p>
           <button type="button" onClick={undoLast} disabled={!undoCount} className="shrink-0 rounded-full bg-[#0A0F0B] px-3 py-1 text-xs font-semibold text-[#C9A96A] disabled:opacity-40">Убрать</button>
         </div>
@@ -1046,7 +1094,7 @@ export default function App() {
       {(modal === 'instagram' || modal === 'telegram') && (
         <Modal title={modal === 'instagram' ? `Очередь ${FLAGSHIP.instagramHandle}` : `Очередь ${FLAGSHIP.telegramHandle}`} onClose={() => setModal(null)}>
           <p className="mb-3 text-sm text-ink/60">
-            {formatLong(dateForDay(day.day))} · день {day.day}
+            {formatLong(dateForDay(day.day))} · {day.title}
           </p>
           <p className="mb-4 whitespace-pre-wrap text-lg leading-relaxed text-ink">{modal === 'instagram' ? `${shownPost(day)}\n\n${day.reelHook}` : shownPost(day)}</p>
           <Button3D className="w-full" onClick={async () => {
@@ -1066,7 +1114,7 @@ export default function App() {
             patchDay(day.day, { projectTitle: projectDraft.title.trim(), projectChannel: projectDraft.channel, projectNote: projectDraft.note.trim() })
             setModal(null)
             setProjectDraft({ title: '', channel: 'Съёмка', note: '' })
-            notify(`Проект привязан к дню ${day.day}.`)
+            notify(`Проект привязан к ${formatLong(dateForDay(day.day))}.`)
           }}>
             <p className="text-sm text-ink/60">{formatLong(dateForDay(day.day))} · {day.title}</p>
             <input required value={projectDraft.title} onChange={(event) => setProjectDraft({ ...projectDraft, title: event.target.value })} placeholder="Название" className="w-full rounded-2xl border border-ink/10 bg-card px-3 py-2 text-sm text-ink focus:border-[#C9A96A] focus:outline-none" />

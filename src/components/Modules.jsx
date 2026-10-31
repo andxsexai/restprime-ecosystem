@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { Check, Copy, Download, ExternalLink, RefreshCw, Send, Sparkles, Upload } from 'lucide-react'
+import { Check, Copy, Download, ExternalLink, RefreshCw, Send, Upload } from 'lucide-react'
 import { FLAGSHIP } from '../data/place.js'
 import { shownPost, wordCount } from '../lib/compose.js'
 import { dateForDay, formatLong, formatWeekday } from '../lib/planDates.js'
 import StatusButtons, { statusLabel } from './StatusButtons.jsx'
 import ExtensionBar from './ExtensionBar.jsx'
+import AutoPlanCard from './AutoPlanCard.jsx'
+import { repeatNote } from '../lib/autoPlan.js'
 import DayPhoto from './DayPhoto.jsx'
 import { roleLabel } from '../lib/auth.js'
 import Button3D from './ui/Button3D.jsx'
@@ -13,20 +15,19 @@ import GlassCard from './ui/GlassCard.jsx'
 const TASKS = ['all', 'Быт', 'Гости', 'Зал', 'Меню', 'Напиток', 'Повод']
 const TASK_LABEL = { all: 'Все задания', Быт: 'Быт', Гости: 'Гости', Зал: 'Зал', Меню: 'Из меню', Напиток: 'Напиток', Повод: 'Повод' }
 
-export function PlanView({ days, status, pillar, onStatus, onPillar, onApproveAll, onRebuild, onOpen, onSetStatus, onReview, onMatch, onReplace, onForward, onImprove, onImproveReel, trends, boards, canAct }) {
+export function PlanView({ days, status, pillar, onStatus, onPillar, onApproveAll, onAutoPlan, onFixRepeats, repeats = {}, signals, onOpen, onSetStatus, onReview, onMatch, onReplace, onForward, onImprove, onImproveReel, trends, boards, canAct }) {
   const visible = days.filter((day) => (status === 'all' || day.status === status) && (pillar === 'all' || day.pillar === pillar))
+  const repeatCount = Object.keys(repeats).length
   return (
     <section className="space-y-5">
+      <AutoPlanCard signals={signals} repeatCount={repeatCount} canAct={canAct} onAutoPlan={onAutoPlan} onFixRepeats={onFixRepeats} />
       <GlassCard className="space-y-4 rounded-[28px] p-5">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 className="font-fraunces text-3xl text-ink">Задания на 30 дней</h2>
             <p className="text-sm text-ink/75">Сначала сцена жизни, блюдо только если оно есть в меню от 23 октября.</p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button3D tone="kedr" className="px-3.5 py-2 text-xs" disabled={!canAct} onClick={onApproveAll}><Check size={14} />Утвердить все</Button3D>
-            <Button3D className="px-3.5 py-2 text-xs" disabled={!canAct} onClick={onRebuild}><Sparkles size={14} />Переделать все под тренды</Button3D>
-          </div>
+          <Button3D tone="kedr" className="px-3.5 py-2 text-xs" disabled={!canAct} onClick={onApproveAll}><Check size={14} />Утвердить все</Button3D>
         </div>
         <div className="flex gap-2 overflow-x-auto pb-1">
           {TASKS.map((task) => (
@@ -77,6 +78,9 @@ export function PlanView({ days, status, pillar, onStatus, onPillar, onApproveAl
               <p className="mt-3 line-clamp-4 whitespace-pre-wrap text-sm leading-relaxed text-ink/75">{shownPost(day)}</p>
               <p className="mt-2 text-xs text-ink/50">{day.pillar} · {day.scene}</p>
               <p className="mt-1 text-xs text-gold">{day.dish} · {day.margin}</p>
+              {day.manual && <p className="mt-1 text-xs text-[#7A8580]">Ручная правка — автоплан не трогает</p>}
+              {!day.manual && day.auto?.why?.length > 0 && <p className="mt-1 text-xs text-[#C6FF5E]/80">Почему так: {day.auto.why.join(' · ')}</p>}
+              {repeats[day.day] && <p className="mt-1 text-xs font-semibold text-red-300">{repeatNote(repeats[day.day])}</p>}
               <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-ink/70">Reels: {day.reelHook} {day.reelScript}</p>
             </button>
             <div className="mt-3 border-t border-gold/25 pt-3">

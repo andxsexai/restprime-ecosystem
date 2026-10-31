@@ -7,7 +7,7 @@ import PremiumButton from '../components/ui/PremiumButton.jsx'
 import ExtensionBar from '../components/ExtensionBar.jsx'
 
 export default function Dashboard({
-  day, canAct, onPublish, onOpenPlan, onOpenAgent, onOpenChannels, onReview, onStatus, onToggleExtension,
+  day, canAct, onPublish, onEdit, onOpenPlan, onOpenAgent, onOpenChannels, onReview, onStatus, onToggleExtension,
 }) {
   const date = dateForDay(day.day)
   return (
@@ -18,15 +18,16 @@ export default function Dashboard({
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[#7A8580]">
           Обзор нужен для одного: прочитать текст на сегодняшнюю дату, поставить его на проверку и открыть Telegram. Календарь, агент и каналы живут в своих вкладках.
         </p>
-        <p className="mt-4 text-sm text-[#C9A96A]">{formatLong(date)} · {formatWeekday(date)} · день {day.day}</p>
+        <p className="mt-4 text-sm text-[#C9A96A]">{formatLong(date)} · {formatWeekday(date)}</p>
         <h3 className="font-display mt-1 text-3xl italic text-[#F4F0E6]">{day.title}</h3>
         <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-[#F4F0E6]/90">{shownPost(day)}</p>
         <div className="mt-4">
           <StatusButtons value={day.status} disabled={!canAct} onChange={(status) => onStatus(day.day, status)} onReview={() => onReview(day)} />
         </div>
         <ExtensionBar day={day} canAct={canAct} onToggle={(id) => onToggleExtension(day.day, id)} />
-        <div className="mt-4">
+        <div className="mt-4 flex flex-wrap gap-2">
           <PremiumButton disabled={!canAct} onClick={onPublish}>Скопировать и открыть Telegram</PremiumButton>
+          <PremiumButton tone="ghost" onClick={onEdit}>Править текст</PremiumButton>
         </div>
       </GlassCard>
       <GlassCard className="space-y-3 lg:col-span-4">

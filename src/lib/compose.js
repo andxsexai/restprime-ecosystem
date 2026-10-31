@@ -1,3 +1,6 @@
+import { CLOSERS, CONTACT_LINES, capital, closerFor, composePost, composeWide, dishLine, hashSeed } from './writer.js'
+import { topicsOf } from './signals.js'
+
 const WIDE_LIMIT = 500
 
 export function wordCount(text) {
@@ -5,22 +8,34 @@ export function wordCount(text) {
 }
 
 export const POST_EXTENSIONS = [
-  { id: 'booking', label: 'Бронь', build: () => '📩 Стол можно занять заранее: kedr-res.ru' },
-  { id: 'address', label: 'Адрес и часы', build: () => 'д. Зайцево, ул. Сосновая, 3. Каждый день с 12:00 до 24:00.' },
-  { id: 'phones', label: 'Телефон', build: () => '+7 (495) 274-53-54 · +7 (929) 979-53-54' },
-  { id: 'hashtags', label: 'Хештеги', build: () => '#KEDR #Зайцево #kedr_zaytsevo' },
-  { id: 'close', label: 'Тёплое закрытие', build: () => 'Пусть этот вечер начнётся там, где уже всё готово для спокойного разговора.' },
+  { id: 'booking', label: 'Бронь', has: /kedr-res\.ru/i, build: () => '📩 Стол можно занять заранее: kedr-res.ru' },
+  { id: 'address', label: 'Адрес и часы', has: /Сосновая/i, build: () => `${CONTACT_LINES.address} ${CONTACT_LINES.hours}` },
+  { id: 'phones', label: 'Телефон', has: /274-53-54|979-53-54/, build: () => CONTACT_LINES.phones },
+  { id: 'hashtags', label: 'Хештеги', has: /#kedr/i, build: () => '#KEDR #Зайцево #kedr_zaytsevo' },
+  { id: 'close', label: 'Финальная фраза', has: new RegExp(CLOSERS.map((line) => line.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')), build: (day) => closerFor(day, day?.variant || 0) },
 ]
 
-export function extensionText(day) {
+function extensionLines(day, base, ids) {
   const picked = day?.extensions || []
-  return POST_EXTENSIONS.filter((item) => picked.includes(item.id)).map((item) => item.build(day)).join('\n\n')
+  return POST_EXTENSIONS
+    .filter((item) => ids.includes(item.id) && picked.includes(item.id) && !(item.has && item.has.test(base)))
+    .map((item) => item.build(day))
+    .filter((line) => line && !base.includes(line))
+}
+
+export function extensionPresent(day, id) {
+  const item = POST_EXTENSIONS.find((entry) => entry.id === id)
+  const base = day?.format === 'wide' ? (day.wideText || wideFromDay(day)) : (day?.postText || '')
+  return Boolean(item?.has && item.has.test(base))
 }
 
 export function shownPost(day) {
-  const base = day?.format === 'wide' ? (day.wideText || wideFromDay(day)) : (day?.postText || '')
-  const extra = extensionText(day)
-  const joined = extra ? `${base}\n\n${extra}` : base
+  const base = String(day?.format === 'wide' ? (day.wideText || wideFromDay(day)) : (day?.postText || '')).trim()
+  const parts = base ? base.split(/\n{2,}/) : []
+  const ctaAt = parts.length && /kedr-res\.ru/i.test(parts[parts.length - 1]) ? parts.length - 1 : parts.length
+  const middle = extensionLines(day, base, ['close', 'address', 'phones', 'booking'])
+  const tail = extensionLines(day, base, ['hashtags'])
+  const joined = [...parts.slice(0, ctaAt), ...middle, ...parts.slice(ctaAt), ...tail].join('\n\n')
   return day?.format === 'wide' ? capWords(joined) : joined
 }
 
@@ -30,100 +45,60 @@ function capWords(text, limit = WIDE_LIMIT) {
   return parts.slice(0, limit).join(' ')
 }
 
-function lead(value) {
-  const text = String(value || '').trim()
-  if (!text) return 'Вечер в «Кедре»'
-  return text.charAt(0).toUpperCase() + text.slice(1)
-}
-
-function plate(day) {
-  if (!day?.dish || day.dish.startsWith('без тарелки')) {
-    return 'В этом кадре нет тарелки. Есть зал: свет, дерево и тишина, пока гости ещё не сели.'
-  }
-  const price = day.margin && day.margin !== 'зал' ? ` ${day.margin}.` : ''
-  return `Если остаться за столом, в карте «Кедра» на этот вечер есть ${day.dish}.${price}`
-}
-
-export function improveShort(day) {
-  return [
-    `${lead(day.scene)}.`,
-    plate(day),
-    'Если этот вечер уже кажется вашим — стол в KEDR: kedr-res.ru',
-  ].join('\n\n')
-}
-
 export function wideFromDay(day, angle) {
-  const bridge = angle
-    ? angle
-    : 'Свадьба, камерный семейный праздник, день рождения или просто желание никуда не спешить — территория «Кедра» собирает разные форматы. Мы держим детали под конкретный вечер, не под шаблон.'
-  const text = [
-    `✨ ${day.title}`,
-    '',
-    `Есть вечера, которые хочется сохранить. ${lead(day.scene)} — как раз такой момент.`,
-    '',
-    bridge,
-    '',
-    plate(day),
-    '',
-    'Зал стоит в соснах, д. Зайцево, ул. Сосновая, 3. Каждый день с 12:00 до 24:00. Хорошие даты и тихие столы разбирают раньше, чем кажется.',
-    '',
-    'Пусть ваш день начнётся с места, где уже тепло, когда с улицы ещё темно.',
-    '',
-    '📩 Бронируйте стол уже сейчас — будем рады стать частью вашей истории. kedr-res.ru',
-  ].join('\n')
-  return capWords(text)
-}
-
-export function improveWide(day) {
-  const current = day.wideText || wideFromDay(day)
-  const withClose = /kedr-res\.ru/.test(current)
-    ? current
-    : `${current}\n\n📩 Бронируйте стол уже сейчас — будем рады стать частью вашей истории. kedr-res.ru`
-  const withOpen = withClose.trim().startsWith('✨') ? withClose.trim() : `✨ ${day.title}\n\n${withClose.trim()}`
-  return capWords(withOpen)
+  return capWords(composeWide(day, { angle, variant: day?.variant || 0 }))
 }
 
 export function improveReel(day) {
-  if (!day?.dish || day.dish.startsWith('без тарелки')) {
-    return {
-      reelHook: 'Вот зал, пока никто не сел.',
-      reelScript: 'Свет, дерево, пустые стулья. Тарелки в кадре нет. В конце — адрес: Сосновая, 3.',
+  const hall = !day?.dish || day.dish.startsWith('без тарелки')
+  const hooks = hall
+    ? ['Вот зал, пока никто не сел.', 'Пять секунд тишины до первых гостей.', 'Пустой зал за минуту до открытия.']
+    : [`${capital(day.scene)}.`, 'Звук раньше картинки: сначала слышно, потом видно.', 'Без слов: только руки, стол и тарелка.']
+  const scripts = hall
+    ? ['Свет, дерево, пустые стулья. Тарелки в кадре нет. В конце адрес: Сосновая, 3.', 'Камера идёт от двери к окну. Рука поправляет прибор. В конце kedr-res.ru.']
+    : [
+      `Сначала сцена: ${day.scene}. Потом крупно ${day.dish}. В конце одна фраза про стол и kedr-res.ru.`,
+      `Три кадра: дорога или дверь, руки за столом, ${day.dish} крупно. Подпись в конце — kedr-res.ru.`,
+      `Начинаем со звука зала. ${capital(day.dish)} появляется на пятой секунде. Лица в камеру не смотрят.`,
+    ]
+  const seed = hashSeed(day.day, day.reelVariant || 0, 'reel')
+  const pickNext = (list, current) => {
+    const start = seed % list.length
+    for (let step = 0; step < list.length; step += 1) {
+      const option = list[(start + step) % list.length]
+      if (option !== current) return option
     }
+    return list[start]
   }
   return {
-    reelHook: lead(day.scene).endsWith('.') ? lead(day.scene) : `${lead(day.scene)}.`,
-    reelScript: `Сначала сцена: ${day.scene}. Потом крупно ${day.dish}. В конце одна фраза про стол и kedr-res.ru.`,
+    reelVariant: (day.reelVariant || 0) + 1,
+    reelHook: pickNext(hooks, day.reelHook),
+    reelScript: pickNext(scripts, day.reelScript),
   }
 }
 
 export function writeFromNews(day, news, format) {
-  const angle = `${news.title}. ${news.watch}`
-  if (format === 'wide') return wideFromDay(day, angle)
-  return [
-    news.title.endsWith('.') ? news.title : `${news.title}.`,
-    `В «Кедре» это выглядит так: ${lead(day.scene)}.`,
-    plate(day),
-    'kedr-res.ru',
-  ].join('\n\n')
+  const topic = topicsOf(`${news.title} ${news.watch}`)[0] || null
+  if (format === 'wide') return capWords(composeWide(day, { topic }))
+  return composePost(day, { topic })
 }
 
 const CHANNEL_OPEN = {
-  sysoevfm: (day) => `Коротко о вечере. ${lead(day.scene)}`,
-  nerestorani: (day) => `Можно без повода и без дресс-кода. ${lead(day.scene)}`,
-  restomano: (day) => `Из зала, не из ленты. ${lead(day.scene)}`,
-  restaurantmoscow: (day) => `Куда ехать, если хочется тишины. ${lead(day.scene)}`,
-  vkusonomika: (day) => `Для тех, кому важен вкус, а не шум. ${lead(day.scene)}`,
-  afisharestaurants: (day) => `Один вечер, который стоит поставить в план. ${lead(day.scene)}`,
-  eatmoskva: (day) => `Если ехать за город и остаться среди сосен. ${lead(day.scene)}`,
-  raidedrests: (day) => `Не слух и не открытие на бумаге. Зал уже работает. ${lead(day.scene)}`,
-  foodiscovery: (day) => `Не пересказ чужого поста. ${lead(day.scene)}`,
-  instafoodpassion: (day) => `Сходили бы вдвоём. ${lead(day.scene)}`,
-  checkedmoscow: (day) => `После своего визита, не по анонсу. ${lead(day.scene)}`,
-  newinmoscow: (day) => `Если приехали впервые. ${lead(day.scene)}`,
-  moscow_taste: (day) => `Из того, к чему хочется вернуться. ${lead(day.scene)}`,
-  gotoeatmsk: (day) => `На этот день сцена уже есть. ${lead(day.scene)}`,
-  diaryrest: (day) => `Со стороны зала, не со стороны афиши. ${lead(day.scene)}`,
-  kedrrest: (day) => lead(day.scene),
+  sysoevfm: 'Коротко о вечере.',
+  nerestorani: 'Можно без повода и без дресс-кода.',
+  restomano: 'Из зала, не из ленты.',
+  restaurantmoscow: 'Куда ехать, если хочется тишины.',
+  vkusonomika: 'Для тех, кому важен вкус, а не шум.',
+  afisharestaurants: 'Один вечер, который стоит поставить в план.',
+  eatmoskva: 'Если ехать за город и остаться среди сосен.',
+  raidedrests: 'Не слух и не открытие на бумаге. Зал уже работает.',
+  foodiscovery: 'Своими словами, не пересказ чужого поста.',
+  instafoodpassion: 'Сходили бы вдвоём.',
+  checkedmoscow: 'После своего визита, не по анонсу.',
+  newinmoscow: 'Если приехали впервые.',
+  moscow_taste: 'Из того, к чему хочется вернуться.',
+  gotoeatmsk: 'На этот день сцена уже есть.',
+  diaryrest: 'Со стороны зала, не со стороны афиши.',
 }
 
 export function channelTraits(posts) {
@@ -158,20 +133,20 @@ export function traitNotes(traits) {
 
 export function writeLikeChannel(day, channel, posts, format) {
   const traits = channelTraits(posts)
-  const open = CHANNEL_OPEN[channel?.id]?.(day) || lead(day.scene)
-  const lines = [traits?.emoji >= 0.34 ? `✨ ${open}` : open, plate(day)]
+  const open = CHANNEL_OPEN[channel?.id] || ''
+  if (format === 'wide') return capWords(composeWide(day, { angle: open || undefined }))
+  const seed = hashSeed(day.day, channel?.id || '', 'channel')
+  const lines = []
+  if (open) lines.push(traits?.emoji >= 0.34 ? `✨ ${open}` : open)
+  lines.push(composePost(day, { angle: '', occasion: null }).split('\n\n').slice(1, -1).join('\n\n'))
   if (traits?.question >= 0.34) lines.push('Остаться на этот вечер?')
-  if (traits?.list >= 0.34) {
-    lines.push(['— дорога между сосен до двери', `— ${day.dish}`, '— зал каждый день с 12:00 до 24:00'].join('\n'))
+  if (traits?.list >= 0.34 && !day.dish?.startsWith('без тарелки')) {
+    lines.push(['— дорога между сосен до двери', `— ${dishLine(day, seed).replace(/\.$/, '')}`, '— зал каждый день с 12:00 до 24:00'].join('\n'))
   }
-  if (!traits || traits.address >= 0.34 || traits.price >= 0.34) {
-    lines.push('д. Зайцево, ул. Сосновая, 3. +7 (495) 274-53-54')
-  }
+  if (!traits || traits.address >= 0.34 || traits.price >= 0.34) lines.push(`${CONTACT_LINES.address} ${CONTACT_LINES.phones}`)
   lines.push('kedr-res.ru')
   if (traits?.hash >= 0.34) lines.push('#KEDR #Зайцево #kedr_zaytsevo')
-  const short = lines.join('\n\n')
-  if (format !== 'wide') return short
-  return wideFromDay(day, open)
+  return lines.filter(Boolean).join('\n\n')
 }
 
 export const WIDE_SAMPLE = `✨ Открыта бронь на 2027 год в «Кедре»

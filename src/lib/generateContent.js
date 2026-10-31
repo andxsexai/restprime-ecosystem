@@ -1,5 +1,7 @@
 import { contentPlan } from '../data/contentPlan.js'
-import { PLAN_START, formatLong, isoDate } from './planDates.js'
+import { PLAN_START, formatLong, isoDate, planDayForDate } from './planDates.js'
+import { topicsOf } from './signals.js'
+import { CONTACT_LINES, capital, composePost, seasonDay } from './writer.js'
 
 export const RUBRICS = [
   { id: 'sense', title: 'Сенсорика' },
@@ -10,65 +12,32 @@ export const RUBRICS = [
   { id: 'service', title: 'Сервис' },
 ]
 
-const SALES = [
-  'д. Зайцево, ул. Сосновая, 3.',
-  'Каждый день с 12:00 до 24:00.',
-  '+7 (495) 274-53-54 · +7 (929) 979-53-54',
-  'kedr-res.ru',
-].join('\n')
+const FOOTER = [CONTACT_LINES.address, CONTACT_LINES.hours, CONTACT_LINES.phones].join('\n')
 
-function capital(text) {
-  const value = String(text || '').trim()
-  if (!value) return 'Вечер в соснах'
-  return value.charAt(0).toUpperCase() + value.slice(1)
-}
-
-function plateLine(plate) {
-  if (!plate?.dish || String(plate.dish).startsWith('без тарелки')) {
-    return 'В этом кадре нет тарелки. Есть зал: свет, дерево и тишина, пока гости ещё не сели.'
-  }
-  const price = plate.margin && plate.margin !== 'зал' ? ` ${plate.margin}.` : ''
-  return `Если остаться за столом, в карте «Кедра» есть ${plate.dish}.${price}`
-}
-
-function story(rubricId, topic, plate) {
-  const scene = capital(topic)
-  const dish = plateLine(plate)
-  const lines = {
-    sense: `${scene}.\n\nСвет в зале теплее, чем на дороге. Сосны держат звук, и разговор не приходится повышать. Это большая часть вечера: не блюдо, а то, как здесь сидится.`,
-    kitchen: `Кухня не выходит в зал с речью.\n\n${scene}. Тарелка появляется, когда к ней уже есть повод, а не вместо повода.\n\n${dish}`,
-    events: `${scene}.\n\nЗал закрывают под своих. День рождения в меню считается так: скидка 10% в сам день, три дня до и три дня после. Это правило карты, не обещание отдельной акции.`,
-    people: `Вечер держат люди за столом, не афиша.\n\n${scene}. Кто-то только снял пальто, кто-то уже никуда не спешит.`,
-    engage: `${scene}.\n\nКак провести этот вечер: остаться за столом или ехать дальше?\n\nНапишите, если дата уже есть. Если даты нет — можно просто прочитать и отложить.`,
-    service: `${scene}.\n\nСтол можно занять заранее. Этот пост не обещает бронь на следующий год: он говорит, куда писать, если вечер уже ваш.`,
-  }
-  const body = lines[rubricId] || lines.sense
-  if (rubricId === 'kitchen' || rubricId === 'service') return body
-  return `${body}\n\n${dish}`
-}
-
-export function generateTelegramPost(rubricId, topic, plate = {}) {
-  const storyText = story(rubricId, topic, plate)
-  return `${storyText}\n\n${SALES}`
+export function generateTelegramPost(rubricId, day) {
+  return `${composePost(day, { rubric: rubricId })}\n\n${FOOTER}`
 }
 
 export function adaptSourceToToday(day, sourceText) {
-  const raw = String(sourceText || '')
-  const rubric = raw.includes('?') ? 'engage' : raw.length > 500 ? 'kitchen' : 'sense'
-  return generateTelegramPost(rubric, day?.scene, day)
+  const topic = topicsOf(sourceText)[0] || null
+  return composePost(day, { topic, variant: 1 })
 }
 
 export function generateInfinitePlan(startDate = isoDate(PLAN_START), limit = 365) {
   const [year, month, day] = String(startDate).split('-').map(Number)
   const start = new Date(year, month - 1, day)
   if (Number.isNaN(start.getTime())) return []
+  const used = new Set()
 
   return Array.from({ length: limit }, (_, index) => {
     const date = new Date(start)
     date.setDate(start.getDate() + index)
-    const source = contentPlan[index] || contentPlan[index % contentPlan.length]
+    if (index % 30 === 0) used.clear()
+    const dayNumber = planDayForDate(date) || index + 1
+    const live = dayNumber <= contentPlan.length
     const rubric = RUBRICS[index % RUBRICS.length]
-    const dayNumber = index + 1
+    const source = live ? contentPlan[dayNumber - 1] : { ...seasonDay(date, index), day: dayNumber }
+    const scene = source.scene
     return {
       id: isoDate(date),
       date: isoDate(date),
@@ -78,12 +47,14 @@ export function generateInfinitePlan(startDate = isoDate(PLAN_START), limit = 36
       rubric: rubric.title,
       rubricId: rubric.id,
       title: source.title,
-      hook: source.reelHook,
-      scene: source.scene,
+      hook: live ? source.reelHook : `${capital(scene)}.`,
+      scene,
       dish: source.dish,
       margin: source.margin,
-      status: dayNumber <= contentPlan.length ? 'plan' : 'draft',
-      inCabinet: dayNumber <= contentPlan.length,
+      pillar: source.pillar,
+      draft: `${composePost({ ...source, day: dayNumber }, { date, used })}\n\n${FOOTER}`,
+      status: live ? 'plan' : 'draft',
+      inCabinet: live,
     }
   })
 }

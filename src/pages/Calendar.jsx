@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { generateInfinitePlan, generateTelegramPost } from '../lib/generateContent.js'
+import { generateInfinitePlan } from '../lib/generateContent.js'
+import { shownPost } from '../lib/compose.js'
 import GlassCard from '../components/ui/GlassCard.jsx'
 import PremiumButton from '../components/ui/PremiumButton.jsx'
 
@@ -17,7 +18,7 @@ export default function Calendar({ days, todayIso, onOpenDay, onCopy }) {
   const visible = plan.filter((item) => filter === 'all' || item.type === filter)
   const selected = plan.find((item) => item.id === selectedId) || null
   const live = selected?.inCabinet ? days.find((day) => day.day === selected.dayNumber) : null
-  const draft = selected ? generateTelegramPost(selected.rubricId, selected.scene, selected) : ''
+  const draft = live ? shownPost(live) : selected?.draft || ''
 
   const months = []
   visible.forEach((item) => {
@@ -65,7 +66,7 @@ export default function Calendar({ days, todayIso, onOpenDay, onCopy }) {
         ))}
       </div>
       <GlassCard className="h-fit lg:sticky lg:top-20 lg:col-span-4">
-        {!selected && <p className="text-sm text-[#7A8580]">Выберите день. Первые тридцать — живой план меню. Дальше черновик крутит те же блюда и рубрики, без новых тарелок.</p>}
+        {!selected && <p className="text-sm text-[#7A8580]">Выберите день. Первые тридцать — живой план из кабинета. Дальше черновики по сезону: своя сцена на каждый день и блюда только из меню от 23 октября.</p>}
         {selected && (
           <>
             <p className="text-[11px] uppercase tracking-[0.16em] text-[#C9A96A]">{selected.label} · {selected.rubric}</p>
