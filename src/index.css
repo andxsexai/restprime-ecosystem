@@ -3,11 +3,11 @@
 @tailwind utilities;
 
 :root {
-  --rgb-ink: 24 52 38;
-  --rgb-paper: 228 238 220;
-  --rgb-card: 255 255 255;
+  --rgb-ink: 244 239 230;
+  --rgb-paper: 16 26 22;
+  --rgb-card: 28 42 36;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
-  color-scheme: light;
+  color-scheme: dark;
 }
 
 html, body, #root { min-height: 100%; }
@@ -17,10 +17,10 @@ body {
   color: rgb(var(--rgb-ink));
   font-family: "Source Sans 3", system-ui, sans-serif;
   background:
-    radial-gradient(900px 480px at 0% -10%, rgba(198, 224, 186, 0.95), transparent 55%),
-    radial-gradient(700px 420px at 100% 0%, rgba(143, 184, 150, 0.55), transparent 46%),
-    radial-gradient(800px 500px at 50% 110%, rgba(232, 214, 170, 0.45), transparent 42%),
-    linear-gradient(165deg, #f7f4ea 0%, #e5f0df 42%, #d5e4cc 100%);
+    radial-gradient(900px 520px at 0% -8%, rgba(47, 107, 79, 0.42), transparent 52%),
+    radial-gradient(680px 420px at 100% 0%, rgba(168, 124, 72, 0.22), transparent 46%),
+    radial-gradient(800px 480px at 50% 110%, rgba(20, 48, 36, 0.9), transparent 48%),
+    linear-gradient(165deg, #121c18 0%, #0c1411 48%, #16241d 100%);
 }
 
 body::before {
@@ -30,9 +30,9 @@ body::before {
   z-index: 0;
   pointer-events: none;
   background:
-    radial-gradient(circle at 18% 22%, rgba(255, 255, 255, 0.55), transparent 26%),
-    radial-gradient(circle at 78% 12%, rgba(255, 255, 255, 0.28), transparent 22%);
-  filter: blur(8px);
+    radial-gradient(circle at 16% 18%, rgba(186, 214, 176, 0.14), transparent 24%),
+    radial-gradient(circle at 82% 8%, rgba(255, 244, 220, 0.08), transparent 20%);
+  filter: blur(10px);
 }
 
 #root { position: relative; z-index: 1; }
@@ -56,13 +56,13 @@ body::before {
 .nav-3d-btn,
 .metal-slide {
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.38));
+    linear-gradient(180deg, rgba(62, 88, 74, 0.55), rgba(18, 30, 26, 0.72));
   color: rgb(var(--rgb-ink));
-  border: 1px solid rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.9),
-    0 24px 40px -28px rgba(36, 78, 52, 0.55);
-  backdrop-filter: blur(22px) saturate(1.45);
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 24px 40px -28px rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(22px) saturate(1.35);
   border-radius: 28px;
 }
 
@@ -72,7 +72,7 @@ body::before {
 
 .press:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 14px 28px -18px rgba(47, 107, 79, 0.8);
+  box-shadow: 0 14px 28px -18px rgba(120, 176, 140, 0.7);
 }
 
 .press:active:not(:disabled) { transform: translateY(0); }

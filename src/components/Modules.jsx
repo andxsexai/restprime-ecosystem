@@ -41,7 +41,7 @@ export function PlanView({ days, status, pillar, onStatus, onPillar, onApproveAl
           <div className="grid gap-2 sm:grid-cols-2">
             {boards.map((board) => (
               <a key={board.url} href={board.url} target="_blank" rel="noreferrer" className="rounded-2xl border border-ink/10 bg-paper p-4 hover:border-[#c4a574]/50">
-                <span className="text-xs uppercase tracking-[0.16em] text-[#2f6b4f]">Смотреть снаружи</span>
+                <span className="text-xs uppercase tracking-[0.16em] text-[#9dccb0]">Смотреть снаружи</span>
                 <span className="mt-1 block font-fraunces text-2xl text-ink">{board.name}</span>
                 <span className="mt-1 block text-sm text-ink/75">{board.note}</span>
               </a>
@@ -65,15 +65,15 @@ export function PlanView({ days, status, pillar, onStatus, onPillar, onApproveAl
             <DayPhoto day={day.day} className="mb-3 h-36 w-full rounded-2xl object-cover" />
             <button type="button" className="w-full text-left" onClick={() => onOpen(day)}>
               <div className="mb-2 flex items-center gap-2">
-                <span className="font-fraunces text-2xl text-[#2f6b4f]">{String(day.day).padStart(2, '0')}</span>
-                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${day.status === 'approved' ? 'bg-[#e7f0ea] text-kedr' : 'bg-white/70 text-ink/70'}`}>
+                <span className="font-fraunces text-2xl text-[#9dccb0]">{String(day.day).padStart(2, '0')}</span>
+                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${day.status === 'approved' ? 'bg-[#e7f0ea] text-kedr' : 'bg-card text-ink/70'}`}>
                   {day.status === 'approved' ? 'Утверждено' : 'На проверке'}
                 </span>
               </div>
               <h3 className="text-base font-semibold leading-snug text-ink">{day.title}</h3>
               <p className="mt-3 line-clamp-4 whitespace-pre-wrap text-sm leading-relaxed text-ink/75">{shownPost(day)}</p>
               <p className="mt-2 text-xs text-ink/50">{day.pillar} · {day.scene}</p>
-              <p className="mt-1 text-xs text-[#2f6b4f]">{day.dish} · {day.margin}</p>
+              <p className="mt-1 text-xs text-[#9dccb0]">{day.dish} · {day.margin}</p>
               <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-ink/70">Reels: {day.reelHook} {day.reelScript}</p>
             </button>
             <div className="mt-4 flex flex-wrap gap-2">
@@ -102,7 +102,7 @@ export function PostsView({ days, onCopy, onExport }) {
         </div>
         <div className="flex items-center gap-2">
           <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Поиск по блюду или теме" className="rounded-xl border border-ink/10 bg-card px-3.5 py-2 text-xs text-ink focus:border-[#2f6b4f] focus:outline-none" />
-          <Button3D tone="ghost" className="border-[#2f6b4f]/30 px-3.5 py-2 text-xs text-[#2f6b4f]" onClick={onExport}><Download size={14} />Скачать CSV</Button3D>
+          <Button3D tone="ghost" className="border-[#2f6b4f]/30 px-3.5 py-2 text-xs text-[#9dccb0]" onClick={onExport}><Download size={14} />Скачать CSV</Button3D>
         </div>
       </GlassCard>
       <div className="grid gap-4 lg:grid-cols-2">
@@ -110,13 +110,13 @@ export function PostsView({ days, onCopy, onExport }) {
           <GlassCard key={day.day} className="rounded-2xl p-5">
             <div className="mb-2 flex items-center justify-between text-xs text-ink/50">
               <span>День {day.day} • {day.pillar}</span>
-              <button type="button" onClick={() => onCopy(shownPost(day))} className="press inline-flex items-center gap-1 text-[#2f6b4f]"><Copy size={13} />Копировать</button>
+              <button type="button" onClick={() => onCopy(shownPost(day))} className="press inline-flex items-center gap-1 text-[#9dccb0]"><Copy size={13} />Копировать</button>
             </div>
             <DayPhoto day={day.day} className="mb-3 h-44 w-full rounded-2xl object-cover" />
             <h3 className="font-fraunces text-3xl text-ink">{day.title}</h3>
-            <p className="mt-1 text-xs text-[#2f6b4f]">{(day.format === 'wide' ? 'Широкий' : 'Короткий')} · {wordCount(shownPost(day))} слов</p>
+            <p className="mt-1 text-xs text-[#9dccb0]">{(day.format === 'wide' ? 'Широкий' : 'Короткий')} · {wordCount(shownPost(day))} слов</p>
             <p className="mt-4 whitespace-pre-wrap text-base leading-relaxed text-ink/75">{shownPost(day)}</p>
-            <p className="mt-3 text-base text-[#2f6b4f]">{day.reelHook}</p>
+            <p className="mt-3 text-base text-[#9dccb0]">{day.reelHook}</p>
           </GlassCard>
         ))}
       </div>
@@ -138,9 +138,9 @@ export function ReelsView({ days, canAct, onImprove }) {
         {days.map((day) => (
           <GlassCard key={day.day} className="rounded-2xl p-4">
             <DayPhoto day={day.day} className="mb-3 h-32 w-full rounded-2xl object-cover" />
-            <p className="text-[11px] uppercase tracking-widest text-[#2f6b4f]">День {day.day}</p>
+            <p className="text-[11px] uppercase tracking-widest text-[#9dccb0]">День {day.day}</p>
             <h3 className="mt-1 text-sm font-semibold text-ink">{day.title}</h3>
-            <p className="mt-3 text-sm text-[#2f6b4f]">{day.reelHook}</p>
+            <p className="mt-3 text-sm text-[#9dccb0]">{day.reelHook}</p>
             <p className="mt-2 text-sm leading-relaxed text-ink/75">{day.reelScript}</p>
             <p className="mt-3 text-[11px] text-ink/50">Звук: {day.reelAudio}</p>
             <button type="button" disabled={!canAct} onClick={() => onImprove(day.day)} className="press mt-3 rounded-full border border-ink/10 px-3 py-1.5 text-xs text-ink disabled:opacity-40">Улучшить сценарий</button>
@@ -185,7 +185,7 @@ export function VideoView({ url, setUrl, presets, onAnalyze, busy, result, news,
           <span className="rounded-full border border-purple-400/40 bg-purple-500/20 px-3 py-1 text-xs font-semibold text-purple-300">AI Deconstructor 2026</span>
           <span className="text-xs text-ink/50">Reels / TikTok / Shorts</span>
         </div>
-        <h2 className="font-fraunces text-2xl text-ink sm:text-3xl">Разбор фуд-ролика и адаптация под <span className="text-[#2f6b4f]">KEDR</span></h2>
+        <h2 className="font-fraunces text-2xl text-ink sm:text-3xl">Разбор фуд-ролика и адаптация под <span className="text-[#9dccb0]">KEDR</span></h2>
         <p className="text-sm text-ink/75">Вставьте ссылку или выберите пример. Ответ собирается на этом экране, без внешнего API.</p>
         <div className="flex flex-col gap-2.5 sm:flex-row">
           <input value={url} onChange={(event) => setUrl(event.target.value)} className="flex-1 rounded-xl border border-ink/10 bg-card px-4 py-3 text-sm text-ink focus:border-[#2f6b4f] focus:outline-none" />
@@ -201,29 +201,29 @@ export function VideoView({ url, setUrl, presets, onAnalyze, busy, result, news,
         {result && (
           <div className="space-y-3 rounded-2xl border border-[#2f6b4f]/30 bg-card p-5 text-sm">
             <h3 className="font-fraunces text-xl text-ink">{result.title}</h3>
-            <p><span className="text-[#2f6b4f]">Хук. </span>{result.hookAnalysis}</p>
-            <p><span className="text-[#2f6b4f]">Ритм. </span>{result.pacing}</p>
-            <p><span className="text-[#2f6b4f]">Звук. </span>{result.audioTrigger}</p>
-            <p><span className="text-[#2f6b4f]">Под KEDR. </span>{result.kedrAdaptation}</p>
+            <p><span className="text-[#9dccb0]">Хук. </span>{result.hookAnalysis}</p>
+            <p><span className="text-[#9dccb0]">Ритм. </span>{result.pacing}</p>
+            <p><span className="text-[#9dccb0]">Звук. </span>{result.audioTrigger}</p>
+            <p><span className="text-[#9dccb0]">Под KEDR. </span>{result.kedrAdaptation}</p>
           </div>
         )}
       </GlassCard>
       <GlassCard className="flex flex-col justify-between space-y-4 rounded-3xl p-6 lg:col-span-5">
         <div>
           <div className="mb-3 flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-widest text-[#2f6b4f]">Радар фуд-маркетинга</span>
-            <button type="button" onClick={onRefresh} className="inline-flex items-center gap-1 text-xs text-ink/50 hover:text-[#2f6b4f]"><RefreshCw size={13} />Обновить</button>
+            <span className="text-xs font-semibold uppercase tracking-widest text-[#9dccb0]">Радар фуд-маркетинга</span>
+            <button type="button" onClick={onRefresh} className="inline-flex items-center gap-1 text-xs text-ink/50 hover:text-[#9dccb0]"><RefreshCw size={13} />Обновить</button>
           </div>
           <h3 className="font-fraunces mb-4 text-2xl text-ink">Что работает в ресторанах сейчас</h3>
           <div className="space-y-3">
             {news.map((item) => (
               <div key={item.id || item.title} className="rounded-2xl border border-ink/10 bg-card p-3">
-                <p className="text-[11px] text-[#2f6b4f]">{item.dateLabel || item.tag} · {item.source || item.time}</p>
+                <p className="text-[11px] text-[#9dccb0]">{item.dateLabel || item.tag} · {item.source || item.time}</p>
                 <p className="mt-1 text-base text-ink">{item.title}</p>
                 <p className="mt-1 text-sm text-ink/75">{item.watch || item.action}</p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {item.url && <a href={item.url} target="_blank" rel="noreferrer" className="rounded-lg bg-gold px-3 py-1.5 text-xs font-semibold text-obsidian">Открыть источник</a>}
-                  {onTake && <button type="button" disabled={!canAct} onClick={() => onTake(item)} className="rounded-lg border border-[#2f6b4f]/30 px-3 py-1.5 text-xs font-semibold text-[#2f6b4f] disabled:cursor-not-allowed disabled:opacity-40">Поставить на этот день</button>}
+                  {onTake && <button type="button" disabled={!canAct} onClick={() => onTake(item)} className="rounded-lg border border-[#2f6b4f]/30 px-3 py-1.5 text-xs font-semibold text-[#9dccb0] disabled:cursor-not-allowed disabled:opacity-40">Поставить на этот день</button>}
                 </div>
               </div>
             ))}
@@ -252,7 +252,7 @@ export function FilesView({ files, onUpload, telegram, onAddTelegram, onDigest, 
         <p className="text-sm text-ink/75">Word, Excel и PDF остаются в списке кабинета. Разбор содержимого подключится вместе с хранилищем.</p>
         <label className={`block rounded-2xl border-2 border-dashed border-[#2f6b4f]/30 bg-card p-6 text-center ${canAct ? 'cursor-pointer hover:border-gold' : 'cursor-not-allowed opacity-40'}`}>
           <input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.csv" className="hidden" disabled={!canAct} onChange={onUpload} />
-          <Upload className="mx-auto mb-3 text-[#2f6b4f]" />
+          <Upload className="mx-auto mb-3 text-[#9dccb0]" />
           <div className="text-sm font-semibold text-ink">Перетащите файлы или выберите с компьютера</div>
           <div className="mt-1 text-xs text-ink/50">.docx, .xlsx, .csv, .pdf</div>
         </label>
@@ -261,7 +261,7 @@ export function FilesView({ files, onUpload, telegram, onAddTelegram, onDigest, 
             <div key={file.name} className="rounded-2xl border border-ink/10 bg-card p-4">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-sm font-semibold text-ink">{file.name}</p>
-                <span className="text-[11px] text-[#2f6b4f]">{file.type} • {file.size}</span>
+                <span className="text-[11px] text-[#9dccb0]">{file.type} • {file.size}</span>
               </div>
               <p className="mt-2 text-xs text-ink/75">{file.insight}</p>
             </div>
@@ -303,15 +303,15 @@ export function InstaView({ days, canAct, onOpen, onQueue, url, setUrl, busy, re
   return (
     <section className="space-y-5">
       <GlassCard className="space-y-4 rounded-[28px] p-6">
-        <p className="text-xs uppercase tracking-[0.16em] text-[#2f6b4f]">Разбор ролика</p>
+        <p className="text-xs uppercase tracking-[0.16em] text-[#9dccb0]">Разбор ролика</p>
         <h2 className="font-fraunces text-3xl text-ink">Как лечь на день KEDR</h2>
         <p className="text-sm text-ink/70">Вставьте ссылку на Reels. Разбор собирается здесь, без внешней публикации.</p>
         <div className="flex flex-col gap-2 sm:flex-row">
-          <input value={url} onChange={(event) => setUrl(event.target.value)} placeholder="Ссылка на ролик" className="flex-1 rounded-2xl border border-white/80 bg-white/70 px-4 py-3 text-sm text-ink focus:border-[#2f6b4f] focus:outline-none" />
+          <input value={url} onChange={(event) => setUrl(event.target.value)} placeholder="Ссылка на ролик" className="flex-1 rounded-2xl border border-white/15 bg-card px-4 py-3 text-sm text-ink focus:border-[#2f6b4f] focus:outline-none" />
           <Button3D onClick={() => onAnalyze()} disabled={busy}>{busy ? 'Смотрим…' : 'Разобрать'}</Button3D>
         </div>
         {result && (
-          <div className="space-y-2 rounded-2xl bg-white/50 p-4 text-sm leading-relaxed text-ink/80">
+          <div className="space-y-2 rounded-2xl bg-card p-4 text-sm leading-relaxed text-ink/80">
             <p className="font-semibold text-ink">{result.title}</p>
             <p>{result.hookAnalysis}</p>
             <p>{result.pacing}</p>
@@ -322,7 +322,7 @@ export function InstaView({ days, canAct, onOpen, onQueue, url, setUrl, busy, re
       </GlassCard>
       <div className="metal-slide flex flex-wrap items-center justify-between gap-4 rounded-3xl p-6">
         <div>
-          <p className="text-[10px] uppercase tracking-[0.22em] text-[#2f6b4f]">Профиль с сайта kedr-res.ru</p>
+          <p className="text-[10px] uppercase tracking-[0.22em] text-[#9dccb0]">Профиль с сайта kedr-res.ru</p>
           <h2 className="font-fraunces text-3xl text-ink">{FLAGSHIP.instagramHandle}</h2>
           <p className="mt-1 text-sm text-ink/75">Профиль KEDR с сайта. Текст копируется здесь и открывается в Instagram.</p>
         </div>
@@ -335,7 +335,7 @@ export function InstaView({ days, canAct, onOpen, onQueue, url, setUrl, busy, re
         {days.map((day) => (
           <GlassCard key={day.day} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl p-4">
             <button type="button" className="min-w-0 flex-1 text-left" onClick={() => onOpen(day)}>
-              <p className="text-xs text-[#2f6b4f]">День {day.day} · {day.status === 'approved' ? 'утверждено' : 'черновик'}</p>
+              <p className="text-xs text-[#9dccb0]">День {day.day} · {day.status === 'approved' ? 'утверждено' : 'черновик'}</p>
               <p className="mt-1 text-base font-semibold text-ink">{day.title}</p>
               <p className="mt-1 line-clamp-2 text-sm text-ink/75">{day.reelHook}</p>
             </button>
@@ -373,13 +373,13 @@ export function TeamView({ messages, members, approved, canAct, onSend, onForwar
           {messages.map((message) => (
             <article key={message.id || `${message.time}-${message.sender}`} className="rounded-2xl border border-ink/10 bg-card p-4">
               <div className="flex items-center justify-between gap-3 text-xs">
-                <span className="font-semibold text-[#2f6b4f]">{message.sender}{message.role ? ` · ${message.role}` : ''}</span>
+                <span className="font-semibold text-[#9dccb0]">{message.sender}{message.role ? ` · ${message.role}` : ''}</span>
                 <span className="text-ink/50">{message.time}</span>
               </div>
               <p className="mt-2 whitespace-pre-wrap text-base leading-relaxed text-ink">{message.text}</p>
               {message.attachment && (
                 <div className="mt-3 rounded-xl border border-ink/10 bg-paper p-3">
-                  <p className="text-[10px] uppercase tracking-[0.16em] text-[#2f6b4f]">
+                  <p className="text-[10px] uppercase tracking-[0.16em] text-[#9dccb0]">
                     {message.attachment.kind === 'theme' ? 'Тема' : 'Пост'} · день {message.attachment.day}
                   </p>
                   <p className="mt-1 font-semibold text-ink">{message.attachment.title}</p>
@@ -406,7 +406,7 @@ export function TeamView({ messages, members, approved, canAct, onSend, onForwar
           {approved.length === 0 && <p className="text-sm text-ink/50">Пока пусто. Утвердите день в плане — он появится здесь.</p>}
           {approved.map((day) => (
             <div key={day.day} className="rounded-2xl border border-ink/10 bg-card p-3">
-              <p className="text-xs text-[#2f6b4f]">День {day.day}</p>
+              <p className="text-xs text-[#9dccb0]">День {day.day}</p>
               <p className="mt-1 font-semibold text-ink">{day.title}</p>
               <p className="mt-1 line-clamp-2 text-sm text-ink/75">{shownPost(day)}</p>
               <div className="mt-3 flex gap-2">
@@ -424,10 +424,10 @@ export function TeamView({ messages, members, approved, canAct, onSend, onForwar
 export function DayModalBody({ day, onCopy }) {
   return (
     <div className="space-y-3 text-base leading-relaxed text-ink/75">
-      <p className="text-sm text-[#2f6b4f]">{day.pillar} • {day.dish} • {day.margin}</p>
+      <p className="text-sm text-[#9dccb0]">{day.pillar} • {day.dish} • {day.margin}</p>
       <p className="whitespace-pre-wrap text-base leading-relaxed text-ink/80">{shownPost(day)}</p>
-      <p className="text-xs text-ink/75"><span className="text-[#2f6b4f]">Хук. </span>{day.reelHook}</p>
-      <p className="text-xs text-ink/75"><span className="text-[#2f6b4f]">Сценарий. </span>{day.reelScript}</p>
+      <p className="text-xs text-ink/75"><span className="text-[#9dccb0]">Хук. </span>{day.reelHook}</p>
+      <p className="text-xs text-ink/75"><span className="text-[#9dccb0]">Сценарий. </span>{day.reelScript}</p>
       <p className="text-xs text-ink/50">Звук: {day.reelAudio}</p>
       <p className="text-xs text-emerald-300">{day.warmupTheme} • {day.kpi}</p>
       <Button3D tone="ghost" className="text-xs" onClick={() => onCopy(shownPost(day))}><Copy size={14} />Скопировать пост</Button3D>

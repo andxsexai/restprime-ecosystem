@@ -536,7 +536,7 @@ export default function App() {
       {isDeveloper && deskOpen && (
         <DeveloperDesk pending={pending} notices={access.notices} onClose={() => setDeskOpen(false)} onConfirm={confirmUser} onReject={rejectUser} />
       )}
-      {toast && <div className="fixed left-1/2 top-20 z-[120] -translate-x-1/2 rounded-full bg-ink px-4 py-2 text-sm text-white shadow-xl">{toast}</div>}
+      {toast && <div className="fixed left-1/2 top-20 z-[120] -translate-x-1/2 rounded-full bg-[#d7e6d4] px-4 py-2 text-sm text-[#1a2e24] shadow-xl">{toast}</div>}
 
       {(modal === 'instagram' || modal === 'telegram') && (
         <Modal title={modal === 'instagram' ? `Очередь ${FLAGSHIP.instagramHandle}` : `Очередь ${FLAGSHIP.telegramHandle}`} onClose={() => setModal(null)}>
@@ -601,11 +601,11 @@ export default function App() {
       {modal === 'session' && session && (
         <Modal title={session.name} onClose={() => setModal(null)}>
           <p className="text-sm text-ink/70">{session.email}</p>
-          <p className="mt-1 text-sm text-[#2f6b4f]">{roleLabel(session.role)} · {session.status === 'active' ? 'доступ открыт' : 'ожидает подтверждения'}</p>
+          <p className="mt-1 text-sm text-[#9dccb0]">{roleLabel(session.role)} · {session.status === 'active' ? 'доступ открыт' : 'ожидает подтверждения'}</p>
           <p className="mt-4 text-sm text-ink/70">{session.secretHash ? 'Секретная фраза сохранена в этом кабинете. Её нельзя посмотреть повторно.' : 'Фраза ещё не задана. Придумайте её один раз — по ней восстанавливается пароль.'}</p>
           {!session.secretHash && (
             <form className="mt-3 space-y-3" onSubmit={savePhrase}>
-              <input value={phraseDraft} onChange={(event) => setPhraseDraft(event.target.value)} minLength={4} required placeholder="Секретная фраза" className="w-full rounded-2xl border border-white/80 bg-white/70 px-4 py-3 text-sm text-ink outline-none focus:border-[#2f6b4f]" />
+              <input value={phraseDraft} onChange={(event) => setPhraseDraft(event.target.value)} minLength={4} required placeholder="Секретная фраза" className="w-full rounded-2xl border border-white/15 bg-card px-4 py-3 text-sm text-ink outline-none focus:border-[#2f6b4f]" />
               <Button3D type="submit" className="w-full">Зафиксировать фразу</Button3D>
             </form>
           )}

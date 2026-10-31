@@ -22,7 +22,7 @@ export default function TodayScreen({
   return (
     <section className="space-y-5">
       <div className="liquid-panel p-5 sm:p-7">
-        <p className="text-xs uppercase tracking-[0.18em] text-[#2f6b4f]">
+        <p className="text-xs uppercase tracking-[0.18em] text-[#9dccb0]">
           {isToday ? 'Сегодня' : 'Выбранный день'} · {formatLong(selectedDate)} · {formatWeekday(selectedDate)}
         </p>
         <h1 className="font-fraunces mt-2 text-4xl text-ink sm:text-5xl">{day.title}</h1>
@@ -55,7 +55,7 @@ export default function TodayScreen({
                   type="button"
                   disabled={!number}
                   onClick={() => number && onPick(number)}
-                  className={`press grid h-10 place-items-center rounded-2xl text-sm ${picked ? 'bg-[#2f6b4f] font-semibold text-white' : live ? 'bg-[#e7f0ea] font-semibold text-kedr' : number ? 'text-ink hover:bg-white/70' : 'text-ink/25'}`}
+                  className={`press grid h-10 place-items-center rounded-2xl text-sm ${picked ? 'bg-[#2f6b4f] font-semibold text-white' : live ? 'bg-[#e7f0ea] font-semibold text-kedr' : number ? 'text-ink hover:bg-card' : 'text-ink/25'}`}
                 >
                   {cell.getDate()}
                 </button>
@@ -66,7 +66,7 @@ export default function TodayScreen({
 
         <article className="liquid-panel overflow-hidden p-4 lg:col-span-5">
           <DayPhoto day={day.day} className="h-52 w-full rounded-[22px] object-cover" />
-          <p className="mt-4 text-sm text-[#2f6b4f]">
+          <p className="mt-4 text-sm text-[#9dccb0]">
             Пост · {day.pillar} · {day.format === 'wide' ? `широкий, ${wordCount(text)} из 500` : 'короткий'}
           </p>
           <p className="mt-2 whitespace-pre-wrap text-base leading-relaxed text-ink/80">{text}</p>
@@ -83,12 +83,12 @@ export default function TodayScreen({
 
         <aside className="space-y-4 lg:col-span-3">
           <div className="liquid-panel p-5">
-            <p className="text-xs uppercase tracking-[0.16em] text-[#2f6b4f]">Тема дня</p>
+            <p className="text-xs uppercase tracking-[0.16em] text-[#9dccb0]">Тема дня</p>
             <h2 className="font-fraunces mt-2 text-3xl text-ink">{day.warmupTheme}</h2>
             <p className="mt-2 text-sm leading-relaxed text-ink/70">{day.scene}</p>
           </div>
           <div className="liquid-panel p-5">
-            <p className="text-xs uppercase tracking-[0.16em] text-[#2f6b4f]">Reels</p>
+            <p className="text-xs uppercase tracking-[0.16em] text-[#9dccb0]">Reels</p>
             <p className="mt-2 text-base font-semibold text-ink">{day.reelHook}</p>
             <p className="mt-2 text-sm leading-relaxed text-ink/75">{day.reelScript}</p>
             <p className="mt-2 text-xs text-ink/45">Звук: {day.reelAudio}</p>
@@ -98,12 +98,12 @@ export default function TodayScreen({
       </div>
 
       <div className="liquid-panel p-5 sm:p-6">
-        <p className="text-xs uppercase tracking-[0.18em] text-[#2f6b4f]">Лента до сегодня</p>
+        <p className="text-xs uppercase tracking-[0.18em] text-[#9dccb0]">Лента до сегодня</p>
         <h2 className="font-fraunces mt-1 text-3xl text-ink">Что уже вышло к {formatLong(now)}</h2>
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           {news.map((item) => (
-            <a key={item.id} href={item.url} target="_blank" rel="noreferrer" className="press rounded-[22px] border border-white/70 bg-white/45 p-4">
-              <p className="text-xs text-[#2f6b4f]">{item.dateLabel} · {item.source}</p>
+            <a key={item.id} href={item.url} target="_blank" rel="noreferrer" className="press rounded-[22px] border border-white/10 bg-white/5 p-4">
+              <p className="text-xs text-[#9dccb0]">{item.dateLabel} · {item.source}</p>
               <p className="mt-1 font-semibold text-ink">{item.title}</p>
               <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-ink/70">{item.watch}</p>
             </a>

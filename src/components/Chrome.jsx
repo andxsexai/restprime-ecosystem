@@ -18,17 +18,17 @@ export function TopBar({ onAuth, onRegister, account, isDeveloper, pendingCount,
       <div className="mx-auto grid min-h-[76px] max-w-[1100px] grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 py-3 sm:px-6">
         <div className="flex items-center gap-2 text-sm text-ink/70">
           <div>
-            <p className="text-[11px] text-[#2f6b4f]">Флагман</p>
+            <p className="text-[11px] text-[#9dccb0]">Флагман</p>
             <p className="font-semibold text-ink">KEDR</p>
           </div>
         </div>
         <div className="text-center">
           <div className="wordmark text-3xl text-ink sm:text-4xl">RESTPRIME</div>
-          <p className="text-[10px] uppercase tracking-[0.22em] text-[#2f6b4f]">Дашборд ресторатора</p>
+          <p className="text-[10px] uppercase tracking-[0.22em] text-[#9dccb0]">Дашборд ресторатора</p>
         </div>
         <div className="flex items-center justify-end gap-2">
           {isDeveloper && (
-            <button type="button" onClick={onDesk} className="press relative flex items-center gap-2 rounded-full border border-[#2f6b4f]/30 bg-card px-3 py-2 text-sm text-kedr">
+            <button type="button" onClick={onDesk} className="press relative flex items-center gap-2 rounded-full border border-[#9dccb0]/30 bg-card px-3 py-2 text-sm text-[#c5e0d2]">
               <Bell size={15} />
               <span className="hidden sm:inline">Заявки</span>
               {pendingCount > 0 && <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[#2f6b4f] px-1 text-[10px] font-bold text-white">{pendingCount}</span>}
