@@ -66,7 +66,7 @@ export const newsFeed = [
     service: 'Публикация',
     title: 'Куда уходит очередь Reels',
     watch: 'Текст копируется здесь, публикация открывается в Instagram. Очередь кабинета хранит день, дату и статус.',
-    url: 'https://www.instagram.com/',
+    url: 'https://www.instagram.com/kedr_zaytsevo/',
     hook: 'Reels: {dish}. Текст готов к переносу в Instagram.',
   },
   {
@@ -76,7 +76,7 @@ export const newsFeed = [
     service: 'Канал',
     title: 'Куда уходит очередь поста',
     watch: 'Пост копируется здесь и открывается в Telegram Web. Канал отмечает статус, живой Bot API подключится отдельно.',
-    url: 'https://web.telegram.org/',
+    url: 'https://t.me/kedrrest',
     hook: 'Пост в канал: {dish}.',
   },
 ]

@@ -4,10 +4,13 @@ export default {
   theme: {
     extend: {
       colors: {
-        obsidian: '#0B0C10',
-        glass: '#141720',
-        gold: '#D4AF37',
-        goldLight: '#F3E5AB',
+        obsidian: '#1e3328',
+        glass: '#fffcf8',
+        gold: '#2f6b4f',
+        goldLight: '#e7f0ea',
+        ink: '#1e3328',
+        paper: '#f3efe6',
+        matcha: '#2f6b4f',
         kedr: '#1E4D3B',
         kedrLight: '#2E7359',
         violetMetal: '#3B1C32',

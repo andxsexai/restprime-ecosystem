@@ -18,10 +18,10 @@ export const trends = [
     source: 'Blogway',
     url: 'https://blogway.pro/packs',
     watch: 'Честный кадр места до гостей: свет, руки, тишина зала.',
-    title: (day) => `Как это выглядит на самом деле: ${day.scene}`,
-    post: (day) => `${day.scene}. Без постановочной улыбки. Если остаётесь за столом, в меню KEDR на это есть ${day.dish}.`,
-    hook: (day) => `0–2 сек: ${day.scene}. Камера уже внутри, без приветствия.`,
-    script: (day) => `Кадр зала или дороги. Потом, если уместно, ${day.dish}. Финал — kedr-res.ru.`,
+    title: (day) => `Как это выглядит на самом деле`,
+    post: (day) => `Честный кадр, без постановочной улыбки.\n\n${sentence(day.scene)}. Если остаться за столом, рядом может быть ${day.dish}.\n\nkedr-res.ru`,
+    hook: (day) => `Вот как это выглядит, когда никто не позирует.`,
+    script: (day) => `Сначала зал или дорога. Потом, если уместно, ${day.dish}. В конце одна ссылка: kedr-res.ru.`,
   },
   {
     id: 'try',
@@ -29,10 +29,10 @@ export const trends = [
     source: 'Blogway',
     url: 'https://blogway.pro/packs',
     watch: 'Про страх начать и право на первую попытку. Подходит первому визиту.',
-    title: (day) => `Ну сходи: ${day.scene}`,
-    post: (day) => `Не обязательно знать меню наизусть. ${day.scene}. Можно начать с простого: ${day.dish}.`,
-    hook: (day) => `0–2 сек: фраза «ну сходи». Дальше ${day.scene}.`,
-    script: (day) => `Короткая реплика. Дорога или дверь. ${day.dish} появляется не первым кадром.`,
+    title: () => `Ну сходи`,
+    post: (day) => `Не обязательно знать меню наизусть и не обязательно делать всё идеально с первого раза.\n\n${sentence(day.scene)}. Можно начать с простого: ${day.dish}.\n\nkedr-res.ru`,
+    hook: () => `Ну сходи. Первый раз может быть обычным.`,
+    script: (day) => `Короткая реплика, дверь, потом ${day.dish}. Блюдо не открывает ролик.`,
   },
   {
     id: 'dawn',
@@ -40,10 +40,10 @@ export const trends = [
     source: 'Blogway',
     url: 'https://blogway.pro/packs',
     watch: 'Спокойный тёплый кадр простой радости: прогулка, пауза, дом рядом с залом.',
-    title: (day) => `Простая радость: ${day.scene}`,
-    post: (day) => `${day.scene}. Тёплый свет, без спешки. Рядом в карте — ${day.dish}.`,
-    hook: (day) => `0–2 сек: тихий бытовой кадр. ${day.scene}.`,
-    script: (day) => `Медленно: окно, чашка или дорога. Потом ${day.dish}, если сцена садится за стол.`,
+    title: () => `Простая радость`,
+    post: (day) => `Тёплый свет и никакой спешки. Такие вечера запоминаются не программой, а тем, что никуда не надо было бежать.\n\n${sentence(day.scene)}. В карте рядом — ${day.dish}.\n\nkedr-res.ru`,
+    hook: () => `Никуда не бежим. На этом и держится вечер.`,
+    script: (day) => `Медленно: окно, чашка или дорога. ${day.dish} появляется, только если сцена садится за стол.`,
   },
   {
     id: 'child',
@@ -51,10 +51,10 @@ export const trends = [
     source: 'Blogway',
     url: 'https://blogway.pro/packs',
     watch: 'Посмотреть на сегодняшний вечер как на то, к чему когда-то хотелось прийти.',
-    title: (day) => `Если бы увидели это раньше: ${day.scene}`,
-    post: (day) => `${day.scene}. Не про идеальную тарелку, про то, что вечер уже состоялся. На столе может быть ${day.dish}.`,
-    hook: (day) => `0–2 сек: тихий кадр и одна фраза про путь. ${day.scene}.`,
-    script: (day) => `Лицо или зал без диктора. Одна строка на экране. ${day.dish} — деталь, не сюжет.`,
+    title: () => `Если бы увидели это раньше`,
+    post: (day) => `Речь не про идеальную тарелку. Речь про вечер, который уже получился.\n\n${sentence(day.scene)}. На столе может быть ${day.dish}.\n\nkedr-res.ru`,
+    hook: () => `Вот вечер, к которому когда-то хотелось прийти.`,
+    script: (day) => `Зал без диктора. Одна фраза на экране. ${day.dish} — деталь, не сюжет.`,
   },
   {
     id: 'before',
@@ -62,10 +62,10 @@ export const trends = [
     source: 'Blogway',
     url: 'https://blogway.pro/packs',
     watch: 'Переход: дорога и зал, день и вечер, пустой стол и гости.',
-    title: (day) => `До и после: ${day.scene}`,
-    post: (day) => `Сначала одно состояние, потом другое. ${day.scene}. Якорь меню — ${day.dish}.`,
-    hook: (day) => `0–2 сек: резкая смена. ${day.scene}.`,
-    script: (day) => `Два кадра встык. Между ними ${day.dish} или дверь зала.`,
+    title: () => `До и после`,
+    post: (day) => `Сначала одно состояние, потом другое. Дорога и зал, день и вечер, пустой стол и гости.\n\n${sentence(day.scene)}. Из меню здесь ${day.dish}.\n\nkedr-res.ru`,
+    hook: () => `Сначала улица. Потом уже стол.`,
+    script: (day) => `Два кадра встык. Между ними дверь или ${day.dish}.`,
   },
   {
     id: 'line',
@@ -73,12 +73,18 @@ export const trends = [
     source: 'Blogway',
     url: 'https://blogway.pro/packs',
     watch: 'Маленькая надпись становится крупной. Одна мысль, без простыни текста.',
-    title: (day) => `Одна строка: ${day.scene}`,
-    post: (day) => `${day.scene}. В ролике одна фраза. Если нужен стол — ${day.dish}. Бронь: kedr-res.ru.`,
-    hook: (day) => `0–2 сек: короткая надпись на весь кадр. ${day.scene}.`,
-    script: (day) => `Текст растёт под музыку. За ним зал или ${day.dish}.`,
+    title: () => `Одна строка`,
+    post: (day) => `Одна мысль, без длинного объяснения.\n\n${sentence(day.scene)}. Если нужен стол — ${day.dish}.\n\nkedr-res.ru`,
+    hook: () => `Одна фраза на весь кадр.`,
+    script: (day) => `Надпись становится крупнее. За ней зал или ${day.dish}.`,
   },
 ]
+
+function sentence(value) {
+  const text = String(value || '').trim()
+  if (!text) return 'Вечер в KEDR'
+  return text.charAt(0).toUpperCase() + text.slice(1)
+}
 
 export function nextTrend(currentId) {
   const index = trends.findIndex((item) => item.id === currentId)

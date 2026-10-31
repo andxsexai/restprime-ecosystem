@@ -1,64 +1,67 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Sparkles, UserRound } from 'lucide-react'
+import { Sparkles } from 'lucide-react'
 import { contentPlan } from './data/contentPlan.js'
 import { newsFeed } from './data/news.js'
+import { FLAGSHIP } from './data/place.js'
 import { starterChat, starterFiles, starterTelegram, videoPresets } from './data/suite.js'
-import { HeroBoard, ModuleNav, RESTAURANTS, TopBar } from './components/Chrome.jsx'
+import { HeroBoard, ModuleNav, TopBar } from './components/Chrome.jsx'
 import ReleaseCorner from './components/ReleaseCorner.jsx'
+import AccessModal from './components/AccessModal.jsx'
+import DeveloperDesk from './components/DeveloperDesk.jsx'
 import { applyNews } from './lib/matchDay.js'
 import { applyTrend, nextTrend, trendBoards, trends } from './data/trends.js'
 import { dateForDay, formatLong } from './lib/planDates.js'
+import { loadAccess, saveAccess } from './lib/access.js'
+import { hashPassword, roleLabel } from './lib/auth.js'
 import {
   DayModalBody, FilesView, InstaView, PlanView, PostsView, ReelsView, TeamView, ThemesView, VideoView,
 } from './components/Modules.jsx'
 import Button3D from './components/ui/Button3D.jsx'
 import Modal from './components/ui/Modal.jsx'
 
-const KEY = 'restprime-kedr-menu-v2'
+const KEY = 'restprime-cabinet-v3'
 
 function loadState() {
   try {
     const saved = JSON.parse(localStorage.getItem(KEY) || 'null')
-    if (!saved?.days?.length || !saved.days[0]?.scene) return null
+    if (!saved?.days?.length || !String(saved.days[0]?.postText || '').startsWith('До Зайцево')) return null
     return saved
   } catch {
     return null
   }
 }
 
+function initialChat(saved) {
+  const raw = saved?.chat
+  if (!raw?.length || raw.some((item) => item.sender === 'Бренд-Шеф')) return starterChat
+  return raw
+}
+
 function stamp() {
   return new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
 }
 
-function variantFor(day) {
-  const quiet = day.day % 2 === 0
-  return quiet
-    ? {
-      title: `Тихий кадр: ${day.dish}`,
-      postText: `${day.dish}. Без музыки: огонь, дерево и пауза перед подачей. Бронь стола — kedr-res.ru.`,
-      reelHook: `0–3 сек: только звук огня и ${day.dish.toLowerCase()} в тёплом свете.`,
-    }
-    : {
-      title: `${day.dish}: вечер у огня`,
-      postText: `Сегодня в зале KEDR — ${day.dish}. Подача у живого огня. Столы на вечер открыты.`,
-      reelHook: `0–3 сек: рука снимает клош, пар и ${day.dish.toLowerCase()}.`,
-    }
+function uid() {
+  return Math.random().toString(36).slice(2, 10)
 }
 
 export default function App() {
   const saved = useMemo(loadState, [])
   const [tab, setTab] = useState('plan-30')
-  const [restaurant, setRestaurant] = useState(saved?.restaurant || 'kedr')
   const [days, setDays] = useState(saved?.days || contentPlan)
   const [focus, setFocus] = useState(saved?.focus || 1)
   const [status, setStatus] = useState('all')
   const [pillar, setPillar] = useState('all')
   const [files, setFiles] = useState(saved?.files || starterFiles)
   const [telegram, setTelegram] = useState(saved?.telegram || starterTelegram)
-  const [chat, setChat] = useState(saved?.chat || starterChat)
+  const [chat, setChat] = useState(() => initialChat(saved))
   const [news, setNews] = useState(newsFeed)
   const [projectDraft, setProjectDraft] = useState({ title: '', channel: 'Съёмка', note: '' })
-  const [account, setAccount] = useState(saved?.account || null)
+  const [access, setAccess] = useState(loadAccess)
+  const [authMode, setAuthMode] = useState(null)
+  const [authError, setAuthError] = useState('')
+  const [authBusy, setAuthBusy] = useState(false)
+  const [deskOpen, setDeskOpen] = useState(false)
   const [modal, setModal] = useState(null)
   const [toast, setToast] = useState('')
   const [url, setUrl] = useState(videoPresets[0].url)
@@ -67,15 +70,20 @@ export default function App() {
   const [auditUrl, setAuditUrl] = useState('https://kedr-res.ru/')
   const [auditResult, setAuditResult] = useState('')
   const [auditBusy, setAuditBusy] = useState(false)
-  const [period, setPeriod] = useState('30')
-  const [draftAccount, setDraftAccount] = useState({ name: '', email: '', role: 'Директор' })
 
   const day = days.find((item) => item.day === focus) || days[0]
-  const place = RESTAURANTS[restaurant] || RESTAURANTS.kedr
+  const session = access.users.find((user) => user.email === access.sessionEmail) || null
+  const canAct = session?.status === 'active'
+  const isDeveloper = canAct && session?.role === 'developer'
+  const pending = access.users.filter((user) => user.status === 'pending')
+  const members = access.users.filter((user) => user.status === 'active')
+  const approved = days.filter((item) => item.status === 'approved')
 
   useEffect(() => {
-    localStorage.setItem(KEY, JSON.stringify({ restaurant, days, focus, files, telegram, chat, account }))
-  }, [restaurant, days, focus, files, telegram, chat, account])
+    localStorage.setItem(KEY, JSON.stringify({ edition: 'readable', days, focus, files, telegram, chat }))
+  }, [days, focus, files, telegram, chat])
+
+  useEffect(() => { saveAccess(access) }, [access])
 
   useEffect(() => {
     if (!toast) return undefined
@@ -84,24 +92,75 @@ export default function App() {
   }, [toast])
 
   useEffect(() => {
-    const onKey = (event) => { if (event.key === 'Escape') setModal(null) }
+    const onKey = (event) => {
+      if (event.key === 'Escape') {
+        setModal(null)
+        setAuthMode(null)
+        setDeskOpen(false)
+      }
+    }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
   function notify(message) { setToast(message) }
 
+  function requireAct() {
+    if (canAct) return true
+    notify(session ? 'Кнопки откроются после подтверждения разработчиком.' : 'Сначала войдите. Пока доступен только просмотр.')
+    if (!session) {
+      setAuthError('')
+      setAuthMode('login')
+    }
+    return false
+  }
+
   function patchDay(dayNumber, patch) {
     setDays((current) => current.map((item) => (item.day === dayNumber ? { ...item, ...patch } : item)))
   }
 
+  function pushMessage(text, attachment) {
+    setChat((current) => [...current, {
+      id: uid(),
+      sender: session?.name || 'Команда',
+      role: roleLabel(session?.role),
+      time: stamp(),
+      text,
+      badge: roleLabel(session?.role),
+      attachment,
+    }])
+  }
+
   function approve(dayNumber) {
+    if (!requireAct()) return
+    const item = days.find((entry) => entry.day === dayNumber)
     patchDay(dayNumber, { status: 'approved' })
     setFocus(dayNumber)
-    notify(`День ${dayNumber} утверждён на этом устройстве.`)
+    if (item) {
+      pushMessage(`Утверждён день ${dayNumber}: ${item.title}`, {
+        kind: 'post',
+        day: item.day,
+        title: item.title,
+        body: item.postText,
+      })
+    }
+    notify(`День ${dayNumber} утверждён и отправлен в комнату.`)
+  }
+
+  function forwardDay(item, kind) {
+    if (!requireAct()) return
+    pushMessage(kind === 'theme' ? `Пересылаю тему дня ${item.day}.` : `Пересылаю пост дня ${item.day}.`, {
+      kind,
+      day: item.day,
+      title: item.title,
+      body: kind === 'theme' ? item.warmupTheme : item.postText,
+    })
+    setTab('github-tz')
+    notify(kind === 'theme' ? 'Тема в комнате команды.' : 'Пост в комнате команды.')
   }
 
   function rebuildDay(dayNumber, trend) {
+    if (!requireAct()) return
     const item = days.find((entry) => entry.day === dayNumber)
     if (!item) return
     const picked = trend?.post ? trend : nextTrend(item.trendId)
@@ -111,21 +170,15 @@ export default function App() {
   }
 
   function rebuildAll() {
+    if (!requireAct()) return
     setDays((current) => current.map((item) => ({ ...item, ...applyTrend(item, nextTrend(item.trendId)) })))
     notify('Все задания сдвинуты на следующий приём из трендов.')
   }
 
   function openChannel(kind, item) {
+    if (!requireAct()) return
     setFocus(item.day)
     setModal(kind)
-  }
-
-  function replaceDay(dayNumber) {
-    const current = days.find((item) => item.day === dayNumber)
-    if (!current) return
-    patchDay(dayNumber, variantFor(current))
-    setFocus(dayNumber)
-    notify(`День ${dayNumber} переписан запасным сценарием.`)
   }
 
   function analyze(preset) {
@@ -157,6 +210,7 @@ export default function App() {
   }
 
   function addFiles(event) {
+    if (!requireAct()) return
     const picked = [...event.target.files].map((file) => ({
       name: file.name,
       type: file.name.split('.').pop().toUpperCase(),
@@ -168,22 +222,118 @@ export default function App() {
     event.target.value = ''
   }
 
+  async function login({ email, password }) {
+    const clean = email.trim().toLowerCase()
+    const person = access.users.find((user) => user.email === clean)
+    if (!person) {
+      setAuthError('Такой почты нет. Зарегистрируйтесь.')
+      return
+    }
+    setAuthBusy(true)
+    const passwordHash = await hashPassword(password)
+    setAuthBusy(false)
+    if (passwordHash !== person.passwordHash) {
+      setAuthError('Пароль не подошёл.')
+      return
+    }
+    if (person.status === 'rejected') {
+      setAuthError('Заявку отклонили.')
+      return
+    }
+    setAccess((current) => ({ ...current, sessionEmail: clean }))
+    setAuthMode(null)
+    setAuthError('')
+    notify(person.status === 'active' ? `Вход выполнен: ${roleLabel(person.role)}.` : 'Вход есть. Кнопки откроются после подтверждения.')
+    if (person.role === 'developer') setDeskOpen(true)
+  }
+
+  async function register({ name, email, password, role }) {
+    const clean = email.trim().toLowerCase()
+    if (access.users.some((user) => user.email === clean)) {
+      setAuthError('Эта почта уже есть. Войдите или дождитесь подтверждения.')
+      return
+    }
+    setAuthBusy(true)
+    const passwordHash = await hashPassword(password)
+    const person = {
+      id: uid(),
+      name: name.trim(),
+      email: clean,
+      passwordHash,
+      role,
+      status: 'pending',
+      at: stamp(),
+    }
+    setAccess((current) => ({
+      ...current,
+      sessionEmail: clean,
+      users: [...current.users, person],
+      notices: [{ id: uid(), text: `${person.name} (${roleLabel(role)}) зарегистрировался: ${person.email}`, at: stamp() }, ...current.notices],
+    }))
+    setAuthBusy(false)
+    setAuthMode(null)
+    setAuthError('')
+    notify('Заявка отправлена. Пока открыт только просмотр.')
+  }
+
+  function confirmUser(id) {
+    const person = access.users.find((user) => user.id === id)
+    if (!person) return
+    setAccess((current) => ({
+      ...current,
+      users: current.users.map((user) => (user.id === id ? { ...user, status: 'active' } : user)),
+      notices: [{ id: uid(), text: `${person.name} в команде. Роль: ${roleLabel(person.role)}.`, at: stamp() }, ...current.notices],
+    }))
+    notify(`${person.name} подтверждён.`)
+  }
+
+  function rejectUser(id) {
+    const person = access.users.find((user) => user.id === id)
+    if (!person) return
+    setAccess((current) => ({
+      ...current,
+      users: current.users.map((user) => (user.id === id ? { ...user, status: 'rejected' } : user)),
+      notices: [{ id: uid(), text: `Заявка ${person.name} отклонена.`, at: stamp() }, ...current.notices],
+    }))
+    notify(`Заявка ${person.name} отклонена.`)
+  }
+
+  function logout() {
+    setAccess((current) => ({ ...current, sessionEmail: null }))
+    setModal(null)
+    setDeskOpen(false)
+    notify('Вы вышли. Снова открыт только просмотр.')
+  }
+
   return (
     <div className="min-h-screen">
-      <TopBar restaurant={restaurant} onRestaurant={setRestaurant} onAudit={() => { setAuditResult(''); setModal('audit') }} onAuth={() => setModal('auth')} account={account} />
-      <main className="relative z-10 mx-auto max-w-[1440px] space-y-7 px-4 pb-16 pt-6 sm:px-6 lg:px-8">
+      <TopBar
+        onAuth={() => {
+          if (session) setModal('session')
+          else { setAuthError(''); setAuthMode('login') }
+        }}
+        onRegister={() => { setAuthError(''); setAuthMode('register') }}
+        account={session}
+        isDeveloper={isDeveloper}
+        pendingCount={pending.length}
+        onDesk={() => setDeskOpen((open) => !open)}
+      />
+      <main className="relative z-10 mx-auto max-w-[1100px] space-y-6 px-4 pb-16 pt-6 sm:px-6">
+        {!canAct && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-[24px] border border-ink/10 bg-white px-5 py-3 text-sm leading-relaxed text-ink/80">
+            <p>{session?.status === 'pending' ? 'Заявка отправлена. Пока можно читать план, посты и чат. Кнопки откроются после подтверждения.' : 'Сейчас открыт просмотр. Чтобы утверждать дни и писать команде, зарегистрируйтесь. Разработчик подтвердит вход.'}</p>
+            {!session && <button type="button" onClick={() => { setAuthError(''); setAuthMode('register') }} className="shrink-0 rounded-full bg-[#2f6b4f] px-4 py-2 text-sm font-semibold text-white">Регистрация</button>}
+          </div>
+        )}
         <HeroBoard
-          place={place}
+          place={FLAGSHIP}
           day={day}
           approved={day.status === 'approved'}
+          canAct={canAct}
           onPillar={(next) => { setPillar(next); setTab('plan-30') }}
-          onOpenAi={() => setTab('plan-30')}
           onApprove={() => approve(day.day)}
           onReplace={() => rebuildDay(day.day)}
-          onInstagram={() => setModal('instagram')}
-          onTelegram={() => setModal('telegram')}
-          onProject={() => setModal('project')}
-          onMatch={() => rebuildDay(day.day)}
+          onChat={() => forwardDay(day, 'post')}
         />
         <ModuleNav tab={tab} onTab={setTab} />
         {tab === 'plan-30' && (
@@ -191,11 +341,16 @@ export default function App() {
             days={days}
             status={status}
             pillar={pillar}
+            canAct={canAct}
             onStatus={setStatus}
             onPillar={setPillar}
             trends={trends}
             boards={trendBoards}
-            onApproveAll={() => { setDays((current) => current.map((item) => ({ ...item, status: 'approved' }))); notify('Все 30 дней утверждены на этом устройстве.') }}
+            onApproveAll={() => {
+              if (!requireAct()) return
+              setDays((current) => current.map((item) => ({ ...item, status: 'approved' })))
+              notify('Все 30 дней утверждены.')
+            }}
             onRebuild={rebuildAll}
             onOpen={(item) => { setFocus(item.day); setModal('day') }}
             onApprove={approve}
@@ -204,6 +359,7 @@ export default function App() {
             onProject={(item) => openChannel('project', item)}
             onMatch={(trend) => rebuildDay(focus, trend)}
             onReplace={rebuildDay}
+            onForward={forwardDay}
           />
         )}
         {tab === 'posts-30' && <PostsView days={days} onCopy={async (text) => { await navigator.clipboard.writeText(text); notify('Текст поста скопирован.') }} onExport={exportCsv} />}
@@ -217,53 +373,65 @@ export default function App() {
             busy={busy}
             result={result}
             news={news}
+            canAct={canAct}
             onAnalyze={analyze}
-            onTake={(item) => { patchDay(day.day, applyNews(day, item)); notify(`${item.source} поставлен на день ${day.day}.`) }}
+            onTake={(item) => { if (!requireAct()) return; patchDay(day.day, applyNews(day, item)); notify(`${item.source} поставлен на день ${day.day}.`) }}
             onRefresh={() => setNews((current) => [...current].reverse())}
-            onApply={() => { setDays((current) => current.map((item) => ([4, 9, 17].includes(item.day) ? { ...item, reelAudio: 'Склейка ~0.8 сек и треск дров' } : item))); setTab('plan-30'); notify('Паттерн огня записан в дни 4, 9 и 17.') }}
+            onApply={() => { if (!requireAct()) return; setDays((current) => current.map((item) => ([4, 9, 17].includes(item.day) ? { ...item, reelAudio: 'Склейка ~0.8 сек и треск дров' } : item))); setTab('plan-30'); notify('Паттерн огня записан в дни 4, 9 и 17.') }}
           />
         )}
         {tab === 'files-tg' && (
           <FilesView
             files={files}
             telegram={telegram}
+            canAct={canAct}
             onUpload={addFiles}
             onAddTelegram={(handle, role) => {
+              if (!requireAct()) return
               if (!handle.trim()) return
               setTelegram((current) => [...current, { handle: handle.trim(), role, status: 'Отмечен в кабинете' }])
               notify('Аккаунт добавлен в список кабинета.')
             }}
-            onDigest={() => notify('Сводка отмечена. Утренний бот появится вместе с Telegram API.')}
+            onDigest={() => { if (!requireAct()) return; notify('Сводка отмечена. Утренний бот появится вместе с Telegram API.') }}
           />
         )}
-        {tab === 'insta-analytics' && <InstaView period={period} setPeriod={setPeriod} onSync={() => notify('Цифры макета на месте. Живые охваты — фаза Meta.')} />}
+        {tab === 'insta-analytics' && (
+          <InstaView
+            days={days}
+            canAct={canAct}
+            onOpen={(item) => { setFocus(item.day); setModal('day') }}
+            onQueue={(item) => openChannel('instagram', item)}
+          />
+        )}
         {tab === 'github-tz' && (
           <TeamView
             messages={chat}
-            onInvite={() => setModal('auth')}
-            onSend={(sender, text) => {
-              if (!text.trim()) return
-              const badge = sender === 'Copilot' ? 'AI' : 'Команда'
-              setChat((current) => [...current, { sender, time: stamp(), text: text.trim(), badge }])
-            }}
+            members={members}
+            approved={approved}
+            canAct={canAct}
+            onSend={(text) => { if (!requireAct() || !text.trim()) return; pushMessage(text.trim()) }}
+            onForward={forwardDay}
           />
         )}
       </main>
 
       <ReleaseCorner days={days} focus={focus} onPick={(item) => { setFocus(item.day); setTab('posts-30') }} />
-      {toast && <div className="fixed left-1/2 top-20 z-[120] -translate-x-1/2 rounded-full border border-gold/40 bg-obsidian/95 px-4 py-2 text-sm text-gold shadow-2xl">{toast}</div>}
+      {isDeveloper && deskOpen && (
+        <DeveloperDesk pending={pending} notices={access.notices} onClose={() => setDeskOpen(false)} onConfirm={confirmUser} onReject={rejectUser} />
+      )}
+      {toast && <div className="fixed left-1/2 top-20 z-[120] -translate-x-1/2 rounded-full bg-ink px-4 py-2 text-sm text-white shadow-xl">{toast}</div>}
 
       {(modal === 'instagram' || modal === 'telegram') && (
-        <Modal title={modal === 'instagram' ? 'Очередь Instagram' : 'Очередь Telegram'} onClose={() => setModal(null)}>
-          <p className="mb-3 text-sm text-slate-300">
-            {formatLong(dateForDay(day.day))} · день {day.day} · {modal === 'instagram' ? 'Reels в 18:00' : 'пост в 13:30'}
+        <Modal title={modal === 'instagram' ? `Очередь ${FLAGSHIP.instagramHandle}` : `Очередь ${FLAGSHIP.telegramHandle}`} onClose={() => setModal(null)}>
+          <p className="mb-3 text-sm text-ink/60">
+            {formatLong(dateForDay(day.day))} · день {day.day}
           </p>
-          <p className="mb-4 whitespace-pre-wrap text-lg leading-relaxed text-white">{modal === 'instagram' ? `${day.postText}\n\n${day.reelHook}` : day.postText}</p>
+          <p className="mb-4 whitespace-pre-wrap text-lg leading-relaxed text-ink">{modal === 'instagram' ? `${day.postText}\n\n${day.reelHook}` : day.postText}</p>
           <Button3D className="w-full" onClick={async () => {
             const text = modal === 'instagram' ? `${day.postText}\n\n${day.reelHook}` : day.postText
             await navigator.clipboard.writeText(text)
-            window.open(modal === 'instagram' ? 'https://www.instagram.com/' : 'https://web.telegram.org/', '_blank', 'noopener')
-            notify(modal === 'instagram' ? 'Текст скопирован, Instagram открыт. Выход Reels — 18:00.' : 'Текст скопирован, Telegram открыт. Выход поста — 13:30.')
+            window.open(modal === 'instagram' ? FLAGSHIP.instagram : FLAGSHIP.telegram, '_blank', 'noopener')
+            notify(modal === 'instagram' ? 'Текст скопирован, открыт профиль KEDR в Instagram.' : 'Текст скопирован, открыт канал KEDR в Telegram.')
           }}>{modal === 'instagram' ? 'Скопировать и открыть Instagram' : 'Скопировать и открыть Telegram'}</Button3D>
         </Modal>
       )}
@@ -272,21 +440,21 @@ export default function App() {
         <Modal title="Новый проект на этот день" onClose={() => setModal(null)}>
           <form className="space-y-3" onSubmit={(event) => {
             event.preventDefault()
-            if (!projectDraft.title.trim()) return
+            if (!requireAct() || !projectDraft.title.trim()) return
             patchDay(day.day, { projectTitle: projectDraft.title.trim(), projectChannel: projectDraft.channel, projectNote: projectDraft.note.trim() })
             setModal(null)
             setProjectDraft({ title: '', channel: 'Съёмка', note: '' })
             notify(`Проект привязан к дню ${day.day}.`)
           }}>
-            <p className="text-sm text-slate-300">{formatLong(dateForDay(day.day))} · {day.title}</p>
-            <input required value={projectDraft.title} onChange={(event) => setProjectDraft({ ...projectDraft, title: event.target.value })} placeholder="Название" className="w-full rounded-xl border border-white/15 bg-obsidian px-3 py-2 text-sm text-white focus:border-gold focus:outline-none" />
-            <select value={projectDraft.channel} onChange={(event) => setProjectDraft({ ...projectDraft, channel: event.target.value })} className="w-full rounded-xl border border-white/15 bg-obsidian px-3 py-2 text-sm text-white">
+            <p className="text-sm text-ink/60">{formatLong(dateForDay(day.day))} · {day.title}</p>
+            <input required value={projectDraft.title} onChange={(event) => setProjectDraft({ ...projectDraft, title: event.target.value })} placeholder="Название" className="w-full rounded-2xl border border-ink/10 bg-white px-3 py-2 text-sm text-ink focus:border-[#2f6b4f] focus:outline-none" />
+            <select value={projectDraft.channel} onChange={(event) => setProjectDraft({ ...projectDraft, channel: event.target.value })} className="w-full rounded-2xl border border-ink/10 bg-white px-3 py-2 text-sm text-ink">
               <option>Съёмка</option>
               <option>Банкет</option>
               <option>Меню</option>
               <option>Спецпроект</option>
             </select>
-            <textarea value={projectDraft.note} onChange={(event) => setProjectDraft({ ...projectDraft, note: event.target.value })} rows={3} placeholder="Что сделать" className="w-full rounded-xl border border-white/15 bg-obsidian px-3 py-2 text-sm text-white focus:border-gold focus:outline-none" />
+            <textarea value={projectDraft.note} onChange={(event) => setProjectDraft({ ...projectDraft, note: event.target.value })} rows={3} placeholder="Что сделать" className="w-full rounded-2xl border border-ink/10 bg-white px-3 py-2 text-sm text-ink focus:border-[#2f6b4f] focus:outline-none" />
             <Button3D type="submit" className="w-full">Создать проект</Button3D>
           </form>
         </Modal>
@@ -300,8 +468,8 @@ export default function App() {
 
       {modal === 'audit' && (
         <Modal title="Аудит ресторана по ссылке" icon={<Sparkles className="text-gold" size={18} />} onClose={() => setModal(null)}>
-          <p className="mb-3 text-sm text-slate-300">Ссылка сохраняется как объект. Разбор сайта без внешнего API: короткий конспект по адресу.</p>
-          <input value={auditUrl} onChange={(event) => setAuditUrl(event.target.value)} className="mb-3 w-full rounded-xl border border-white/15 bg-obsidian px-3 py-2 text-sm text-white focus:border-gold focus:outline-none" />
+          <p className="mb-3 text-sm text-ink/60">Короткий конспект по адресу, без внешнего разбора сайта.</p>
+          <input value={auditUrl} onChange={(event) => setAuditUrl(event.target.value)} className="mb-3 w-full rounded-2xl border border-ink/10 bg-white px-3 py-2 text-sm text-ink focus:border-[#2f6b4f] focus:outline-none" />
           <Button3D disabled={auditBusy} onClick={() => {
             setAuditBusy(true)
             window.setTimeout(() => {
@@ -309,30 +477,28 @@ export default function App() {
               setAuditBusy(false)
             }, 1200)
           }}>{auditBusy ? 'Смотрим адрес…' : 'Собрать конспект'}</Button3D>
-          {auditResult && <p className="mt-4 text-sm leading-relaxed text-slate-200">{auditResult}</p>}
+          {auditResult && <p className="mt-4 text-sm leading-relaxed text-ink/80">{auditResult}</p>}
         </Modal>
       )}
 
-      {modal === 'auth' && (
-        <Modal title="Аккаунт на этом устройстве" icon={<UserRound className="text-gold" size={18} />} onClose={() => setModal(null)}>
-          <form className="space-y-3" onSubmit={(event) => {
-            event.preventDefault()
-            if (!draftAccount.name.trim() || !draftAccount.email.trim()) return
-            setAccount(draftAccount)
-            setModal(null)
-            notify('Аккаунт записан в браузере. Почта и вход команды — следующая фаза.')
-          }}>
-            <input required placeholder="Имя" value={draftAccount.name} onChange={(event) => setDraftAccount({ ...draftAccount, name: event.target.value })} className="w-full rounded-xl border border-white/15 bg-obsidian px-3 py-2 text-sm text-white focus:border-gold focus:outline-none" />
-            <input required type="email" placeholder="Почта" value={draftAccount.email} onChange={(event) => setDraftAccount({ ...draftAccount, email: event.target.value })} className="w-full rounded-xl border border-white/15 bg-obsidian px-3 py-2 text-sm text-white focus:border-gold focus:outline-none" />
-            <select value={draftAccount.role} onChange={(event) => setDraftAccount({ ...draftAccount, role: event.target.value })} className="w-full rounded-xl border border-white/15 bg-obsidian px-3 py-2 text-sm text-white">
-              <option>Директор</option>
-              <option>Маркетолог</option>
-              <option>SMM</option>
-              <option>Шеф</option>
-            </select>
-            <Button3D type="submit" className="w-full">Сохранить аккаунт</Button3D>
-          </form>
+      {modal === 'session' && session && (
+        <Modal title={session.name} onClose={() => setModal(null)}>
+          <p className="text-sm text-ink/70">{session.email}</p>
+          <p className="mt-1 text-sm text-[#2f6b4f]">{roleLabel(session.role)} · {session.status === 'active' ? 'доступ открыт' : 'ожидает подтверждения'}</p>
+          <Button3D tone="ghost" className="mt-5 w-full" onClick={logout}>Выйти</Button3D>
         </Modal>
+      )}
+
+      {authMode && (
+        <AccessModal
+          mode={authMode}
+          error={authError}
+          busy={authBusy}
+          onMode={(next) => { setAuthError(''); setAuthMode(next) }}
+          onClose={() => { setAuthMode(null); setAuthError('') }}
+          onLogin={login}
+          onRegister={register}
+        />
       )}
     </div>
   )
