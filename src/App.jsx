@@ -9,7 +9,9 @@ import TodayScreen from './components/TodayScreen.jsx'
 import ReleaseCorner from './components/ReleaseCorner.jsx'
 import AccessModal from './components/AccessModal.jsx'
 import DeveloperDesk from './components/DeveloperDesk.jsx'
-import { improveReel, improveShort, improveWide, shownPost, wideFromDay, wordCount, writeFromNews } from './lib/compose.js'
+import { improveReel, improveShort, improveWide, shownPost, wideFromDay, wordCount, writeFromNews, writeLikeChannel } from './lib/compose.js'
+import ChannelDesk from './components/ChannelDesk.jsx'
+import telegramFeed from './data/telegramFeed.json'
 import TrendFeed from './components/TrendFeed.jsx'
 import { applyTrend, nextTrend, trendBoards, trends } from './data/trends.js'
 import { dateForDay, formatLong, isoDate, planDayForDate } from './lib/planDates.js'
@@ -209,6 +211,16 @@ export default function App() {
     patchDay(dayNumber, improveReel(item))
     setFocus(dayNumber)
     notify(`Сценарий дня ${dayNumber} собран заново.`)
+  }
+
+  function writeChannel(channel, format) {
+    if (!requireAct()) return
+    const posts = telegramFeed.channels?.[channel.id]?.posts || []
+    const text = writeLikeChannel(day, channel, posts, format)
+    if (format === 'wide') patchDay(day.day, { format: 'wide', wideText: text })
+    else patchDay(day.day, { format: 'short', postText: text })
+    setTab('posts-30')
+    notify(`${format === 'wide' ? 'Широкий' : 'Короткий'} пост дня ${day.day} собран в тоне «${channel.title}». Блюдо осталось из меню KEDR.`)
   }
 
   function writeNews(story, format) {
@@ -500,6 +512,7 @@ export default function App() {
         )}
         {tab === 'posts-30' && <PostsView days={days} canAct={canAct} onToggleExtension={toggleExtension} onCopy={async (text) => { await navigator.clipboard.writeText(text); notify('Текст поста скопирован.') }} onExport={exportCsv} />}
         {tab === 'news-feed' && <TrendFeed items={recentNews} days={days} day={day} canAct={canAct} onPick={setFocus} onWrite={writeNews} />}
+        {tab === 'tg-channels' && <ChannelDesk days={days} day={day} canAct={canAct} onPick={setFocus} onWrite={writeChannel} />}
         {tab === 'reels-30' && <ReelsView days={days} canAct={canAct} onImprove={refineReel} />}
         {tab === 'themes-30' && <ThemesView days={days} />}
         {tab === 'files-tg' && (

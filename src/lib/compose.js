@@ -107,6 +107,73 @@ export function writeFromNews(day, news, format) {
   ].join('\n\n')
 }
 
+const CHANNEL_OPEN = {
+  sysoevfm: (day) => `Коротко о вечере. ${lead(day.scene)}`,
+  nerestorani: (day) => `Можно без повода и без дресс-кода. ${lead(day.scene)}`,
+  restomano: (day) => `Из зала, не из ленты. ${lead(day.scene)}`,
+  restaurantmoscow: (day) => `Куда ехать, если хочется тишины. ${lead(day.scene)}`,
+  vkusonomika: (day) => `Для тех, кому важен вкус, а не шум. ${lead(day.scene)}`,
+  afisharestaurants: (day) => `Один вечер, который стоит поставить в план. ${lead(day.scene)}`,
+  eatmoskva: (day) => `Если ехать за город и остаться среди сосен. ${lead(day.scene)}`,
+  raidedrests: (day) => `Не слух и не открытие на бумаге. Зал уже работает. ${lead(day.scene)}`,
+  foodiscovery: (day) => `Не пересказ чужого поста. ${lead(day.scene)}`,
+  instafoodpassion: (day) => `Сходили бы вдвоём. ${lead(day.scene)}`,
+  checkedmoscow: (day) => `После своего визита, не по анонсу. ${lead(day.scene)}`,
+  newinmoscow: (day) => `Если приехали впервые. ${lead(day.scene)}`,
+  moscow_taste: (day) => `Из того, к чему хочется вернуться. ${lead(day.scene)}`,
+  gotoeatmsk: (day) => `На этот день сцена уже есть. ${lead(day.scene)}`,
+  diaryrest: (day) => `Со стороны зала, не со стороны афиши. ${lead(day.scene)}`,
+  kedrrest: (day) => lead(day.scene),
+}
+
+export function channelTraits(posts) {
+  const list = (posts || []).filter((post) => post?.text && post.text.length > 40)
+  if (!list.length) return null
+  const ratio = (check) => list.filter(check).length / list.length
+  const avg = Math.round(list.reduce((sum, post) => sum + wordCount(post.text), 0) / list.length)
+  return {
+    avg,
+    emoji: ratio((post) => /^(\p{Extended_Pictographic}|[\u2600-\u27BF])/u.test(post.text.trim())),
+    price: ratio((post) => /₽|руб/.test(post.text)),
+    address: ratio((post) => /📍|ул\.|улиц|д\.|адрес/i.test(post.text)),
+    hash: ratio((post) => /#[\p{L}\d_]/u.test(post.text)),
+    question: ratio((post) => /\?/.test(post.text.slice(0, 220))),
+    person: ratio((post) => /(^|[\s.«"])(я|мне|мой|моя|сходил|сходила|был|была)\b/i.test(post.text.slice(0, 280))),
+    list: ratio((post) => /(^|\n)\s*(•|—|–|\d+\.)\s/m.test(post.text)),
+  }
+}
+
+export function traitNotes(traits) {
+  if (!traits) return ['свежих постов в превью нет, тон взят из карточки канала']
+  const notes = [`в среднем ${traits.avg} слов`]
+  if (traits.person >= 0.34) notes.push('часто от первого лица')
+  if (traits.price >= 0.34) notes.push('часто с ценой')
+  if (traits.address >= 0.34) notes.push('часто с адресом')
+  if (traits.question >= 0.34) notes.push('часто с вопросом')
+  if (traits.list >= 0.34) notes.push('часто списком')
+  if (traits.hash >= 0.34) notes.push('часто с хештегом')
+  if (traits.emoji >= 0.34) notes.push('часто с эмодзи в начале')
+  return notes
+}
+
+export function writeLikeChannel(day, channel, posts, format) {
+  const traits = channelTraits(posts)
+  const open = CHANNEL_OPEN[channel?.id]?.(day) || lead(day.scene)
+  const lines = [traits?.emoji >= 0.34 ? `✨ ${open}` : open, plate(day)]
+  if (traits?.question >= 0.34) lines.push('Остаться на этот вечер?')
+  if (traits?.list >= 0.34) {
+    lines.push(['— дорога между сосен до двери', `— ${day.dish}`, '— зал каждый день с 12:00 до 24:00'].join('\n'))
+  }
+  if (!traits || traits.address >= 0.34 || traits.price >= 0.34) {
+    lines.push('д. Зайцево, ул. Сосновая, 3. +7 (495) 274-53-54')
+  }
+  lines.push('kedr-res.ru')
+  if (traits?.hash >= 0.34) lines.push('#KEDR #Зайцево #kedr_zaytsevo')
+  const short = lines.join('\n\n')
+  if (format !== 'wide') return short
+  return wideFromDay(day, open)
+}
+
 export const WIDE_SAMPLE = `✨ Открыта бронь на 2027 год в «Кедре»
 
 Есть даты, которые хочется сохранить в памяти навсегда. И мы уже открыли календарь на 2027 год - самое время выбрать свою 🤍

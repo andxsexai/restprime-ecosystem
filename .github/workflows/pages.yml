@@ -3,6 +3,8 @@ name: Publish site
 on:
   push:
     branches: [main]
+  schedule:
+    - cron: '0 5 * * *'
   workflow_dispatch:
 
 permissions:
@@ -24,6 +26,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: node scripts/parse-telegram.mjs || true
       - run: GITHUB_PAGES=true npm run build
       - uses: actions/upload-pages-artifact@v3
         with:

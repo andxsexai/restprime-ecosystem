@@ -1,8 +1,9 @@
-import { Bell, CalendarCheck, Clapperboard, Compass, FolderUp, Instagram, MessagesSquare, Newspaper, PenLine, UserRound } from 'lucide-react'
+import { Bell, CalendarCheck, Clapperboard, Compass, FolderUp, Instagram, MessagesSquare, Newspaper, PenLine, Send, UserRound } from 'lucide-react'
 import { roleLabel } from '../lib/auth.js'
 
 const TABS = [
   { id: 'news-feed', title: 'Лента', note: 'Новости до сегодня', icon: Newspaper },
+  { id: 'tg-channels', title: 'Каналы', note: 'Москва · Telegram', icon: Send },
   { id: 'plan-30', title: 'План на 30 дней', note: 'Задания', icon: CalendarCheck },
   { id: 'posts-30', title: 'Посты', note: 'Короткий и широкий', icon: PenLine },
   { id: 'reels-30', title: 'Reels', note: 'Сценарии', icon: Clapperboard },
@@ -50,7 +51,7 @@ export function TopBar({ onAuth, onRegister, account, isDeveloper, pendingCount,
 
 export function ModuleNav({ tab, onTab }) {
   return (
-    <nav aria-label="Разделы кабинета" className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 lg:grid-cols-8">
+    <nav aria-label="Разделы кабинета" className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9">
       {TABS.map((item) => {
         const Icon = item.icon
         const active = tab === item.id
