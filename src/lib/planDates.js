@@ -50,6 +50,26 @@ export function isoDate(date) {
   return `${date.getFullYear()}-${month}-${day}`
 }
 
+export function moscowKey(value) {
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Moscow',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date)
+}
+
+export function recentMoscowKeys(count = 2) {
+  const today = moscowToday()
+  return Array.from({ length: count }, (_, index) => {
+    const date = new Date(today)
+    date.setDate(today.getDate() - index)
+    return isoDate(date)
+  })
+}
+
 export function sameDay(a, b) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
 }

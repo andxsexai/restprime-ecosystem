@@ -1,8 +1,11 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import { TELEGRAM_CHANNELS } from '../src/data/telegramChannels.js'
+import { moscowKey, recentMoscowKeys } from '../src/lib/planDates.js'
 
 const OUT = new URL('../src/data/telegramFeed.json', import.meta.url)
-const LIMIT = 8
+const WINDOW = recentMoscowKeys(2)
+const OLDEST = WINDOW[WINDOW.length - 1]
+const MAX_PAGES = 6
 
 function decode(html) {
   return String(html || '')
@@ -22,12 +25,6 @@ function decode(html) {
     .trim()
 }
 
-function clip(text) {
-  const clean = text.replace(/\s+\n/g, '\n').trim()
-  if (clean.length <= 900) return clean
-  return `${clean.slice(0, 900).trim()}…`
-}
-
 function subscribers(html) {
   const meta = html.match(/<meta property="og:description" content="([^"]+)"/)
   const source = meta?.[1] || ''
@@ -43,8 +40,8 @@ function postsFrom(html, id) {
     if (!messageId) continue
     const date = part.match(/<time[^>]*datetime="([^"]+)"/)?.[1] || ''
     const raw = part.match(/class="tgme_widget_message_text[^"]*"[^>]*>([\s\S]*?)<\/div>/)?.[1] || ''
-    const text = clip(decode(raw))
-    if (text.length < 40) continue
+    const text = decode(raw)
+    if (!text) continue
     posts.push({
       id: messageId,
       date,
@@ -52,19 +49,50 @@ function postsFrom(html, id) {
       url: `https://t.me/${id}/${messageId}`,
     })
   }
-  return posts.sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, LIMIT)
+  return posts
 }
 
-async function readChannel(id) {
-  const response = await fetch(`https://t.me/s/${id}`, {
+async function fetchPage(id, before) {
+  const url = before ? `https://t.me/s/${id}?before=${before}` : `https://t.me/s/${id}`
+  const response = await fetch(url, {
     headers: { 'user-agent': 'Mozilla/5.0 (compatible; RESTPRIME/1.0; +https://kedr-res.ru/)' },
     redirect: 'follow',
   })
   if (!response.ok) throw new Error(`HTTP ${response.status}`)
   const html = await response.text()
   if (!html.includes('tgme_widget_message')) throw new Error('нет публичной ленты')
-  const title = decode(html.match(/<meta property="og:title" content="([^"]+)"/)?.[1] || '')
-  return { ok: true, title, subscribers: subscribers(html), posts: postsFrom(html, id), error: '' }
+  return html
+}
+
+async function readChannel(id) {
+  const kept = []
+  const seen = new Set()
+  let before = ''
+  let title = ''
+  let subs = ''
+  for (let page = 0; page < MAX_PAGES; page += 1) {
+    const html = await fetchPage(id, before)
+    if (!title) {
+      title = decode(html.match(/<meta property="og:title" content="([^"]+)"/)?.[1] || '')
+      subs = subscribers(html)
+    }
+    const batch = postsFrom(html, id)
+    if (!batch.length) break
+    let oldestId = ''
+    let crossedWindow = false
+    for (const post of batch) {
+      if (seen.has(post.id)) continue
+      seen.add(post.id)
+      const key = moscowKey(post.date)
+      if (WINDOW.includes(key)) kept.push(post)
+      if (key && key < OLDEST) crossedWindow = true
+      if (!oldestId || Number(post.id) < Number(oldestId)) oldestId = post.id
+    }
+    if (crossedWindow || !oldestId || oldestId === before) break
+    before = oldestId
+  }
+  kept.sort((a, b) => String(b.date).localeCompare(String(a.date)))
+  return { ok: true, title, subscribers: subs, posts: kept, error: '' }
 }
 
 function loadPrevious() {
@@ -85,14 +113,15 @@ for (const channel of TELEGRAM_CHANNELS) {
     console.log(`${channel.id}: ${count} постов`)
   } catch (error) {
     const saved = previous.channels?.[channel.id]
-    channels[channel.id] = saved?.posts?.length
-      ? { ...saved, ok: false, error: error.message }
+    const posts = (saved?.posts || []).filter((post) => WINDOW.includes(moscowKey(post.date)))
+    channels[channel.id] = posts.length
+      ? { ...saved, ok: false, posts, error: error.message }
       : { ok: false, title: channel.title, subscribers: '', posts: [], error: error.message }
     console.log(`${channel.id}: ${error.message}`)
   }
   await new Promise((resolve) => setTimeout(resolve, 350))
 }
 
-const feed = { fetchedAt: new Date().toISOString(), channels }
+const feed = { fetchedAt: new Date().toISOString(), window: WINDOW, channels }
 writeFileSync(OUT, `${JSON.stringify(feed, null, 2)}\n`)
 console.log(`записано ${OUT.pathname}`)

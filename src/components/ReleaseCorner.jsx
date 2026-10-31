@@ -1,39 +1,51 @@
-import { useState } from 'react'
-import { dateForDay, formatLong } from '../lib/planDates.js'
+import { dateForDay, formatLong, formatWeekday } from '../lib/planDates.js'
 
-export default function ReleaseCorner({ days, focus, onPick }) {
-  const [open, setOpen] = useState(false)
-
+export default function ReleaseCorner({ days, focus, open, source, onOpen, onClose, onPick }) {
   if (!open) {
     return (
       <button
         type="button"
-        onClick={() => setOpen(true)}
-        className="fixed right-0 top-1/2 z-[70] -translate-y-1/2 rounded-l-md border border-ink/10 border-r-0 bg-card/80 px-1 py-2 text-[10px] tracking-[0.18em] text-ink/35 [writing-mode:vertical-rl]"
-        aria-label="Открыть угол выхода"
+        onClick={onOpen}
+        className="fixed right-0 top-1/2 z-[70] -translate-y-1/2 rounded-l-2xl border border-[#C9A96A]/45 border-r-0 bg-[#121A14]/95 px-2.5 py-5 shadow-[0_12px_40px_rgba(0,0,0,0.45)]"
+        aria-label="Открыть цель"
       >
-        выход
+        <span className="font-fraunces block text-3xl tracking-[0.28em] text-[#C9A96A] [writing-mode:vertical-rl]">ЦЕЛЬ</span>
       </button>
     )
   }
 
   return (
-    <aside className="fixed bottom-6 right-0 z-[70] flex max-h-[58vh] w-[240px] flex-col rounded-l-2xl border border-ink/10 border-r-0 bg-card shadow-xl">
-      <button type="button" onClick={() => setOpen(false)} className="px-3 py-2 text-left text-[10px] uppercase tracking-[0.16em] text-ink/45">
-        свернуть вбок
-      </button>
-      <div className="min-h-0 flex-1 space-y-1 overflow-y-auto px-2 pb-3">
-        {days.map((day) => (
-          <button
-            key={day.day}
-            type="button"
-            onClick={() => onPick(day)}
-            className={`w-full rounded-xl px-2 py-1.5 text-left ${day.day === focus ? 'bg-paper' : ''}`}
-          >
-            <span className="block text-[11px] text-gold">{formatLong(dateForDay(day.day))}</span>
-            <span className="block text-xs leading-snug text-ink/80">{day.title}</span>
+    <aside className="fixed bottom-4 right-0 top-4 z-[70] flex w-[min(100vw,340px)] flex-col rounded-l-[28px] border border-[#C9A96A]/35 border-r-0 bg-[#121A14]/95 shadow-[0_24px_80px_rgba(0,0,0,0.55)] backdrop-blur-md">
+      <div className="px-5 pb-3 pt-6">
+        <div className="flex items-start justify-between gap-3">
+          <h2 className="font-fraunces text-6xl leading-none tracking-[0.14em] text-[#C9A96A]">ЦЕЛЬ</h2>
+          <button type="button" onClick={onClose} className="rounded-full border border-white/15 px-3 py-1 text-xs text-ink/70">
+            свернуть
           </button>
-        ))}
+        </div>
+        <p className="mt-3 text-sm leading-relaxed text-ink/70">
+          {source ? 'Выберите день. Чужой текст соберётся в формат KEDR, блюдо останется из меню этого дня.' : 'Выберите день плана.'}
+        </p>
+        {source?.text && <p className="mt-3 line-clamp-4 whitespace-pre-wrap text-xs leading-relaxed text-ink/45">{source.text}</p>}
+      </div>
+      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-4 pb-5">
+        {days.map((item) => {
+          const date = dateForDay(item.day)
+          const active = item.day === focus
+          return (
+            <button
+              key={item.day}
+              type="button"
+              onClick={() => onPick(item)}
+              className={`w-full rounded-2xl border px-3 py-3 text-left transition ${active ? 'border-[#C9A96A] bg-[#C9A96A] text-[#0A0F0B]' : 'border-white/10 bg-white/[0.03] text-ink hover:border-[#C9A96A]/55'}`}
+            >
+              <span className="font-fraunces block text-3xl leading-none">{formatLong(date)}</span>
+              <span className={`mt-1 block text-xs ${active ? 'text-[#0A0F0B]/70' : 'text-ink/55'}`}>
+                {formatWeekday(date)} · {item.title}
+              </span>
+            </button>
+          )
+        })}
       </div>
     </aside>
   )

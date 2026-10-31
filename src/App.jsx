@@ -67,6 +67,8 @@ export default function App() {
   const [navOpen, setNavOpen] = useState(false)
   const [days, setDays] = useState(saved?.days || contentPlan)
   const [focus, setFocus] = useState(() => planDayForDate(moscowToday()) || saved?.focus || 1)
+  const [goalOpen, setGoalOpen] = useState(false)
+  const [goalSource, setGoalSource] = useState(null)
   const [siteNotes, setSiteNotes] = useState(saved?.siteNotes || '')
   const [status, setStatus] = useState('all')
   const [pillar, setPillar] = useState('all')
@@ -177,14 +179,24 @@ export default function App() {
     }
   }
 
-  function adaptForToday(sourceText) {
+  function adaptForDay(dayNumber, sourceText) {
     if (!requireAct()) return
-    const target = days.find((item) => item.day === todayNumber) || day
+    const target = days.find((item) => item.day === dayNumber) || day
     const text = adaptSourceToToday(target, sourceText)
     patchDay(target.day, { format: 'short', postText: text, status: 'review' })
     setFocus(target.day)
+    setGoalOpen(false)
     setTab('posts-edit')
     notify(`Текст перебран под ${formatLong(dateForDay(target.day))} и поставлен на проверку.`)
+  }
+
+  function adaptForToday(sourceText) {
+    adaptForDay(todayNumber, sourceText)
+  }
+
+  function openGoal(source) {
+    setGoalSource(source?.text ? { text: source.text, title: source.channelTitle || source.title || '' } : null)
+    setGoalOpen(true)
   }
 
   function approve(dayNumber) {
@@ -615,7 +627,7 @@ export default function App() {
           />
         )}
         {tab === 'news-feed' && <TrendFeed items={recentNews} days={days} day={day} todayLabel={todayLabel} canAct={canAct} onPick={setFocus} onWrite={writeNews} onAdaptToday={adaptForToday} />}
-        {tab === 'tg-channels' && <ChannelDesk days={days} day={day} todayLabel={todayLabel} canAct={canAct} onPick={setFocus} onWrite={writeChannel} onAdaptToday={adaptForToday} />}
+        {tab === 'tg-channels' && <ChannelDesk canAct={canAct} onWrite={writeChannel} onRework={openGoal} />}
         {tab === 'reels-30' && <ReelsView days={days} canAct={canAct} onImprove={refineReel} />}
         {tab === 'themes-30' && <ThemesView days={days} />}
         {tab === 'files-tg' && (
@@ -660,7 +672,18 @@ export default function App() {
       </main>
       </div>
 
-      <ReleaseCorner days={days} focus={focus} onPick={(item) => { setFocus(item.day); setTab('posts-30') }} />
+      <ReleaseCorner
+        days={days}
+        focus={focus}
+        open={goalOpen}
+        source={goalSource}
+        onOpen={() => setGoalOpen(true)}
+        onClose={() => setGoalOpen(false)}
+        onPick={(item) => {
+          if (goalSource?.text) adaptForDay(item.day, goalSource.text)
+          else { setFocus(item.day); setTab('posts-30'); setGoalOpen(false) }
+        }}
+      />
       {isDeveloper && deskOpen && (
         <DeveloperDesk pending={pending} notices={access.notices} onClose={() => setDeskOpen(false)} onConfirm={confirmUser} onReject={rejectUser} />
       )}
