@@ -4,14 +4,13 @@ export default {
   theme: {
     extend: {
       colors: {
-        obsidian: '#0B0C10',
-        glass: '#141720',
-        gold: '#D4AF37',
-        goldLight: '#F3E5AB',
-        kedr: '#1E4D3B',
-        kedrLight: '#2E7359',
-        violetMetal: '#3B1C32',
-        roseMetal: '#6B2D5C',
+        ink: '#1c1915',
+        cream: '#f6efe2',
+        paper: '#fbf6ee',
+        amber: '#d0893a',
+        cedar: '#1f4d3a',
+        berry: '#8d3d46',
+        moss: '#243128',
       },
       fontFamily: {
         display: ['Fraunces', 'Georgia', 'serif'],
