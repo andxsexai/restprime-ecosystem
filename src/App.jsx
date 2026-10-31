@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Sparkles } from 'lucide-react'
 import { contentPlan } from './data/contentPlan.js'
 import { newsFeed } from './data/news.js'
@@ -24,7 +24,9 @@ import { adaptSourceToToday } from './lib/generateContent.js'
 import PostWorkshop from './pages/PostWorkshop.jsx'
 import SiteDesk from './pages/SiteDesk.jsx'
 import ReviewSheet from './components/ReviewSheet.jsx'
-import { EVENT_FORMATS } from './data/eventFormats.js'
+import { EVENT_FORMATS, THEME_SOURCES, formatGroup } from './data/eventFormats.js'
+import { REEL_BANK } from './data/reelBank.js'
+import CookieGate from './components/CookieGate.jsx'
 import { loadAccess, saveAccess } from './lib/access.js'
 import { ADMIN_EMAIL, ROLES, SIGNUP_ROLES, hashPassword, normalizePhrase, roleLabel } from './lib/auth.js'
 import {
@@ -105,6 +107,12 @@ export default function App() {
   const [goalOpen, setGoalOpen] = useState(false)
   const [goalSource, setGoalSource] = useState(null)
   const [reviewDay, setReviewDay] = useState(null)
+  const [extraReels, setExtraReels] = useState(saved?.extraReels || [])
+  const [cookiesOn, setCookiesOn] = useState(() => {
+    try { return localStorage.getItem('restprime-cookies') === 'yes' } catch { return false }
+  })
+  const undoRef = useRef([])
+  const [undoCount, setUndoCount] = useState(0)
   const [siteNotes, setSiteNotes] = useState(saved?.siteNotes || '')
   const [status, setStatus] = useState('all')
   const [pillar, setPillar] = useState('all')
@@ -139,13 +147,26 @@ export default function App() {
     const limit = isoDate(clock)
     return news.filter((item) => item.iso && item.iso <= limit).sort((a, b) => b.iso.localeCompare(a.iso))
   }, [news, clock])
+  const storageOk = useMemo(() => {
+    try {
+      localStorage.setItem('restprime-cookie-probe', '1')
+      localStorage.removeItem('restprime-cookie-probe')
+      return true
+    } catch {
+      return false
+    }
+  }, [])
   const todayDay = days.find((item) => item.day === todayNumber) || days[0]
   const todayLabel = formatLong(clock)
 
   useEffect(() => {
-    const storedFiles = files.map((file) => (String(file.url || '').startsWith('blob:') ? { ...file, url: '' } : file))
-    localStorage.setItem(KEY, JSON.stringify({ edition: 'readable', days, focus, files: storedFiles, telegram, chat, siteNotes }))
-  }, [days, focus, files, telegram, chat, siteNotes])
+    try {
+      const storedFiles = files.map((file) => (String(file.url || '').startsWith('blob:') ? { ...file, url: '' } : file))
+      localStorage.setItem(KEY, JSON.stringify({ edition: 'readable', days, focus, files: storedFiles, telegram, chat, siteNotes, extraReels }))
+    } catch {
+      /* браузер закрыл память: кабинет остаётся только на этот заход */
+    }
+  }, [days, focus, files, telegram, chat, siteNotes, extraReels])
 
   useEffect(() => {
     const timer = setInterval(() => setClock(moscowToday()), 30000)
@@ -156,7 +177,7 @@ export default function App() {
 
   useEffect(() => {
     if (!toast) return undefined
-    const timer = setTimeout(() => setToast(''), 2800)
+    const timer = setTimeout(() => setToast(''), 6000)
     return () => clearTimeout(timer)
   }, [toast])
 
@@ -173,6 +194,41 @@ export default function App() {
   }, [])
 
   function notify(message) { setToast(message) }
+
+  function remember(entry) {
+    if (!entry) return
+    const snap = entry.kind ? entry : { kind: 'day', item: entry }
+    undoRef.current = [...undoRef.current.slice(-19), JSON.parse(JSON.stringify(snap))]
+    setUndoCount(undoRef.current.length)
+  }
+
+  function undoLast() {
+    const last = undoRef.current.pop()
+    setUndoCount(undoRef.current.length)
+    if (!last) {
+      notify('Убирать нечего: действий ещё не было.')
+      return
+    }
+    if (last.kind === 'days') {
+      setDays(last.items)
+      notify('Убрано. План вернулся к виду до этого действия.')
+      return
+    }
+    if (last.kind === 'reels') {
+      setExtraReels(last.items)
+      notify('Убрано. Новый рилс снят со списка.')
+      return
+    }
+    const item = last.item
+    setDays((current) => current.map((entry) => (entry.day === item.day ? item : entry)))
+    setFocus(item.day)
+    notify(`Убрано. Вернулось ${formatLong(dateForDay(item.day))} · «${item.title}».`)
+  }
+
+  function acceptCookies() {
+    try { localStorage.setItem('restprime-cookies', 'yes') } catch { /* память браузера закрыта */ }
+    setCookiesOn(true)
+  }
 
   function requireAct() {
     if (canAct) return true
@@ -203,9 +259,10 @@ export default function App() {
   function setDayStatus(dayNumber, status) {
     if (!requireAct()) return
     const item = days.find((entry) => entry.day === dayNumber)
+    if (item) remember(item)
     patchDay(dayNumber, { status })
     const label = status === 'agreed' ? 'Согласовано' : status === 'approved' ? 'Утвердил' : 'На проверку'
-    notify(`День ${dayNumber}: ${label}.`)
+    notify(item ? `${formatLong(dateForDay(item.day))} · «${item.title}»: ${label}.` : `Статус: ${label}.`)
     if (item && status !== 'review') {
       pushMessage(`${label}: день ${dayNumber}, ${item.title}`, {
         kind: 'post',
@@ -218,13 +275,18 @@ export default function App() {
 
   function adaptForDay(dayNumber, sourceText) {
     if (!requireAct()) return
-    const target = days.find((item) => item.day === dayNumber) || day
+    const target = days.find((item) => item.day === dayNumber)
+    if (!target) {
+      notify('Этот день не найден в плане. Текст не записан.')
+      return
+    }
     const text = adaptSourceToToday(target, sourceText)
+    remember(target)
     patchDay(target.day, { format: 'short', postText: text, status: 'review' })
     setFocus(target.day)
     setGoalOpen(false)
     setTab('posts-edit')
-    notify(`Текст перебран под ${formatLong(dateForDay(target.day))} и поставлен на проверку.`)
+    notify(`Переработано: ${formatLong(dateForDay(target.day))} · «${target.title}».`)
   }
 
   function adaptForToday(sourceText) {
@@ -239,6 +301,7 @@ export default function App() {
   function approve(dayNumber) {
     if (!requireAct()) return
     const item = days.find((entry) => entry.day === dayNumber)
+    if (item) remember(item)
     patchDay(dayNumber, { status: 'approved' })
     setFocus(dayNumber)
     if (item) {
@@ -249,7 +312,7 @@ export default function App() {
         body: shownPost(item),
       })
     }
-    notify(`День ${dayNumber} утверждён и отправлен в комнату.`)
+    notify(item ? `Утверждено: ${formatLong(dateForDay(item.day))} · «${item.title}».` : 'День утверждён и отправлен в комнату.')
   }
 
   function forwardDay(item, kind) {
@@ -278,14 +341,15 @@ export default function App() {
     if (!requireAct()) return
     const item = days.find((entry) => entry.day === dayNumber)
     if (!item) return
+    remember(item)
     if (item.format === 'wide') {
       const wideText = improveWide({ ...item, wideText: item.wideText || wideFromDay(item) })
       patchDay(dayNumber, { format: 'wide', wideText })
-      notify(`Широкий пост дня ${dayNumber}: ${wordCount(wideText)} слов.`)
+      notify(`Широкий пост: ${formatLong(dateForDay(item.day))} · «${item.title}», ${wordCount(wideText)} слов.`)
     } else {
       const postText = improveShort(item)
       patchDay(dayNumber, { format: 'short', postText })
-      notify(`Короткий пост дня ${dayNumber} собран заново.`)
+      notify(`Короткий пост собран заново: ${formatLong(dateForDay(item.day))} · «${item.title}».`)
     }
     setFocus(dayNumber)
   }
@@ -303,23 +367,31 @@ export default function App() {
     if (!requireAct()) return
     const item = days.find((entry) => entry.day === dayNumber)
     if (!item) return
+    remember(item)
     patchDay(dayNumber, improveReel(item))
     setFocus(dayNumber)
-    notify(`Сценарий дня ${dayNumber} собран заново.`)
+    notify(`Сценарий рилса: ${formatLong(dateForDay(item.day))} · «${item.title}».`)
   }
 
   function placeAgentText(dayNumber, text) {
     if (!requireAct()) return
-    patchDay(dayNumber, { format: 'short', postText: text, status: 'review' })
-    setFocus(dayNumber)
-    notify(`День ${dayNumber} пересобран и поставлен на проверку.`)
+    const target = days.find((item) => item.day === dayNumber)
+    if (!target) {
+      notify('Этот день не найден в плане. Текст не записан.')
+      return
+    }
+    remember(target)
+    patchDay(target.day, { format: 'short', postText: text, status: 'review' })
+    setFocus(target.day)
+    notify(`Пересобрано: ${formatLong(dateForDay(target.day))} · «${target.title}».`)
   }
 
   function openReview(item) {
     if (!requireAct()) return
+    remember(item)
     patchDay(item.day, { status: 'review' })
     setReviewDay(item.day)
-    notify(`День ${item.day} на проверке. Можно утвердить или переделать.`)
+    notify(`На проверке: ${formatLong(dateForDay(item.day))} · «${item.title}».`)
   }
 
   function applyFormat(dayNumber, format) {
@@ -330,13 +402,14 @@ export default function App() {
     const plate = String(item.dish || '').startsWith('без тарелки')
       ? 'В этом кадре нет тарелки. Есть зал.'
       : `Из меню этого дня: ${item.dish}${item.margin && item.margin !== 'зал' ? `, ${item.margin}` : ''}.`
+    remember(item)
     patchDay(dayNumber, {
       warmupTheme: format.title,
       format: 'short',
       status: 'review',
       postText: `${format.title}.\n\n${scene}. ${format.note}.\n\n${plate}\n\nkedr-res.ru`,
     })
-    notify(`Тема «${format.title}» поставлена на ${formatLong(dateForDay(dayNumber))} и ушла на проверку.`)
+    notify(`Тема «${format.title}»: ${formatLong(dateForDay(item.day))} · «${item.title}».`)
   }
 
   function applyReelSource(dayNumber, source) {
@@ -344,17 +417,20 @@ export default function App() {
     const item = days.find((entry) => entry.day === dayNumber)
     if (!item) return
     const dish = String(item.dish || '').startsWith('без тарелки') ? 'зал без тарелки' : item.dish
+    remember(item)
     patchDay(dayNumber, {
       reelHook: String(source.hook || source.title).replaceAll('{dish}', dish),
       reelScript: `По заметке «${source.source}»: ${source.title}. Снимаем в KEDR сцену «${item.scene}». В кадре: ${dish}. В конце kedr-res.ru.`,
       reelAudio: 'Живой звук зала, без закадровой музыки',
     })
-    notify(`Сценарий ${formatLong(dateForDay(dayNumber))} собран по источнику «${source.source}».`)
+    notify(`Сценарий на ${formatLong(dateForDay(item.day))} по «${source.source}». Пост дня не менялся.`)
   }
 
   function restoreDay(dayNumber) {
-    const source = contentPlan.find((item) => item.day === dayNumber)
-    if (!source) return
+    const source = contentPlan.find((item) => item.day === ((dayNumber - 1) % 30) + 1)
+    const current = days.find((item) => item.day === dayNumber)
+    if (!source || !current) return
+    remember(current)
     patchDay(dayNumber, {
       title: source.title,
       postText: source.postText,
@@ -363,26 +439,28 @@ export default function App() {
       reelScript: source.reelScript,
       warmupTheme: source.warmupTheme,
     })
-    notify(`День ${dayNumber} возвращён к исходному тексту плана.`)
+    notify(`Вернул текст плана: ${formatLong(dateForDay(current.day))} · «${current.title}».`)
   }
 
   function writeChannel(channel, format) {
     if (!requireAct()) return
     const posts = telegramFeed.channels?.[channel.id]?.posts || []
+    remember(day)
     const text = writeLikeChannel(day, channel, posts, format)
     if (format === 'wide') patchDay(day.day, { format: 'wide', wideText: text })
     else patchDay(day.day, { format: 'short', postText: text })
     setTab('posts-30')
-    notify(`${format === 'wide' ? 'Широкий' : 'Короткий'} пост дня ${day.day} собран в тоне «${channel.title}». Блюдо осталось из меню KEDR.`)
+    notify(`${format === 'wide' ? 'Широкий' : 'Короткий'} пост в тоне «${channel.title}»: ${formatLong(dateForDay(day.day))} · «${day.title}».`)
   }
 
   function writeNews(story, format) {
     if (!requireAct()) return
+    remember(day)
     const text = writeFromNews(day, story, format)
     if (format === 'wide') patchDay(day.day, { format: 'wide', wideText: text })
     else patchDay(day.day, { format: 'short', postText: text })
     setTab('posts-30')
-    notify(`${format === 'wide' ? 'Широкий' : 'Короткий'} пост дня ${day.day} собран из «${story.source}». ${wordCount(text)} слов.`)
+    notify(`${format === 'wide' ? 'Широкий' : 'Короткий'} пост по «${story.source}»: ${formatLong(dateForDay(day.day))} · «${day.title}».`)
   }
 
   function rebuildDay(dayNumber, trend) {
@@ -392,15 +470,45 @@ export default function App() {
     const picked = trend?.post ? trend : nextTrend(item.trendId)
     const next = applyTrend(item, picked)
     if (item.format === 'wide') next.wideText = wideFromDay({ ...item, ...next })
+    remember(item)
     patchDay(dayNumber, next)
     setFocus(dayNumber)
-    notify(`День ${dayNumber} пересобран: «${picked.name}».`)
+    notify(`Пересобрано: ${formatLong(dateForDay(item.day))} · «${item.title}». Приём «${picked.name}».`)
   }
 
   function rebuildAll() {
     if (!requireAct()) return
+    remember({ kind: 'days', items: days })
     setDays((current) => current.map((item) => ({ ...item, ...applyTrend(item, nextTrend(item.trendId)) })))
     notify('Все задания сдвинуты на следующий приём из трендов.')
+  }
+
+  function createReel(draft) {
+    if (!requireAct()) return
+    const title = String(draft.title || '').trim()
+    if (!title) return
+    remember({ kind: 'reels', items: extraReels })
+    setExtraReels((current) => [{
+      id: uid(),
+      title,
+      hook: String(draft.hook || '').trim() || title,
+      shots: String(draft.shots || '').trim() || 'Кадр без привязки к посту дня.',
+      sound: 'Живой звук зала',
+    }, ...current])
+    notify('Новый рилс сохранён отдельно от постов.')
+  }
+
+  function placeReel(dayNumber, reel) {
+    if (!requireAct()) return
+    const item = days.find((entry) => entry.day === dayNumber)
+    if (!item) return
+    remember(item)
+    patchDay(dayNumber, {
+      reelHook: reel.hook,
+      reelScript: reel.shots,
+      reelAudio: reel.sound || 'Живой звук зала',
+    })
+    notify(`Ролик «${reel.title}» на ${formatLong(dateForDay(item.day))}. Пост «${item.title}» не менялся.`)
   }
 
   function openChannel(kind, item) {
@@ -619,6 +727,11 @@ export default function App() {
   const section = NAV.find((item) => item.id === tab)?.title || 'Сегодня'
   const reviewItem = days.find((item) => item.day === reviewDay) || null
   const reelSources = news.filter((item) => REEL_SOURCE_IDS.includes(item.id))
+  const gameFormats = EVENT_FORMATS.filter((item) => formatGroup(item) === 'игры')
+
+  if (!cookiesOn) {
+    return <CookieGate storageOk={storageOk} onAccept={acceptCookies} />
+  }
 
   return (
     <div className="min-h-screen lg:flex">
@@ -680,6 +793,7 @@ export default function App() {
             canAct={canAct}
             onPick={setFocus}
             onRebuild={placeAgentText}
+            onUndo={undoLast}
             onCopy={async (text) => { await navigator.clipboard.writeText(text); notify('Текст агента скопирован.') }}
           />
         )}
@@ -723,8 +837,10 @@ export default function App() {
             onStatus={setDayStatus}
             onSave={(dayNumber, patch) => {
               if (!requireAct()) return
+              const item = days.find((entry) => entry.day === dayNumber)
+              if (item) remember(item)
               patchDay(dayNumber, patch)
-              notify(`Правка дня ${dayNumber} сохранена.`)
+              notify(item ? `Правка сохранена: ${formatLong(dateForDay(item.day))} · «${item.title}».` : 'Правка сохранена.')
             }}
           />
         )}
@@ -734,14 +850,46 @@ export default function App() {
             notes={siteNotes}
             onNotes={(text) => { setSiteNotes(text); notify('Заметка кабинета сохранена.') }}
             onStatus={setDayStatus}
-            onPatch={(dayNumber, patch) => { patchDay(dayNumber, patch); notify(`День ${dayNumber} записан.`) }}
+            onPatch={(dayNumber, patch) => {
+              const item = days.find((entry) => entry.day === dayNumber)
+              if (item) remember(item)
+              patchDay(dayNumber, patch)
+              notify(item ? `Записано: ${formatLong(dateForDay(item.day))} · «${item.title}».` : 'Текст записан.')
+            }}
             onRestore={restoreDay}
           />
         )}
         {tab === 'news-feed' && <TrendFeed items={recentNews} days={days} day={day} canAct={canAct} onPick={setFocus} onWrite={writeNews} />}
         {tab === 'tg-channels' && <ChannelDesk canAct={canAct} onWrite={writeChannel} onRework={openGoal} />}
-        {tab === 'reels-30' && <ReelsView days={days} day={day} sources={reelSources} canAct={canAct} onPick={setFocus} onImprove={refineReel} onApplySource={applyReelSource} />}
-        {tab === 'themes-30' && <ThemesView days={days} day={day} formats={EVENT_FORMATS} canAct={canAct} onPick={setFocus} onApply={applyFormat} />}
+        {tab === 'reels-30' && (
+          <ReelsView
+            days={days}
+            day={day}
+            sources={reelSources}
+            bank={REEL_BANK}
+            custom={extraReels}
+            canAct={canAct}
+            onPick={setFocus}
+            onImprove={refineReel}
+            onApplySource={applyReelSource}
+            onUseBank={placeReel}
+            onCreate={createReel}
+            onCopy={async (text) => { await navigator.clipboard.writeText(text); notify('Текст рилса скопирован.') }}
+          />
+        )}
+        {tab === 'themes-30' && (
+          <ThemesView
+            days={days}
+            day={day}
+            formats={EVENT_FORMATS}
+            sources={THEME_SOURCES}
+            games={gameFormats}
+            canAct={canAct}
+            onPick={setFocus}
+            onApply={applyFormat}
+            onUndo={undoLast}
+          />
+        )}
         {tab === 'files-tg' && (
           <FilesView
             files={files}
@@ -806,7 +954,12 @@ export default function App() {
       {isDeveloper && deskOpen && (
         <DeveloperDesk pending={pending} notices={access.notices} onClose={() => setDeskOpen(false)} onConfirm={confirmUser} onReject={rejectUser} />
       )}
-      {toast && <div className="fixed left-1/2 top-20 z-[120] -translate-x-1/2 rounded-full bg-[#C9A96A] px-4 py-2 text-sm font-medium text-[#0A0F0B] shadow-xl">{toast}</div>}
+      {(toast || undoCount > 0) && (
+        <div className="fixed bottom-6 left-1/2 z-[120] flex w-[min(92vw,460px)] -translate-x-1/2 items-start justify-between gap-3 rounded-2xl bg-[#C9A96A] px-4 py-3 text-sm leading-snug text-[#0A0F0B] shadow-xl">
+          <p>{toast || 'Последнее действие можно убрать.'}</p>
+          <button type="button" onClick={undoLast} disabled={!undoCount} className="shrink-0 rounded-full bg-[#0A0F0B] px-3 py-1 text-xs font-semibold text-[#C9A96A] disabled:opacity-40">Убрать</button>
+        </div>
+      )}
 
       {(modal === 'instagram' || modal === 'telegram') && (
         <Modal title={modal === 'instagram' ? `Очередь ${FLAGSHIP.instagramHandle}` : `Очередь ${FLAGSHIP.telegramHandle}`} onClose={() => setModal(null)}>

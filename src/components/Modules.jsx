@@ -133,18 +133,49 @@ export function PostsView({ days, onCopy, onExport, canAct, onToggleExtension, o
   )
 }
 
-export function ReelsView({ days, day, sources, canAct, onPick, onImprove, onApplySource }) {
-  const [pane, setPane] = useState('scripts')
+export function ReelsView({ days, day, sources, bank, custom, canAct, onPick, onImprove, onApplySource, onUseBank, onCreate, onCopy }) {
+  const [pane, setPane] = useState('bank')
+  const [draft, setDraft] = useState({ title: '', hook: '', shots: '' })
+  const cards = [...(custom || []), ...(bank || [])]
   return (
     <section className="space-y-5">
       <GlassCard className="space-y-4 rounded-2xl p-5">
         <h2 className="font-fraunces text-2xl text-ink">Reels</h2>
-        <p className="max-w-3xl text-sm text-ink/70">Сценарии — готовые ролики дней меню. Тренды — заметки изданий про еду и рестораны: сначала источник, потом сценарий KEDR на выбранный день. Чужие блюда в кадр не переносятся.</p>
+        <p className="max-w-3xl text-sm text-ink/70">Новые ролики живут отдельно от поста: дорога, дождь, игра, чай, пустой зал. К дню их можно поставить только отдельной кнопкой. Сценарии дней и тренды изданий остаются рядом.</p>
         <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => setPane('scripts')} className={`rounded-full px-4 py-2 text-sm ${pane === 'scripts' ? 'bg-[#C9A96A] font-semibold text-[#0A0F0B]' : 'border border-white/15 text-ink'}`}>Сценарии</button>
-          <button type="button" onClick={() => setPane('trends')} className={`rounded-full px-4 py-2 text-sm ${pane === 'trends' ? 'bg-[#C6FF5E] font-semibold text-[#0A0F0B]' : 'border border-white/15 text-ink'}`}>Тренды</button>
+          <button type="button" onClick={() => setPane('bank')} className={`rounded-full px-4 py-2 text-sm ${pane === 'bank' ? 'bg-[#C6FF5E] font-semibold text-[#0A0F0B]' : 'border border-white/15 text-ink'}`}>Новые</button>
+          <button type="button" onClick={() => setPane('scripts')} className={`rounded-full px-4 py-2 text-sm ${pane === 'scripts' ? 'bg-[#C9A96A] font-semibold text-[#0A0F0B]' : 'border border-white/15 text-ink'}`}>Сценарии дней</button>
+          <button type="button" onClick={() => setPane('trends')} className={`rounded-full px-4 py-2 text-sm ${pane === 'trends' ? 'bg-[#C9A96A] font-semibold text-[#0A0F0B]' : 'border border-white/15 text-ink'}`}>Тренды</button>
         </div>
       </GlassCard>
+      {pane === 'bank' && (
+        <div className="space-y-4">
+          <GlassCard className="rounded-2xl p-4">
+            <p className="text-sm text-ink/70">Свой ролик, без привязки к посту</p>
+            <div className="mt-3 grid gap-2">
+              <input value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} placeholder="Название" className="rounded-2xl border border-white/15 bg-[#0A0F0B] px-3 py-2 text-sm text-ink" />
+              <input value={draft.hook} onChange={(event) => setDraft({ ...draft, hook: event.target.value })} placeholder="Первая фраза" className="rounded-2xl border border-white/15 bg-[#0A0F0B] px-3 py-2 text-sm text-ink" />
+              <textarea value={draft.shots} onChange={(event) => setDraft({ ...draft, shots: event.target.value })} placeholder="Что в кадре" rows={3} className="rounded-2xl border border-white/15 bg-[#0A0F0B] px-3 py-2 text-sm text-ink" />
+            </div>
+            <button type="button" disabled={!canAct || !draft.title.trim()} onClick={() => { onCreate(draft); setDraft({ title: '', hook: '', shots: '' }) }} className="mt-3 rounded-xl bg-[#C9A96A] px-4 py-2 text-sm font-semibold text-[#0A0F0B] disabled:opacity-40">Создать</button>
+          </GlassCard>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {cards.map((item) => (
+              <GlassCard key={item.id} className="rounded-2xl p-4">
+                <p className="text-[11px] uppercase tracking-widest text-[#C6FF5E]">Отдельно от поста</p>
+                <h3 className="mt-1 font-fraunces text-2xl text-ink">{item.title}</h3>
+                <p className="mt-3 text-sm text-[#C9A96A]">{item.hook}</p>
+                <p className="mt-2 text-sm leading-relaxed text-ink/75">{item.shots}</p>
+                {item.sound && <p className="mt-2 text-[11px] text-ink/45">Звук: {item.sound}</p>}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button type="button" onClick={() => onCopy(`${item.title}\n${item.hook}\n${item.shots}`)} className="rounded-full border border-white/15 px-3 py-1.5 text-xs text-ink">Скопировать</button>
+                  <button type="button" disabled={!canAct} onClick={() => onUseBank(day.day, item)} className="rounded-full border border-[#C9A96A]/40 px-3 py-1.5 text-xs text-[#C9A96A] disabled:opacity-40">Поставить на {formatLong(dateForDay(day.day))}</button>
+                </div>
+              </GlassCard>
+            ))}
+          </div>
+        </div>
+      )}
       {pane === 'scripts' && (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {days.map((item) => (
@@ -194,12 +225,17 @@ export function ReelsView({ days, day, sources, canAct, onPick, onImprove, onApp
   )
 }
 
-export function ThemesView({ days, day, formats, canAct, onPick, onApply }) {
+export function ThemesView({ days, day, formats, sources, games, canAct, onPick, onApply, onUndo }) {
+  const [pickedId, setPickedId] = useState(formats.find((item) => item.title === day.warmupTheme)?.id || '')
+  const gameList = games || []
+  const picked = formats.find((item) => item.id === pickedId) || null
+  const group = picked ? (gameList.some((item) => item.id === picked.id) ? 'игры' : 'стол') : ''
+  const links = sources?.[group] || []
   return (
     <section className="space-y-5">
       <GlassCard className="rounded-2xl p-5">
         <h2 className="font-fraunces text-2xl text-ink">Темы вечера</h2>
-        <p className="text-sm text-ink/75">Тридцать форматов для поста: кино, мафия, йога, чай и остальные поводы. Это рубрикатор идей, не афиша зала. Блюдо дня остаётся из меню.</p>
+        <p className="text-sm text-ink/75">Формат выбирается первым. Сразу открываются источники и, если это игра, соседние игровые темы. На день тема встаёт отдельной кнопкой. «Убрать» возвращает прошлый текст.</p>
         <label className="mt-4 block text-sm text-ink/70">
           День
           <select value={day.day} onChange={(event) => onPick(Number(event.target.value))} className="mt-2 w-full rounded-2xl border border-white/15 bg-[#0A0F0B] px-3 py-3 text-ink">
@@ -208,16 +244,23 @@ export function ThemesView({ days, day, formats, canAct, onPick, onApply }) {
             ))}
           </select>
         </label>
+        <div className="mt-4 rounded-2xl border border-[#C6FF5E]/25 p-3">
+          <p className="text-xs uppercase tracking-[0.16em] text-[#C6FF5E]">Игры</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {gameList.map((item) => (
+              <button key={item.id} type="button" onClick={() => setPickedId(item.id)} className={`rounded-full px-3 py-1 text-xs ${pickedId === item.id ? 'bg-[#C6FF5E] font-semibold text-[#0A0F0B]' : 'border border-[#C6FF5E]/40 text-[#C6FF5E]'}`}>{item.title}</button>
+            ))}
+          </div>
+        </div>
         <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
           {formats.map((format) => {
-            const active = day.warmupTheme === format.title
+            const active = format.id === pickedId
             return (
               <button
                 key={format.id}
                 type="button"
-                disabled={!canAct}
-                onClick={() => onApply(day.day, format)}
-                className={`rounded-2xl border px-3 py-3 text-left disabled:opacity-40 ${active ? 'border-[#C9A96A] bg-[#C9A96A] text-[#0A0F0B]' : 'border-[#C9A96A]/25 text-ink hover:border-[#C9A96A]'}`}
+                onClick={() => setPickedId(format.id)}
+                className={`rounded-2xl border px-3 py-3 text-left ${active ? 'border-[#C9A96A] bg-[#C9A96A] text-[#0A0F0B]' : 'border-[#C9A96A]/25 text-ink hover:border-[#C9A96A]'}`}
               >
                 <span className="font-fraunces block text-xl leading-tight">{format.title}</span>
                 <span className={`mt-1 block text-[11px] leading-snug ${active ? 'text-[#0A0F0B]/70' : 'text-ink/55'}`}>{format.note}</span>
@@ -225,11 +268,33 @@ export function ThemesView({ days, day, formats, canAct, onPick, onApply }) {
             )
           })}
         </div>
+        {picked && (
+          <div className="mt-4 rounded-2xl border border-white/10 p-4">
+            <p className="text-xs uppercase tracking-[0.16em] text-[#C9A96A]">{group === 'игры' ? 'Игры · источники' : 'Источники темы'}</p>
+            <p className="mt-2 text-sm text-ink/80">{picked.title}. {picked.note}</p>
+            {group === 'игры' && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {gameList.map((item) => (
+                  <button key={item.id} type="button" onClick={() => setPickedId(item.id)} className="rounded-full border border-[#C6FF5E]/40 px-3 py-1 text-xs text-[#C6FF5E]">{item.title}</button>
+                ))}
+              </div>
+            )}
+            <div className="mt-3 flex flex-wrap gap-2">
+              {links.map((link) => (
+                <a key={link.url} href={link.url} target="_blank" rel="noreferrer" className="rounded-full border border-[#C9A96A]/35 px-3 py-1 text-xs text-[#F4F0E6]">{link.place} · {link.title}</a>
+              ))}
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button type="button" disabled={!canAct} onClick={() => onApply(day.day, picked)} className="rounded-xl bg-[#C9A96A] px-4 py-2 text-sm font-semibold text-[#0A0F0B] disabled:opacity-40">Поставить на {formatLong(dateForDay(day.day))}</button>
+              <button type="button" onClick={onUndo} className="rounded-xl border border-white/15 px-4 py-2 text-sm text-ink">Убрать действие</button>
+            </div>
+          </div>
+        )}
       </GlassCard>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {days.map((day) => (
           <GlassCard key={day.day} className="rounded-2xl p-4">
-            <p className="text-[11px] text-amber-300">День {day.day} • {day.pillar}</p>
+            <p className="text-[11px] text-amber-300">{formatLong(dateForDay(day.day))} · {day.pillar}</p>
             <h3 className="mt-1 text-sm font-semibold text-ink">{day.warmupTheme}</h3>
             <p className="mt-2 text-xs text-ink/75">{day.dish}</p>
             <p className="mt-3 text-xs text-emerald-300">{day.kpi}</p>

@@ -30,3 +30,24 @@ export const EVENT_FORMATS = [
   { id: 'first-time', title: 'Первый визит', note: 'меню можно не знать наизусть' },
   { id: 'return', title: 'Вернулись', note: 'уже были и знают, куда сесть' },
 ]
+
+const GAME_IDS = new Set(['cinema', 'mafia', 'games'])
+
+export function formatGroup(format) {
+  return GAME_IDS.has(format?.id) ? 'игры' : 'стол'
+}
+
+export const THEME_SOURCES = {
+  игры: [
+    { title: 'Афиша. Рестораны', place: 'Москва', url: 'https://www.afisha.ru/msk/restaurants/' },
+    { title: 'Time Out Moscow', place: 'Москва', url: 'https://www.timeout.com/moscow/restaurants' },
+    { title: 'Great List', place: 'Москва', url: 'https://greatlist.ru/' },
+  ],
+  стол: [
+    { title: 'Restoclub', place: 'Москва', url: 'https://www.restoclub.ru/' },
+    { title: 'Гастрономъ', place: 'Москва', url: 'https://www.gastronom.ru/' },
+    { title: 'Michelin. Москва', place: 'Мир', url: 'https://guide.michelin.com/ru/ru/moscow-region/moscow/restaurants' },
+    { title: 'The World’s 50 Best', place: 'Мир', url: 'https://www.theworlds50best.com/list/1-50' },
+    { title: 'Eater', place: 'Мир', url: 'https://www.eater.com/' },
+  ],
+}

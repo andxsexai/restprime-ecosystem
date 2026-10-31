@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { TELEGRAM_CHANNELS } from '../data/telegramChannels.js'
+import { TELEGRAM_CHANNELS, TREND_SITES } from '../data/telegramChannels.js'
 import telegramFeed from '../data/telegramFeed.json'
 import { channelTraits, traitNotes } from '../lib/compose.js'
 import { formatLong, moscowKey, recentMoscowKeys } from '../lib/planDates.js'
@@ -19,6 +19,7 @@ function windowLabel(keys) {
 
 export default function ChannelDesk({ canAct, onWrite, onRework }) {
   const [openId, setOpenId] = useState('all')
+  const [place, setPlace] = useState('all')
   const [copiedId, setCopiedId] = useState('')
   const windowKeys = recentMoscowKeys(2)
   const windowText = windowLabel(windowKeys)
@@ -34,7 +35,8 @@ export default function ChannelDesk({ canAct, onWrite, onRework }) {
     }
     return rows.sort((a, b) => String(b.date).localeCompare(String(a.date)))
   }, [windowKeys])
-  const visible = openId === 'all' ? posts : posts.filter((post) => post.channelId === openId)
+  const allowed = new Set(TELEGRAM_CHANNELS.filter((item) => place === 'all' || item.place === place).map((item) => item.id))
+  const visible = (openId === 'all' ? posts : posts.filter((post) => post.channelId === openId)).filter((post) => allowed.has(post.channelId))
   const traits = useMemo(() => channelTraits(channel ? (telegramFeed.channels?.[channel.id]?.posts || []) : []), [channel])
   const notes = traitNotes(traits)
   const fetched = telegramFeed.fetchedAt ? moscowLabel(telegramFeed.fetchedAt) : 'ещё не снимали'
@@ -60,19 +62,37 @@ export default function ChannelDesk({ canAct, onWrite, onRework }) {
   return (
     <section className="space-y-5">
       <div className="rounded-[28px] border border-white/10 bg-card p-6">
-        <p className="text-xs uppercase tracking-[0.18em] text-gold">Telegram · Москва</p>
-        <h2 className="font-fraunces mt-1 text-3xl text-ink">Полные посты за два дня</h2>
+        <p className="text-xs uppercase tracking-[0.18em] text-gold">Telegram · {TELEGRAM_CHANNELS.length} каналов и {TREND_SITES.length} трендов</p>
+        <h2 className="font-fraunces mt-1 text-3xl text-ink">Каналы и тренды</h2>
         <p className="mt-2 max-w-3xl text-sm leading-relaxed text-ink/70">
           {windowText}, по часам Москвы. Текст на карточке целиком, без обрезки. «Скопировать» забирает пост как есть. «Переработка» открывает цель: день выбирается кнопкой, и агент собирает уже формат KEDR.
         </p>
         <p className="mt-2 text-xs text-ink/50">Последний съём: {fetched}. В окне {posts.length} постов.</p>
       </div>
 
+      <div className="rounded-[28px] border border-white/10 bg-card p-5">
+        <p className="text-xs uppercase tracking-[0.16em] text-[#C9A96A]">Тренды Москвы и мира</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {TREND_SITES.map((site) => (
+            <a key={site.url} href={site.url} target="_blank" rel="noreferrer" className="rounded-2xl border border-[#C9A96A]/30 px-3 py-2 text-left">
+              <span className="block text-[10px] uppercase tracking-wider text-[#C9A96A]">{site.place}</span>
+              <span className="block text-sm text-[#F4F0E6]">{site.title}</span>
+              <span className="block text-[11px] text-ink/50">{site.note}</span>
+            </a>
+          ))}
+        </div>
+      </div>
+
       <div className="flex flex-wrap gap-2">
+        {['all', 'Москва', 'Мир'].map((item) => (
+          <button key={item} type="button" onClick={() => { setPlace(item); setOpenId('all') }} className={`rounded-full px-4 py-2 text-sm ${place === item ? 'bg-[#C6FF5E] font-semibold text-[#0A0F0B]' : 'border border-white/15 text-ink'}`}>
+            {item === 'all' ? 'Все города' : item}
+          </button>
+        ))}
         <button type="button" onClick={() => setOpenId('all')} className={`rounded-full border px-4 py-2 text-sm ${openId === 'all' ? 'border-[#C9A96A] bg-[#C9A96A] font-semibold text-[#0A0F0B]' : 'border-white/15 text-ink'}`}>
           Все каналы · {posts.length}
         </button>
-        {TELEGRAM_CHANNELS.map((item) => {
+        {TELEGRAM_CHANNELS.filter((item) => place === 'all' || item.place === place).map((item) => {
           const count = posts.filter((post) => post.channelId === item.id).length
           const active = item.id === openId
           return (
