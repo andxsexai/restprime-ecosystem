@@ -1,6 +1,6 @@
 const tones = {
   gold: 'bg-gradient-to-r from-gold to-amber-500 text-obsidian font-bold hover:brightness-110',
-  lime: 'bg-gradient-to-r from-kedr to-emerald-800 text-white font-semibold border border-gold/30',
+  lime: 'bg-[#C9A96A] text-[#0A0F0B] font-semibold border border-gold/30',
   ghost: 'bg-white/10 text-white border border-white/15 hover:bg-white/20',
   kedr: 'bg-kedr/40 text-goldLight border border-gold/30 font-semibold',
 }

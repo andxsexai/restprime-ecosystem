@@ -4,7 +4,7 @@ import { SIGNUP_ROLES } from '../lib/auth.js'
 import Button3D from './ui/Button3D.jsx'
 import Modal from './ui/Modal.jsx'
 
-const field = 'w-full rounded-2xl border border-white/15 bg-card px-4 py-3 text-base text-ink outline-none focus:border-[#2f6b4f]'
+const field = 'w-full rounded-2xl border border-white/15 bg-card px-4 py-3 text-base text-ink outline-none focus:border-[#C9A96A]'
 
 function HiddenField({ value, onChange, placeholder, autoComplete, minLength, name }) {
   const [open, setOpen] = useState(false)
@@ -41,7 +41,7 @@ export default function AccessModal({ mode, error, busy, onMode, onClose, onLogi
     <Modal title={titles[mode] || 'Вход'} onClose={onClose}>
       <div className="mb-5 grid grid-cols-3 rounded-full bg-card p-1 text-sm">
         {[['login', 'Вход'], ['register', 'Регистрация'], ['recover', 'Забыл пароль']].map(([id, label]) => (
-          <button key={id} type="button" onClick={() => onMode(id)} className={`rounded-full py-2.5 ${mode === id ? 'bg-[#2f6b4f] font-semibold text-white shadow-sm' : 'text-ink/60'}`}>{label}</button>
+          <button key={id} type="button" onClick={() => onMode(id)} className={`rounded-full py-2.5 ${mode === id ? 'bg-[#C9A96A] font-semibold text-[#0A0F0B] shadow-sm' : 'text-ink/60'}`}>{label}</button>
         ))}
       </div>
       <form className="space-y-3" onSubmit={(event) => {
@@ -61,7 +61,7 @@ export default function AccessModal({ mode, error, busy, onMode, onClose, onLogi
             <p className="mb-2 text-sm text-ink/70">Роль</p>
             <div className="grid grid-cols-3 gap-2">
               {SIGNUP_ROLES.map((item) => (
-                <button key={item.id} type="button" onClick={() => setRole(item.id)} className={`rounded-2xl border px-2 py-3 text-sm ${role === item.id ? 'border-[#2f6b4f] bg-[#e7f0ea] font-semibold text-kedr' : 'border-white/15 bg-card text-ink/70'}`}>
+                <button key={item.id} type="button" onClick={() => setRole(item.id)} className={`rounded-2xl border px-2 py-3 text-sm ${role === item.id ? 'border-[#C9A96A] bg-[#C9A96A]/15 font-semibold text-[#C9A96A]' : 'border-white/15 bg-card text-ink/70'}`}>
                   {item.label}
                 </button>
               ))}

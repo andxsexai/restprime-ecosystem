@@ -6,10 +6,10 @@ export default function ReleaseCorner({ days, focus, open, source, onOpen, onClo
       <button
         type="button"
         onClick={onOpen}
-        className="fixed right-0 top-1/2 z-[70] -translate-y-1/2 rounded-l-2xl border border-[#C9A96A]/45 border-r-0 bg-[#121A14]/95 px-2.5 py-5 shadow-[0_12px_40px_rgba(0,0,0,0.45)]"
+        className="fixed bottom-28 right-0 z-[70] rounded-l-xl border border-r-0 border-[#C9A96A]/45 bg-[#121A14]/95 px-1.5 py-3 shadow-[0_12px_40px_rgba(0,0,0,0.45)] sm:bottom-auto sm:top-1/2 sm:-translate-y-1/2 sm:rounded-l-2xl sm:px-2.5 sm:py-5"
         aria-label="Открыть цель"
       >
-        <span className="font-fraunces block text-3xl tracking-[0.28em] text-[#C9A96A] [writing-mode:vertical-rl]">ЦЕЛЬ</span>
+        <span className="font-fraunces block text-lg tracking-[0.24em] text-[#C9A96A] [writing-mode:vertical-rl] sm:text-3xl sm:tracking-[0.28em]">ЦЕЛЬ</span>
       </button>
     )
   }

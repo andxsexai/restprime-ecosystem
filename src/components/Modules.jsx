@@ -30,14 +30,14 @@ export function PlanView({ days, status, pillar, onStatus, onPillar, onApproveAl
         </div>
         <div className="flex gap-2 overflow-x-auto pb-1">
           {TASKS.map((task) => (
-            <button key={task} type="button" onClick={() => onPillar(task)} className={`shrink-0 rounded-full px-4 py-2 text-sm ${pillar === task ? 'bg-[#2f6b4f] text-white' : 'bg-paper text-ink/75'}`}>
+            <button key={task} type="button" onClick={() => onPillar(task)} className={`shrink-0 rounded-full px-4 py-2 text-sm ${pillar === task ? 'bg-[#C9A96A] text-[#0A0F0B]' : 'bg-paper text-ink/75'}`}>
               {TASK_LABEL[task]}
             </button>
           ))}
         </div>
         <div className="flex rounded-full border border-ink/10 bg-card p-1 text-xs w-fit">
           {[['all', 'Все'], ['review', 'На проверку'], ['approved', 'Утвердил'], ['agreed', 'Согласовано']].map(([id, label]) => (
-            <button key={id} type="button" onClick={() => onStatus(id)} className={`rounded-full px-3 py-1.5 ${status === id ? 'bg-[#2f6b4f] font-semibold text-white' : 'text-ink/75'}`}>{label}</button>
+            <button key={id} type="button" onClick={() => onStatus(id)} className={`rounded-full px-3 py-1.5 ${status === id ? 'bg-[#C9A96A] font-semibold text-[#0A0F0B]' : 'text-ink/75'}`}>{label}</button>
           ))}
         </div>
         {boards?.length > 0 && (
@@ -106,8 +106,8 @@ export function PostsView({ days, onCopy, onExport, canAct, onToggleExtension, o
           <p className="text-sm text-ink/50">Сначала ситуация гостя, потом блюдо из меню, в конце одна ссылка на бронь.</p>
         </div>
         <div className="flex items-center gap-2">
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Поиск по блюду или теме" className="rounded-xl border border-ink/10 bg-card px-3.5 py-2 text-xs text-ink focus:border-[#2f6b4f] focus:outline-none" />
-          <Button3D tone="ghost" className="border-[#2f6b4f]/30 px-3.5 py-2 text-xs text-gold" onClick={onExport}><Download size={14} />Скачать CSV</Button3D>
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Поиск по блюду или теме" className="rounded-xl border border-ink/10 bg-card px-3.5 py-2 text-xs text-ink focus:border-[#C9A96A] focus:outline-none" />
+          <Button3D tone="ghost" className="border-[#C9A96A]/30 px-3.5 py-2 text-xs text-gold" onClick={onExport}><Download size={14} />Скачать CSV</Button3D>
         </div>
       </GlassCard>
       <div className="grid gap-4 lg:grid-cols-2">
@@ -294,10 +294,10 @@ export function ThemesView({ days, day, formats, sources, games, canAct, onPick,
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {days.map((day) => (
           <GlassCard key={day.day} className="rounded-2xl p-4">
-            <p className="text-[11px] text-amber-300">{formatLong(dateForDay(day.day))} · {day.pillar}</p>
+            <p className="text-[11px] text-gold">{formatLong(dateForDay(day.day))} · {day.pillar}</p>
             <h3 className="mt-1 text-sm font-semibold text-ink">{day.warmupTheme}</h3>
             <p className="mt-2 text-xs text-ink/75">{day.dish}</p>
-            <p className="mt-3 text-xs text-emerald-300">{day.kpi}</p>
+            <p className="mt-3 text-xs text-ink/60">{day.kpi}</p>
           </GlassCard>
         ))}
       </div>
@@ -310,13 +310,13 @@ export function VideoView({ url, setUrl, presets, onAnalyze, busy, result, news,
     <section className="grid gap-6 lg:grid-cols-12">
       <GlassCard className="space-y-5 rounded-3xl p-6 lg:col-span-7">
         <div className="flex items-center justify-between">
-          <span className="rounded-full border border-purple-400/40 bg-purple-500/20 px-3 py-1 text-xs font-semibold text-purple-300">AI Deconstructor 2026</span>
+          <span className="rounded-full border border-[#C6FF5E]/40 px-3 py-1 text-xs font-semibold text-[#C6FF5E]">AI Deconstructor 2026</span>
           <span className="text-xs text-ink/50">Reels / TikTok / Shorts</span>
         </div>
         <h2 className="font-fraunces text-2xl text-ink sm:text-3xl">Разбор фуд-ролика и адаптация под <span className="text-gold">KEDR</span></h2>
         <p className="text-sm text-ink/75">Вставьте ссылку или выберите пример. Ответ собирается на этом экране, без внешнего API.</p>
         <div className="flex flex-col gap-2.5 sm:flex-row">
-          <input value={url} onChange={(event) => setUrl(event.target.value)} className="flex-1 rounded-xl border border-ink/10 bg-card px-4 py-3 text-sm text-ink focus:border-[#2f6b4f] focus:outline-none" />
+          <input value={url} onChange={(event) => setUrl(event.target.value)} className="flex-1 rounded-xl border border-ink/10 bg-card px-4 py-3 text-sm text-ink focus:border-[#C9A96A] focus:outline-none" />
           <Button3D onClick={onAnalyze} disabled={busy}>{busy ? 'Смотрим ролик…' : 'Разобрать'}</Button3D>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -327,7 +327,7 @@ export function VideoView({ url, setUrl, presets, onAnalyze, busy, result, news,
           ))}
         </div>
         {result && (
-          <div className="space-y-3 rounded-2xl border border-[#2f6b4f]/30 bg-card p-5 text-sm">
+          <div className="space-y-3 rounded-2xl border border-[#C9A96A]/30 bg-card p-5 text-sm">
             <h3 className="font-fraunces text-xl text-ink">{result.title}</h3>
             <p><span className="text-gold">Хук. </span>{result.hookAnalysis}</p>
             <p><span className="text-gold">Ритм. </span>{result.pacing}</p>
@@ -351,13 +351,13 @@ export function VideoView({ url, setUrl, presets, onAnalyze, busy, result, news,
                 <p className="mt-1 text-sm text-ink/75">{item.watch || item.action}</p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {item.url && <a href={item.url} target="_blank" rel="noreferrer" className="rounded-lg bg-gold px-3 py-1.5 text-xs font-semibold text-obsidian">Открыть источник</a>}
-                  {onTake && <button type="button" disabled={!canAct} onClick={() => onTake(item)} className="rounded-lg border border-[#2f6b4f]/30 px-3 py-1.5 text-xs font-semibold text-gold disabled:cursor-not-allowed disabled:opacity-40">Поставить на этот день</button>}
+                  {onTake && <button type="button" disabled={!canAct} onClick={() => onTake(item)} className="rounded-lg border border-[#C9A96A]/30 px-3 py-1.5 text-xs font-semibold text-gold disabled:cursor-not-allowed disabled:opacity-40">Поставить на этот день</button>}
                 </div>
               </div>
             ))}
           </div>
         </div>
-        <div className="rounded-2xl border border-emerald-500/30 bg-kedr/30 p-4 text-xs text-emerald-200">
+        <div className="rounded-2xl border border-[#C9A96A]/25 bg-[#0A0F0B] p-4 text-xs text-ink/75">
           <p className="mb-1 font-bold text-ink">Совет агента</p>
           Ролики со склейкой около секунды и живым звуком дров держат сохранения лучше студийной музыки. Включить паттерн в дни 4, 9 и 17?
           <Button3D className="mt-2.5 w-full" disabled={!canAct} onClick={onApply}>Внедрить в план</Button3D>
@@ -375,10 +375,10 @@ export function FilesView({ files, onUpload, telegram, onAddTelegram, onDigest, 
       <GlassCard className="space-y-5 rounded-3xl p-6 lg:col-span-7">
         <div className="flex items-center justify-between">
           <h2 className="font-fraunces text-2xl text-ink">База знаний ресторана</h2>
-          <span className="rounded-full bg-emerald-500/20 px-2.5 py-1 text-xs font-semibold text-emerald-300">Список на этом устройстве</span>
+          <span className="rounded-full border border-[#C9A96A]/30 px-2.5 py-1 text-xs font-semibold text-[#C9A96A]">Список на этом устройстве</span>
         </div>
         <p className="text-sm text-ink/75">PDF и DOC открываются отдельной ссылкой. Меню зала уже подключено. Загруженный файл можно смотреть, пока эта вкладка браузера открыта.</p>
-        <label className={`block rounded-2xl border-2 border-dashed border-[#2f6b4f]/30 bg-card p-6 text-center ${canAct ? 'cursor-pointer hover:border-gold' : 'cursor-not-allowed opacity-40'}`}>
+        <label className={`block rounded-2xl border-2 border-dashed border-[#C9A96A]/30 bg-card p-6 text-center ${canAct ? 'cursor-pointer hover:border-gold' : 'cursor-not-allowed opacity-40'}`}>
           <input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.csv" className="hidden" disabled={!canAct} onChange={onUpload} />
           <Upload className="mx-auto mb-3 text-gold" />
           <div className="text-sm font-semibold text-ink">Перетащите файлы или выберите с компьютера</div>
@@ -412,13 +412,13 @@ export function FilesView({ files, onUpload, telegram, onAddTelegram, onDigest, 
               <div key={item.handle} className="rounded-2xl border border-ink/10 bg-card p-3 text-xs">
                 <p className="font-semibold text-ink">{item.handle}</p>
                 <p className="text-ink/50">{item.role}</p>
-                <p className="text-emerald-300">{item.status}</p>
+                <p className="text-ink/60">{item.status}</p>
               </div>
             ))}
           </div>
           <div className="space-y-3 rounded-2xl border border-ink/10 bg-card p-4">
             <div className="flex gap-2">
-              <input value={handle} onChange={(event) => setHandle(event.target.value)} placeholder="@kedr_vip_club" className="flex-1 rounded-xl border border-ink/10 bg-card px-3 py-2 text-xs text-ink focus:border-[#2f6b4f] focus:outline-none" />
+              <input value={handle} onChange={(event) => setHandle(event.target.value)} placeholder="@kedr_vip_club" className="flex-1 rounded-xl border border-ink/10 bg-card px-3 py-2 text-xs text-ink focus:border-[#C9A96A] focus:outline-none" />
               <select value={role} onChange={(event) => setRole(event.target.value)} className="rounded-xl border border-ink/10 bg-card px-2 text-xs text-ink/75">
                 <option>Канал гостей</option>
                 <option>Бот директора</option>
@@ -428,7 +428,7 @@ export function FilesView({ files, onUpload, telegram, onAddTelegram, onDigest, 
             <Button3D tone="ghost" className="w-full border-sky-400/40 text-xs text-sky-300" disabled={!canAct} onClick={() => { onAddTelegram(handle, role); setHandle('') }}>Привязать аккаунт</Button3D>
           </div>
         </div>
-        <Button3D className="w-full bg-gradient-to-r from-matcha to-kedr text-white" disabled={!canAct} onClick={onDigest}><Send size={14} />Отметить тестовую сводку директору</Button3D>
+        <Button3D className="w-full" disabled={!canAct} onClick={onDigest}><Send size={14} />Отметить тестовую сводку директору</Button3D>
       </GlassCard>
     </section>
   )
@@ -442,7 +442,7 @@ export function InstaView({ days, canAct, onOpen, onQueue, url, setUrl, busy, re
         <h2 className="font-fraunces text-3xl text-ink">Как лечь на день KEDR</h2>
         <p className="text-sm text-ink/70">Вставьте ссылку на Reels. Разбор собирается здесь, без внешней публикации.</p>
         <div className="flex flex-col gap-2 sm:flex-row">
-          <input value={url} onChange={(event) => setUrl(event.target.value)} placeholder="Ссылка на ролик" className="flex-1 rounded-2xl border border-white/15 bg-card px-4 py-3 text-sm text-ink focus:border-[#2f6b4f] focus:outline-none" />
+          <input value={url} onChange={(event) => setUrl(event.target.value)} placeholder="Ссылка на ролик" className="flex-1 rounded-2xl border border-white/15 bg-card px-4 py-3 text-sm text-ink focus:border-[#C9A96A] focus:outline-none" />
           <Button3D onClick={() => onAnalyze()} disabled={busy}>{busy ? 'Смотрим…' : 'Разобрать'}</Button3D>
         </div>
         {result && (
@@ -461,7 +461,7 @@ export function InstaView({ days, canAct, onOpen, onQueue, url, setUrl, busy, re
           <h2 className="font-fraunces text-3xl text-ink">{FLAGSHIP.instagramHandle}</h2>
           <p className="mt-1 text-sm text-ink/75">Профиль KEDR с сайта. Текст копируется здесь и открывается в Instagram.</p>
         </div>
-        <a href={FLAGSHIP.instagram} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full bg-[#2f6b4f] px-4 py-2.5 text-sm font-semibold text-white">
+        <a href={FLAGSHIP.instagram} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full bg-[#C9A96A] px-4 py-2.5 text-sm font-semibold text-[#0A0F0B]">
           <ExternalLink size={14} />
           Открыть Instagram
         </a>
@@ -470,11 +470,11 @@ export function InstaView({ days, canAct, onOpen, onQueue, url, setUrl, busy, re
         {days.map((day) => (
           <GlassCard key={day.day} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl p-4">
             <button type="button" className="min-w-0 flex-1 text-left" onClick={() => onOpen(day)}>
-              <p className="text-xs text-gold">День {day.day} · {day.status === 'approved' ? 'утверждено' : 'черновик'}</p>
+              <p className="text-xs text-gold">{formatLong(dateForDay(day.day))} · {statusLabel(day.status)}</p>
               <p className="mt-1 text-base font-semibold text-ink">{day.title}</p>
               <p className="mt-1 line-clamp-2 text-sm text-ink/75">{day.reelHook}</p>
             </button>
-            <button type="button" disabled={!canAct} onClick={() => onQueue(day)} className="press rounded-full bg-[#2f6b4f] px-3 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40">
+            <button type="button" disabled={!canAct} onClick={() => onQueue(day)} className="press rounded-full bg-[#C9A96A] px-3 py-2 text-xs font-semibold text-[#0A0F0B] disabled:cursor-not-allowed disabled:opacity-40">
               В профиль
             </button>
           </GlassCard>
@@ -490,7 +490,7 @@ export function TeamView({ messages, members, approved, canAct, onSend, onForwar
   useEffect(() => { endRef.current?.scrollIntoView({ block: 'nearest' }) }, [messages])
   return (
     <section className="grid gap-5 lg:grid-cols-12">
-      <GlassCard className="flex min-h-[640px] flex-col rounded-3xl p-5 lg:col-span-8">
+      <GlassCard className="flex min-h-[70vh] flex-col rounded-3xl p-4 sm:p-5 lg:col-span-8 lg:min-h-[640px]">
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 className="font-fraunces text-3xl text-ink">Комната команды</h2>
@@ -515,7 +515,7 @@ export function TeamView({ messages, members, approved, canAct, onSend, onForwar
               {message.attachment && (
                 <div className="mt-3 rounded-xl border border-ink/10 bg-paper p-3">
                   <p className="text-[10px] uppercase tracking-[0.16em] text-gold">
-                    {message.attachment.kind === 'theme' ? 'Тема' : 'Пост'} · день {message.attachment.day}
+                    {message.attachment.kind === 'theme' ? 'Тема' : 'Пост'} · {formatLong(dateForDay(message.attachment.day))}
                   </p>
                   <p className="mt-1 font-semibold text-ink">{message.attachment.title}</p>
                   <p className="mt-1 text-sm leading-relaxed text-ink/75">{message.attachment.body}</p>
@@ -527,8 +527,8 @@ export function TeamView({ messages, members, approved, canAct, onSend, onForwar
         </div>
         {canAct ? (
           <form className="mt-4 flex gap-2 border-t border-ink/10 pt-4" onSubmit={(event) => { event.preventDefault(); onSend(text); setText('') }}>
-            <input value={text} onChange={(event) => setText(event.target.value)} placeholder="Написать команде" className="flex-1 rounded-xl border border-ink/10 bg-card px-3 py-3 text-sm text-ink focus:border-[#2f6b4f] focus:outline-none" />
-            <button type="submit" className="rounded-xl bg-[#2f6b4f] px-4 text-sm font-semibold text-white" aria-label="Отправить"><Send size={16} /></button>
+            <input value={text} onChange={(event) => setText(event.target.value)} placeholder="Написать команде" className="flex-1 rounded-xl border border-ink/10 bg-card px-3 py-3 text-sm text-ink focus:border-[#C9A96A] focus:outline-none" />
+            <button type="submit" className="rounded-xl bg-[#C9A96A] px-4 text-sm font-semibold text-[#0A0F0B]" aria-label="Отправить"><Send size={16} /></button>
           </form>
         ) : (
           <p className="mt-4 border-t border-ink/10 pt-4 text-sm text-ink/75">Чат открыт для чтения. Писать можно после входа и подтверждения разработчиком.</p>
@@ -541,11 +541,11 @@ export function TeamView({ messages, members, approved, canAct, onSend, onForwar
           {approved.length === 0 && <p className="text-sm text-ink/50">Пока пусто. Утвердите день в плане — он появится здесь.</p>}
           {approved.map((day) => (
             <div key={day.day} className="rounded-2xl border border-ink/10 bg-card p-3">
-              <p className="text-xs text-gold">День {day.day}</p>
+              <p className="text-xs text-gold">{formatLong(dateForDay(day.day))}</p>
               <p className="mt-1 font-semibold text-ink">{day.title}</p>
               <p className="mt-1 line-clamp-2 text-sm text-ink/75">{shownPost(day)}</p>
               <div className="mt-3 flex gap-2">
-                <button type="button" disabled={!canAct} onClick={() => onForward(day, 'post')} className="rounded-full bg-[#2f6b4f] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40">Пост</button>
+                <button type="button" disabled={!canAct} onClick={() => onForward(day, 'post')} className="rounded-full bg-[#C9A96A] px-3 py-1.5 text-xs font-semibold text-[#0A0F0B] disabled:opacity-40">Пост</button>
                 <button type="button" disabled={!canAct} onClick={() => onForward(day, 'theme')} className="rounded-full border border-ink/10 px-3 py-1.5 text-xs text-ink disabled:opacity-40">Тема</button>
               </div>
             </div>
@@ -564,7 +564,7 @@ export function DayModalBody({ day, onCopy }) {
       <p className="text-xs text-ink/75"><span className="text-gold">Хук. </span>{day.reelHook}</p>
       <p className="text-xs text-ink/75"><span className="text-gold">Сценарий. </span>{day.reelScript}</p>
       <p className="text-xs text-ink/50">Звук: {day.reelAudio}</p>
-      <p className="text-xs text-emerald-300">{day.warmupTheme} • {day.kpi}</p>
+      <p className="text-xs text-ink/60">{day.warmupTheme} • {day.kpi}</p>
       <Button3D tone="ghost" className="text-xs" onClick={() => onCopy(shownPost(day))}><Copy size={14} />Скопировать пост</Button3D>
     </div>
   )

@@ -18,7 +18,7 @@ export default function DeveloperDesk({ pending, notices, onClose, onConfirm, on
             <p className="text-sm text-ink/70">{user.email}</p>
             <p className="mt-1 text-sm text-gold">{roleLabel(user.role)} · {user.at}</p>
             <div className="mt-3 flex gap-2">
-              <button type="button" onClick={() => onConfirm(user.id)} className="rounded-full bg-[#2f6b4f] px-4 py-2 text-sm font-semibold text-white">Подтвердить</button>
+              <button type="button" onClick={() => onConfirm(user.id)} className="rounded-full bg-[#C9A96A] px-4 py-2 text-sm font-semibold text-[#0A0F0B]">Подтвердить</button>
               <button type="button" onClick={() => onReject(user.id)} className="rounded-full border border-ink/10 px-4 py-2 text-sm text-ink/80">Отклонить</button>
             </div>
           </article>

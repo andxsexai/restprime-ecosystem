@@ -24,9 +24,11 @@ import { adaptSourceToToday } from './lib/generateContent.js'
 import PostWorkshop from './pages/PostWorkshop.jsx'
 import SiteDesk from './pages/SiteDesk.jsx'
 import ReviewSheet from './components/ReviewSheet.jsx'
+import { copyText } from './lib/clipboard.js'
 import { EVENT_FORMATS, THEME_SOURCES, formatGroup } from './data/eventFormats.js'
 import { REEL_BANK } from './data/reelBank.js'
 import CookieGate from './components/CookieGate.jsx'
+import TaskDesk, { taskStamp } from './components/TaskDesk.jsx'
 import { loadAccess, saveAccess } from './lib/access.js'
 import { ADMIN_EMAIL, ROLES, SIGNUP_ROLES, hashPassword, normalizePhrase, roleLabel } from './lib/auth.js'
 import {
@@ -108,6 +110,9 @@ export default function App() {
   const [goalSource, setGoalSource] = useState(null)
   const [reviewDay, setReviewDay] = useState(null)
   const [extraReels, setExtraReels] = useState(saved?.extraReels || [])
+  const [tasks, setTasks] = useState(saved?.tasks || [])
+  const [taskLog, setTaskLog] = useState(saved?.taskLog || [])
+  const [tasksOpen, setTasksOpen] = useState(false)
   const [cookiesOn, setCookiesOn] = useState(() => {
     try { return localStorage.getItem('restprime-cookies') === 'yes' } catch { return false }
   })
@@ -162,11 +167,11 @@ export default function App() {
   useEffect(() => {
     try {
       const storedFiles = files.map((file) => (String(file.url || '').startsWith('blob:') ? { ...file, url: '' } : file))
-      localStorage.setItem(KEY, JSON.stringify({ edition: 'readable', days, focus, files: storedFiles, telegram, chat, siteNotes, extraReels }))
+      localStorage.setItem(KEY, JSON.stringify({ edition: 'readable', days, focus, files: storedFiles, telegram, chat, siteNotes, extraReels, tasks, taskLog }))
     } catch {
       /* браузер закрыл память: кабинет остаётся только на этот заход */
     }
-  }, [days, focus, files, telegram, chat, siteNotes, extraReels])
+  }, [days, focus, files, telegram, chat, siteNotes, extraReels, tasks, taskLog])
 
   useEffect(() => {
     const timer = setInterval(() => setClock(moscowToday()), 30000)
@@ -187,6 +192,7 @@ export default function App() {
         setModal(null)
         setAuthMode(null)
         setDeskOpen(false)
+        setTasksOpen(false)
       }
     }
     window.addEventListener('keydown', onKey)
@@ -264,7 +270,7 @@ export default function App() {
     const label = status === 'agreed' ? 'Согласовано' : status === 'approved' ? 'Утвердил' : 'На проверку'
     notify(item ? `${formatLong(dateForDay(item.day))} · «${item.title}»: ${label}.` : `Статус: ${label}.`)
     if (item && status !== 'review') {
-      pushMessage(`${label}: день ${dayNumber}, ${item.title}`, {
+      pushMessage(`${label}: ${formatLong(dateForDay(item.day))}, ${item.title}`, {
         kind: 'post',
         day: item.day,
         title: item.title,
@@ -305,7 +311,7 @@ export default function App() {
     patchDay(dayNumber, { status: 'approved' })
     setFocus(dayNumber)
     if (item) {
-      pushMessage(`Утверждён день ${dayNumber}: ${item.title}`, {
+      pushMessage(`Утверждено ${formatLong(dateForDay(item.day))}: ${item.title}`, {
         kind: 'post',
         day: item.day,
         title: item.title,
@@ -317,7 +323,7 @@ export default function App() {
 
   function forwardDay(item, kind) {
     if (!requireAct()) return
-    pushMessage(kind === 'theme' ? `Пересылаю тему дня ${item.day}.` : `Пересылаю пост дня ${item.day}.`, {
+    pushMessage(kind === 'theme' ? `Пересылаю тему на ${formatLong(dateForDay(item.day))}.` : `Пересылаю пост на ${formatLong(dateForDay(item.day))}.`, {
       kind,
       day: item.day,
       title: item.title,
@@ -481,6 +487,63 @@ export default function App() {
     remember({ kind: 'days', items: days })
     setDays((current) => current.map((item) => ({ ...item, ...applyTrend(item, nextTrend(item.trendId)) })))
     notify('Все задания сдвинуты на следующий приём из трендов.')
+  }
+
+  function logTask(text) {
+    setTaskLog((current) => [{ id: uid(), at: taskStamp(), text }, ...current].slice(0, 200))
+  }
+
+  function ownerName(assignee) {
+    if (String(assignee).startsWith('role:')) return roleLabel(assignee.slice(5))
+    return members.find((member) => member.email === assignee)?.name || 'команда'
+  }
+
+  function addTask(draft) {
+    if (!requireAct()) return
+    const task = { id: uid(), title: draft.title, assignee: draft.assignee, due: draft.due || isoDate(clock), day: draft.day || null, by: session.name, createdAt: taskStamp(), doneAt: '', doneBy: '' }
+    setTasks((current) => [task, ...current])
+    logTask(`${session.name} поставил «${task.title}» → ${ownerName(task.assignee)}`)
+    pushMessage(`Задача: ${task.title} → ${ownerName(task.assignee)}`)
+    notify(`Задача поставлена: ${ownerName(task.assignee)}.`)
+  }
+
+  function toggleTask(id) {
+    if (!requireAct()) return
+    const task = tasks.find((item) => item.id === id)
+    if (!task) return
+    const closing = !task.doneAt
+    setTasks((current) => current.map((item) => (item.id === id ? { ...item, doneAt: closing ? taskStamp() : '', doneBy: closing ? session.name : '' } : item)))
+    logTask(closing ? `${session.name} выполнил «${task.title}»` : `${session.name} вернул в работу «${task.title}»`)
+    if (closing) pushMessage(`Выполнено: ${task.title}`)
+    notify(closing ? `Выполнено: «${task.title}».` : `Снова в работе: «${task.title}».`)
+  }
+
+  function removeTask(id) {
+    if (!requireAct()) return
+    const task = tasks.find((item) => item.id === id)
+    if (!task) return
+    setTasks((current) => current.filter((item) => item.id !== id))
+    logTask(`${session.name} удалил «${task.title}»`)
+    notify(`Задача удалена: «${task.title}».`)
+  }
+
+  function seedDayTasks() {
+    if (!requireAct() || !todayDay) return
+    const when = formatLong(dateForDay(todayDay.day))
+    const due = isoDate(clock)
+    const plan = [
+      { title: `Проверить и утвердить пост на ${when}`, assignee: 'role:director' },
+      { title: `Подготовить кадр: ${todayDay.dish}`, assignee: 'role:chef' },
+      { title: `Опубликовать пост ${when} в Telegram и Instagram`, assignee: 'role:admin' },
+    ].filter((item) => !tasks.some((task) => task.title === item.title && !task.doneAt))
+    if (!plan.length) {
+      notify('Задачи этого дня уже стоят.')
+      return
+    }
+    const fresh = plan.map((item) => ({ id: uid(), ...item, due, day: todayDay.day, by: session.name, createdAt: taskStamp(), doneAt: '', doneBy: '' }))
+    setTasks((current) => [...fresh, ...current])
+    logTask(`${session.name} раздал задачи на ${when}: ${fresh.length}`)
+    notify(`Задачи на ${when} розданы по ролям.`)
   }
 
   function createReel(draft) {
@@ -749,6 +812,8 @@ export default function App() {
         isDeveloper={isDeveloper}
         pendingCount={pending.length}
         onDesk={() => setDeskOpen((open) => !open)}
+        openTasks={tasks.filter((task) => !task.doneAt).length}
+        onTasks={() => { setDeskOpen(false); setTasksOpen(true) }}
         onMenu={() => setNavOpen(true)}
         onAuth={() => {
           if (session) setModal('session')
@@ -783,7 +848,7 @@ export default function App() {
             days={days}
             todayIso={isoDate(clock)}
             onOpenDay={(dayNumber) => { setFocus(dayNumber); setTab('plan-30') }}
-            onCopy={async (text) => { await navigator.clipboard.writeText(text); notify('Текст скопирован.') }}
+            onCopy={async (text) => { await copyText(text); notify('Текст скопирован.') }}
           />
         )}
         {tab === 'agent' && (
@@ -794,7 +859,7 @@ export default function App() {
             onPick={setFocus}
             onRebuild={placeAgentText}
             onUndo={undoLast}
-            onCopy={async (text) => { await navigator.clipboard.writeText(text); notify('Текст агента скопирован.') }}
+            onCopy={async (text) => { await copyText(text); notify('Текст агента скопирован.') }}
           />
         )}
         {tab === 'analytics' && <Analytics days={days} todayNumber={todayNumber || day.day} />}
@@ -827,7 +892,7 @@ export default function App() {
             onImproveReel={refineReel}
           />
         )}
-        {tab === 'posts-30' && <PostsView days={days} canAct={canAct} onToggleExtension={toggleExtension} onSetStatus={setDayStatus} onReview={openReview} onCopy={async (text) => { await navigator.clipboard.writeText(text); notify('Текст поста скопирован.') }} onExport={exportCsv} />}
+        {tab === 'posts-30' && <PostsView days={days} canAct={canAct} onToggleExtension={toggleExtension} onSetStatus={setDayStatus} onReview={openReview} onCopy={async (text) => { await copyText(text); notify('Текст поста скопирован.') }} onExport={exportCsv} />}
         {tab === 'posts-edit' && (
           <PostWorkshop
             days={days}
@@ -874,7 +939,7 @@ export default function App() {
             onApplySource={applyReelSource}
             onUseBank={placeReel}
             onCreate={createReel}
-            onCopy={async (text) => { await navigator.clipboard.writeText(text); notify('Текст рилса скопирован.') }}
+            onCopy={async (text) => { await copyText(text); notify('Текст рилса скопирован.') }}
           />
         )}
         {tab === 'themes-30' && (
@@ -951,6 +1016,23 @@ export default function App() {
           else { setFocus(item.day); setTab('posts-30'); setGoalOpen(false) }
         }}
       />
+      {tasksOpen && (
+        <TaskDesk
+          tasks={tasks}
+          log={taskLog}
+          members={members}
+          days={days}
+          todayIso={isoDate(clock)}
+          todayDay={todayNumber ? todayDay : null}
+          canAct={canAct}
+          session={session}
+          onClose={() => setTasksOpen(false)}
+          onAdd={addTask}
+          onToggle={toggleTask}
+          onRemove={removeTask}
+          onSeedDay={seedDayTasks}
+        />
+      )}
       {isDeveloper && deskOpen && (
         <DeveloperDesk pending={pending} notices={access.notices} onClose={() => setDeskOpen(false)} onConfirm={confirmUser} onReject={rejectUser} />
       )}
@@ -969,7 +1051,7 @@ export default function App() {
           <p className="mb-4 whitespace-pre-wrap text-lg leading-relaxed text-ink">{modal === 'instagram' ? `${shownPost(day)}\n\n${day.reelHook}` : shownPost(day)}</p>
           <Button3D className="w-full" onClick={async () => {
             const text = modal === 'instagram' ? `${shownPost(day)}\n\n${day.reelHook}` : shownPost(day)
-            await navigator.clipboard.writeText(text)
+            await copyText(text)
             window.open(modal === 'instagram' ? FLAGSHIP.instagram : FLAGSHIP.telegram, '_blank', 'noopener')
             notify(modal === 'instagram' ? 'Текст скопирован, открыт профиль KEDR в Instagram.' : 'Текст скопирован, открыт канал KEDR в Telegram.')
           }}>{modal === 'instagram' ? 'Скопировать и открыть Instagram' : 'Скопировать и открыть Telegram'}</Button3D>
@@ -987,29 +1069,29 @@ export default function App() {
             notify(`Проект привязан к дню ${day.day}.`)
           }}>
             <p className="text-sm text-ink/60">{formatLong(dateForDay(day.day))} · {day.title}</p>
-            <input required value={projectDraft.title} onChange={(event) => setProjectDraft({ ...projectDraft, title: event.target.value })} placeholder="Название" className="w-full rounded-2xl border border-ink/10 bg-card px-3 py-2 text-sm text-ink focus:border-[#2f6b4f] focus:outline-none" />
+            <input required value={projectDraft.title} onChange={(event) => setProjectDraft({ ...projectDraft, title: event.target.value })} placeholder="Название" className="w-full rounded-2xl border border-ink/10 bg-card px-3 py-2 text-sm text-ink focus:border-[#C9A96A] focus:outline-none" />
             <select value={projectDraft.channel} onChange={(event) => setProjectDraft({ ...projectDraft, channel: event.target.value })} className="w-full rounded-2xl border border-ink/10 bg-card px-3 py-2 text-sm text-ink">
               <option>Съёмка</option>
               <option>Банкет</option>
               <option>Меню</option>
               <option>Спецпроект</option>
             </select>
-            <textarea value={projectDraft.note} onChange={(event) => setProjectDraft({ ...projectDraft, note: event.target.value })} rows={3} placeholder="Что сделать" className="w-full rounded-2xl border border-ink/10 bg-card px-3 py-2 text-sm text-ink focus:border-[#2f6b4f] focus:outline-none" />
+            <textarea value={projectDraft.note} onChange={(event) => setProjectDraft({ ...projectDraft, note: event.target.value })} rows={3} placeholder="Что сделать" className="w-full rounded-2xl border border-ink/10 bg-card px-3 py-2 text-sm text-ink focus:border-[#C9A96A] focus:outline-none" />
             <Button3D type="submit" className="w-full">Создать проект</Button3D>
           </form>
         </Modal>
       )}
 
       {modal === 'day' && (
-        <Modal title={`День ${day.day}. ${day.title}`} onClose={() => setModal(null)}>
-          <DayModalBody day={day} onCopy={async (text) => { await navigator.clipboard.writeText(text); notify('Текст поста скопирован.') }} />
+        <Modal title={`${formatLong(dateForDay(day.day))}. ${day.title}`} onClose={() => setModal(null)}>
+          <DayModalBody day={day} onCopy={async (text) => { await copyText(text); notify('Текст поста скопирован.') }} />
         </Modal>
       )}
 
       {modal === 'audit' && (
         <Modal title="Аудит ресторана по ссылке" icon={<Sparkles className="text-gold" size={18} />} onClose={() => setModal(null)}>
           <p className="mb-3 text-sm text-ink/60">Короткий конспект по адресу, без внешнего разбора сайта.</p>
-          <input value={auditUrl} onChange={(event) => setAuditUrl(event.target.value)} className="mb-3 w-full rounded-2xl border border-ink/10 bg-card px-3 py-2 text-sm text-ink focus:border-[#2f6b4f] focus:outline-none" />
+          <input value={auditUrl} onChange={(event) => setAuditUrl(event.target.value)} className="mb-3 w-full rounded-2xl border border-ink/10 bg-card px-3 py-2 text-sm text-ink focus:border-[#C9A96A] focus:outline-none" />
           <Button3D disabled={auditBusy} onClick={() => {
             setAuditBusy(true)
             window.setTimeout(() => {
@@ -1029,7 +1111,7 @@ export default function App() {
           <p className="mt-4 text-sm text-ink/70">{session.secretHash ? 'Секретная фраза сохранена в этом кабинете. Её нельзя посмотреть повторно.' : 'Фраза ещё не задана. Придумайте её один раз — по ней восстанавливается пароль.'}</p>
           {!session.secretHash && (
             <form className="mt-3 space-y-3" onSubmit={savePhrase}>
-              <input value={phraseDraft} onChange={(event) => setPhraseDraft(event.target.value)} minLength={4} required placeholder="Секретная фраза" className="w-full rounded-2xl border border-white/15 bg-card px-4 py-3 text-sm text-ink outline-none focus:border-[#2f6b4f]" />
+              <input value={phraseDraft} onChange={(event) => setPhraseDraft(event.target.value)} minLength={4} required placeholder="Секретная фраза" className="w-full rounded-2xl border border-white/15 bg-card px-4 py-3 text-sm text-ink outline-none focus:border-[#C9A96A]" />
               <Button3D type="submit" className="w-full">Зафиксировать фразу</Button3D>
             </form>
           )}

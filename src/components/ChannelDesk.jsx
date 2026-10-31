@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { TELEGRAM_CHANNELS, TREND_SITES } from '../data/telegramChannels.js'
 import telegramFeed from '../data/telegramFeed.json'
 import { channelTraits, traitNotes } from '../lib/compose.js'
+import { copyText } from '../lib/clipboard.js'
 import { formatLong, moscowKey, recentMoscowKeys } from '../lib/planDates.js'
 
 function moscowLabel(iso) {
@@ -43,19 +44,7 @@ export default function ChannelDesk({ canAct, onWrite, onRework }) {
 
   async function copyPost(post) {
     const body = `${post.channelTitle}\n${moscowLabel(post.date)}\n${post.url}\n\n${post.text}`
-    try {
-      await navigator.clipboard.writeText(body)
-    } catch {
-      const area = document.createElement('textarea')
-      area.value = body
-      area.setAttribute('readonly', '')
-      area.style.position = 'fixed'
-      area.style.left = '-9999px'
-      document.body.appendChild(area)
-      area.select()
-      document.execCommand('copy')
-      area.remove()
-    }
+    await copyText(body)
     setCopiedId(post.id + post.channelId)
   }
 
