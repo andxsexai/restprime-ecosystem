@@ -15,6 +15,10 @@ export function roleLabel(id) {
   return ROLES.find((role) => role.id === id)?.label || 'Сотрудник'
 }
 
+export function normalizePhrase(value) {
+  return String(value || '').trim().replace(/\s+/g, ' ').toLowerCase()
+}
+
 export async function hashPassword(password) {
   const data = new TextEncoder().encode(password)
   const digest = await crypto.subtle.digest('SHA-256', data)

@@ -1,6 +1,7 @@
 export const newsFeed = [
   {
     id: 'viterno',
+    iso: '2026-10-18',
     dateLabel: 'октябрь 2026',
     source: 'Viterno',
     service: 'Instagram Reels',
@@ -11,6 +12,7 @@ export const newsFeed = [
   },
   {
     id: 'aubrium',
+    iso: '2026-10-22',
     dateLabel: '22 октября 2026',
     source: 'Aubrium',
     service: 'Ролики хозяина',
@@ -21,6 +23,7 @@ export const newsFeed = [
   },
   {
     id: 'velocity',
+    iso: '2026-04-02',
     dateLabel: '2026',
     source: 'Restaurant Velocity',
     service: 'Instagram / TikTok',
@@ -31,6 +34,7 @@ export const newsFeed = [
   },
   {
     id: 'metaroots',
+    iso: '2026-06-12',
     dateLabel: '2026',
     source: 'Metaroots',
     service: 'Instagram и TikTok',
@@ -41,6 +45,7 @@ export const newsFeed = [
   },
   {
     id: 'foodinstitute',
+    iso: '2026-01-20',
     dateLabel: 'январь 2026',
     source: 'The Food Institute',
     service: 'Разбор трендов',
@@ -51,6 +56,7 @@ export const newsFeed = [
   },
   {
     id: 'nra-hot',
+    iso: '2026-01-28',
     dateLabel: '2026',
     source: 'National Restaurant Association',
     service: 'What’s Hot',
@@ -61,6 +67,7 @@ export const newsFeed = [
   },
   {
     id: 'nrn-scrolls',
+    iso: '2026-03-04',
     dateLabel: '2026',
     source: 'Nation’s Restaurant News',
     service: 'Соцсети',
@@ -71,6 +78,7 @@ export const newsFeed = [
   },
   {
     id: 'sevenrooms',
+    iso: '2026-02-18',
     dateLabel: '2026',
     source: 'DoorDash и SevenRooms',
     service: 'Бронь',
@@ -81,6 +89,7 @@ export const newsFeed = [
   },
   {
     id: 'kedr-site',
+    iso: '2026-10-31',
     dateLabel: 'сайт зала',
     source: 'kedr-res.ru',
     service: 'Бронь',

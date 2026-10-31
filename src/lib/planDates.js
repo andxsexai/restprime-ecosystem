@@ -4,6 +4,16 @@ const MONTHS = ['января', 'февраля', 'марта', 'апреля', 
 const MONTHS_NOM = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь']
 const WEEK = ['воскресенье', 'понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота']
 
+export function planDayForDate(date) {
+  const start = new Date(PLAN_START)
+  start.setHours(0, 0, 0, 0)
+  const target = new Date(date)
+  target.setHours(0, 0, 0, 0)
+  const diff = Math.round((target.getTime() - start.getTime()) / 86400000) + 1
+  if (diff < 1 || diff > 30) return null
+  return diff
+}
+
 export function dateForDay(dayNumber) {
   const date = new Date(PLAN_START)
   date.setDate(date.getDate() + dayNumber - 1)

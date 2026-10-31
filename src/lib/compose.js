@@ -68,6 +68,19 @@ export function improveWide(day) {
   return capWords(withOpen)
 }
 
+export function improveReel(day) {
+  if (!day?.dish || day.dish.startsWith('без тарелки')) {
+    return {
+      reelHook: 'Вот зал, пока никто не сел.',
+      reelScript: 'Свет, дерево, пустые стулья. Тарелки в кадре нет. В конце — адрес: Сосновая, 3.',
+    }
+  }
+  return {
+    reelHook: lead(day.scene).endsWith('.') ? lead(day.scene) : `${lead(day.scene)}.`,
+    reelScript: `Сначала сцена: ${day.scene}. Потом крупно ${day.dish}. В конце одна фраза про стол и kedr-res.ru.`,
+  }
+}
+
 export function writeFromNews(day, news, format) {
   const angle = `${news.title}. ${news.watch}`
   if (format === 'wide') return wideFromDay(day, angle)

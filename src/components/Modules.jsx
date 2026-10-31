@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Check, Copy, Download, ExternalLink, RefreshCw, Send, Sparkles, Upload } from 'lucide-react'
 import { FLAGSHIP } from '../data/place.js'
 import { shownPost, wordCount } from '../lib/compose.js'
+import DayPhoto from './DayPhoto.jsx'
 import { roleLabel } from '../lib/auth.js'
 import Button3D from './ui/Button3D.jsx'
 import GlassCard from './ui/GlassCard.jsx'
@@ -9,7 +10,7 @@ import GlassCard from './ui/GlassCard.jsx'
 const TASKS = ['all', 'Быт', 'Гости', 'Зал', 'Меню', 'Напиток', 'Повод']
 const TASK_LABEL = { all: 'Все задания', Быт: 'Быт', Гости: 'Гости', Зал: 'Зал', Меню: 'Из меню', Напиток: 'Напиток', Повод: 'Повод' }
 
-export function PlanView({ days, status, pillar, onStatus, onPillar, onApproveAll, onRebuild, onOpen, onApprove, onTelegram, onInstagram, onProject, onMatch, onReplace, onForward, trends, boards, canAct }) {
+export function PlanView({ days, status, pillar, onStatus, onPillar, onApproveAll, onRebuild, onOpen, onApprove, onMatch, onReplace, onForward, onImprove, onImproveReel, trends, boards, canAct }) {
   const visible = days.filter((day) => (status === 'all' || day.status === status) && (pillar === 'all' || day.pillar === pillar))
   return (
     <section className="space-y-5">
@@ -61,10 +62,11 @@ export function PlanView({ days, status, pillar, onStatus, onPillar, onApproveAl
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {visible.map((day) => (
           <GlassCard key={day.day} className="relative rounded-2xl p-4">
+            <DayPhoto day={day.day} className="mb-3 h-36 w-full rounded-2xl object-cover" />
             <button type="button" className="w-full text-left" onClick={() => onOpen(day)}>
               <div className="mb-2 flex items-center gap-2">
                 <span className="font-fraunces text-2xl text-[#2f6b4f]">{String(day.day).padStart(2, '0')}</span>
-                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${day.status === 'approved' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'}`}>
+                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${day.status === 'approved' ? 'bg-[#e7f0ea] text-kedr' : 'bg-white/70 text-ink/70'}`}>
                   {day.status === 'approved' ? 'Утверждено' : 'На проверке'}
                 </span>
               </div>
@@ -72,11 +74,14 @@ export function PlanView({ days, status, pillar, onStatus, onPillar, onApproveAl
               <p className="mt-3 line-clamp-4 whitespace-pre-wrap text-sm leading-relaxed text-ink/75">{shownPost(day)}</p>
               <p className="mt-2 text-xs text-ink/50">{day.pillar} · {day.scene}</p>
               <p className="mt-1 text-xs text-[#2f6b4f]">{day.dish} · {day.margin}</p>
+              <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-ink/70">Reels: {day.reelHook} {day.reelScript}</p>
             </button>
             <div className="mt-4 flex flex-wrap gap-2">
-              <button type="button" disabled={!canAct} onClick={() => onApprove(day.day)} className="rounded-full bg-[#2f6b4f] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40">Утвердить</button>
-              <button type="button" disabled={!canAct} onClick={() => onReplace(day.day)} className="rounded-full border border-ink/10 px-3 py-1.5 text-xs text-ink disabled:opacity-40">Переделать</button>
-              <button type="button" disabled={!canAct} onClick={() => onForward(day, 'post')} className="rounded-full border border-ink/10 px-3 py-1.5 text-xs text-ink disabled:opacity-40">В чат</button>
+              <button type="button" disabled={!canAct} onClick={() => onApprove(day.day)} className="press rounded-full bg-[#2f6b4f] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40">Утвердить</button>
+              <button type="button" disabled={!canAct} onClick={() => onImprove(day.day)} className="press rounded-full border border-ink/10 px-3 py-1.5 text-xs text-ink disabled:opacity-40">Улучшить пост</button>
+              <button type="button" disabled={!canAct} onClick={() => onImproveReel(day.day)} className="press rounded-full border border-ink/10 px-3 py-1.5 text-xs text-ink disabled:opacity-40">Улучшить рилс</button>
+              <button type="button" disabled={!canAct} onClick={() => onReplace(day.day)} className="press rounded-full border border-ink/10 px-3 py-1.5 text-xs text-ink disabled:opacity-40">Переделать</button>
+              <button type="button" disabled={!canAct} onClick={() => onForward(day, 'post')} className="press rounded-full border border-ink/10 px-3 py-1.5 text-xs text-ink disabled:opacity-40">В чат</button>
             </div>
           </GlassCard>
         ))}
@@ -107,6 +112,7 @@ export function PostsView({ days, onCopy, onExport }) {
               <span>День {day.day} • {day.pillar}</span>
               <button type="button" onClick={() => onCopy(shownPost(day))} className="press inline-flex items-center gap-1 text-[#2f6b4f]"><Copy size={13} />Копировать</button>
             </div>
+            <DayPhoto day={day.day} className="mb-3 h-44 w-full rounded-2xl object-cover" />
             <h3 className="font-fraunces text-3xl text-ink">{day.title}</h3>
             <p className="mt-1 text-xs text-[#2f6b4f]">{(day.format === 'wide' ? 'Широкий' : 'Короткий')} · {wordCount(shownPost(day))} слов</p>
             <p className="mt-4 whitespace-pre-wrap text-base leading-relaxed text-ink/75">{shownPost(day)}</p>
@@ -118,7 +124,7 @@ export function PostsView({ days, onCopy, onExport }) {
   )
 }
 
-export function ReelsView({ days }) {
+export function ReelsView({ days, canAct, onImprove }) {
   return (
     <section className="space-y-5">
       <GlassCard className="flex flex-wrap items-center justify-between gap-4 rounded-2xl p-5">
@@ -131,11 +137,13 @@ export function ReelsView({ days }) {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {days.map((day) => (
           <GlassCard key={day.day} className="rounded-2xl p-4">
-            <p className="text-[11px] uppercase tracking-widest text-pink-300">День {day.day}</p>
+            <DayPhoto day={day.day} className="mb-3 h-32 w-full rounded-2xl object-cover" />
+            <p className="text-[11px] uppercase tracking-widest text-[#2f6b4f]">День {day.day}</p>
             <h3 className="mt-1 text-sm font-semibold text-ink">{day.title}</h3>
-            <p className="mt-3 text-xs text-[#2f6b4f]">{day.reelHook}</p>
-            <p className="mt-2 text-xs leading-relaxed text-ink/75">{day.reelScript}</p>
+            <p className="mt-3 text-sm text-[#2f6b4f]">{day.reelHook}</p>
+            <p className="mt-2 text-sm leading-relaxed text-ink/75">{day.reelScript}</p>
             <p className="mt-3 text-[11px] text-ink/50">Звук: {day.reelAudio}</p>
+            <button type="button" disabled={!canAct} onClick={() => onImprove(day.day)} className="press mt-3 rounded-full border border-ink/10 px-3 py-1.5 text-xs text-ink disabled:opacity-40">Улучшить сценарий</button>
           </GlassCard>
         ))}
       </div>
@@ -291,9 +299,27 @@ export function FilesView({ files, onUpload, telegram, onAddTelegram, onDigest, 
   )
 }
 
-export function InstaView({ days, canAct, onOpen, onQueue }) {
+export function InstaView({ days, canAct, onOpen, onQueue, url, setUrl, busy, result, onAnalyze }) {
   return (
     <section className="space-y-5">
+      <GlassCard className="space-y-4 rounded-[28px] p-6">
+        <p className="text-xs uppercase tracking-[0.16em] text-[#2f6b4f]">Разбор ролика</p>
+        <h2 className="font-fraunces text-3xl text-ink">Как лечь на день KEDR</h2>
+        <p className="text-sm text-ink/70">Вставьте ссылку на Reels. Разбор собирается здесь, без внешней публикации.</p>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <input value={url} onChange={(event) => setUrl(event.target.value)} placeholder="Ссылка на ролик" className="flex-1 rounded-2xl border border-white/80 bg-white/70 px-4 py-3 text-sm text-ink focus:border-[#2f6b4f] focus:outline-none" />
+          <Button3D onClick={() => onAnalyze()} disabled={busy}>{busy ? 'Смотрим…' : 'Разобрать'}</Button3D>
+        </div>
+        {result && (
+          <div className="space-y-2 rounded-2xl bg-white/50 p-4 text-sm leading-relaxed text-ink/80">
+            <p className="font-semibold text-ink">{result.title}</p>
+            <p>{result.hookAnalysis}</p>
+            <p>{result.pacing}</p>
+            <p>{result.audioTrigger}</p>
+            <p>{result.kedrAdaptation}</p>
+          </div>
+        )}
+      </GlassCard>
       <div className="metal-slide flex flex-wrap items-center justify-between gap-4 rounded-3xl p-6">
         <div>
           <p className="text-[10px] uppercase tracking-[0.22em] text-[#2f6b4f]">Профиль с сайта kedr-res.ru</p>
@@ -313,7 +339,7 @@ export function InstaView({ days, canAct, onOpen, onQueue }) {
               <p className="mt-1 text-base font-semibold text-ink">{day.title}</p>
               <p className="mt-1 line-clamp-2 text-sm text-ink/75">{day.reelHook}</p>
             </button>
-            <button type="button" disabled={!canAct} onClick={() => onQueue(day)} className="rounded-xl bg-pink-500/20 px-3 py-2 text-xs font-semibold text-pink-100 disabled:cursor-not-allowed disabled:opacity-40">
+            <button type="button" disabled={!canAct} onClick={() => onQueue(day)} className="press rounded-full bg-[#2f6b4f] px-3 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40">
               В профиль
             </button>
           </GlassCard>

@@ -4,19 +4,19 @@ import { contentPlan } from './data/contentPlan.js'
 import { newsFeed } from './data/news.js'
 import { FLAGSHIP } from './data/place.js'
 import { starterChat, starterFiles, starterTelegram, videoPresets } from './data/suite.js'
-import { HeroBoard, ModuleNav, TopBar } from './components/Chrome.jsx'
+import { ModuleNav, TopBar } from './components/Chrome.jsx'
+import TodayScreen from './components/TodayScreen.jsx'
 import ReleaseCorner from './components/ReleaseCorner.jsx'
 import AccessModal from './components/AccessModal.jsx'
 import DeveloperDesk from './components/DeveloperDesk.jsx'
-import { applyNews } from './lib/matchDay.js'
-import { improveShort, improveWide, shownPost, wideFromDay, wordCount, writeFromNews } from './lib/compose.js'
+import { improveReel, improveShort, improveWide, shownPost, wideFromDay, wordCount, writeFromNews } from './lib/compose.js'
 import TrendFeed from './components/TrendFeed.jsx'
 import { applyTrend, nextTrend, trendBoards, trends } from './data/trends.js'
-import { dateForDay, formatLong } from './lib/planDates.js'
+import { dateForDay, formatLong, isoDate, planDayForDate } from './lib/planDates.js'
 import { loadAccess, saveAccess } from './lib/access.js'
-import { hashPassword, roleLabel } from './lib/auth.js'
+import { hashPassword, normalizePhrase, roleLabel } from './lib/auth.js'
 import {
-  DayModalBody, FilesView, InstaView, PlanView, PostsView, ReelsView, TeamView, ThemesView, VideoView,
+  DayModalBody, FilesView, InstaView, PlanView, PostsView, ReelsView, TeamView, ThemesView,
 } from './components/Modules.jsx'
 import Button3D from './components/ui/Button3D.jsx'
 import Modal from './components/ui/Modal.jsx'
@@ -49,15 +49,16 @@ function uid() {
 
 export default function App() {
   const saved = useMemo(loadState, [])
+  const todayNumber = useMemo(() => planDayForDate(new Date()), [])
   const [tab, setTab] = useState('plan-30')
   const [days, setDays] = useState(saved?.days || contentPlan)
-  const [focus, setFocus] = useState(saved?.focus || 1)
+  const [focus, setFocus] = useState(todayNumber || saved?.focus || 1)
   const [status, setStatus] = useState('all')
   const [pillar, setPillar] = useState('all')
   const [files, setFiles] = useState(saved?.files || starterFiles)
   const [telegram, setTelegram] = useState(saved?.telegram || starterTelegram)
   const [chat, setChat] = useState(() => initialChat(saved))
-  const [news, setNews] = useState(newsFeed)
+  const news = newsFeed
   const [projectDraft, setProjectDraft] = useState({ title: '', channel: 'Съёмка', note: '' })
   const [access, setAccess] = useState(loadAccess)
   const [authMode, setAuthMode] = useState(null)
@@ -72,7 +73,7 @@ export default function App() {
   const [auditUrl, setAuditUrl] = useState('https://kedr-res.ru/')
   const [auditResult, setAuditResult] = useState('')
   const [auditBusy, setAuditBusy] = useState(false)
-  const [theme, setTheme] = useState(() => localStorage.getItem('restprime-theme') || 'light')
+  const [phraseDraft, setPhraseDraft] = useState('')
 
   const day = days.find((item) => item.day === focus) || days[0]
   const session = access.users.find((user) => user.email === access.sessionEmail) || null
@@ -81,19 +82,16 @@ export default function App() {
   const pending = access.users.filter((user) => user.status === 'pending')
   const members = access.users.filter((user) => user.status === 'active')
   const approved = days.filter((item) => item.status === 'approved')
+  const recentNews = useMemo(() => {
+    const limit = isoDate(new Date())
+    return news.filter((item) => item.iso && item.iso <= limit).sort((a, b) => b.iso.localeCompare(a.iso))
+  }, [news])
 
   useEffect(() => {
     localStorage.setItem(KEY, JSON.stringify({ edition: 'readable', days, focus, files, telegram, chat }))
   }, [days, focus, files, telegram, chat])
 
   useEffect(() => { saveAccess(access) }, [access])
-
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme
-    localStorage.setItem('restprime-theme', theme)
-    const meta = document.querySelector('meta[name="theme-color"]')
-    if (meta) meta.setAttribute('content', theme === 'dark' ? '#101614' : '#f3efe6')
-  }, [theme])
 
   useEffect(() => {
     if (!toast) return undefined
@@ -195,6 +193,15 @@ export default function App() {
     setFocus(dayNumber)
   }
 
+  function refineReel(dayNumber) {
+    if (!requireAct()) return
+    const item = days.find((entry) => entry.day === dayNumber)
+    if (!item) return
+    patchDay(dayNumber, improveReel(item))
+    setFocus(dayNumber)
+    notify(`Сценарий дня ${dayNumber} собран заново.`)
+  }
+
   function writeNews(story, format) {
     if (!requireAct()) return
     const text = writeFromNews(day, story, format)
@@ -294,19 +301,25 @@ export default function App() {
     if (person.role === 'developer') setDeskOpen(true)
   }
 
-  async function register({ name, email, password, role }) {
+  async function register({ name, email, password, role, phrase }) {
     const clean = email.trim().toLowerCase()
+    if (normalizePhrase(phrase).length < 4) {
+      setAuthError('Секретная фраза короче четырёх символов.')
+      return
+    }
     if (access.users.some((user) => user.email === clean)) {
       setAuthError('Эта почта уже есть. Войдите или дождитесь подтверждения.')
       return
     }
     setAuthBusy(true)
     const passwordHash = await hashPassword(password)
+    const secretHash = await hashPassword(normalizePhrase(phrase))
     const person = {
       id: uid(),
       name: name.trim(),
       email: clean,
       passwordHash,
+      secretHash,
       role,
       status: 'pending',
       at: stamp(),
@@ -345,6 +358,66 @@ export default function App() {
     notify(`Заявка ${person.name} отклонена.`)
   }
 
+  async function resetPassword({ email, phrase, password }) {
+    const clean = email.trim().toLowerCase()
+    const person = access.users.find((user) => user.email === clean)
+    if (!person) {
+      setAuthError('Такой почты нет.')
+      return
+    }
+    if (!person.secretHash) {
+      setAuthError('Фраза ещё не задана. Отправьте заявку разработчику.')
+      return
+    }
+    setAuthBusy(true)
+    const secretHash = await hashPassword(normalizePhrase(phrase))
+    const passwordHash = await hashPassword(password)
+    setAuthBusy(false)
+    if (secretHash !== person.secretHash) {
+      setAuthError('Фраза не совпала.')
+      return
+    }
+    setAccess((current) => ({
+      ...current,
+      users: current.users.map((user) => (user.email === clean ? { ...user, passwordHash } : user)),
+    }))
+    setAuthMode(null)
+    setAuthError('')
+    notify('Новый пароль сохранён. Можно входить.')
+  }
+
+  function requestRecovery(email) {
+    const clean = email.trim().toLowerCase()
+    const person = access.users.find((user) => user.email === clean)
+    if (!person) {
+      setAuthError('Такой почты нет.')
+      return
+    }
+    setAccess((current) => ({
+      ...current,
+      notices: [{ id: uid(), text: `${person.name} просит восстановить пароль: ${person.email}`, at: stamp() }, ...current.notices],
+    }))
+    setAuthMode(null)
+    setAuthError('')
+    notify('Заявка на восстановление отправлена разработчику.')
+  }
+
+  async function savePhrase(event) {
+    event.preventDefault()
+    if (!session || session.secretHash) return
+    if (normalizePhrase(phraseDraft).length < 4) {
+      notify('Фраза короче четырёх символов.')
+      return
+    }
+    const secretHash = await hashPassword(normalizePhrase(phraseDraft))
+    setAccess((current) => ({
+      ...current,
+      users: current.users.map((user) => (user.email === session.email ? { ...user, secretHash } : user)),
+    }))
+    setPhraseDraft('')
+    notify('Секретная фраза сохранена в кабинете и больше не показывается.')
+  }
+
   function logout() {
     setAccess((current) => ({ ...current, sessionEmail: null }))
     setModal(null)
@@ -364,8 +437,6 @@ export default function App() {
         isDeveloper={isDeveloper}
         pendingCount={pending.length}
         onDesk={() => setDeskOpen((open) => !open)}
-        theme={theme}
-        onTheme={() => setTheme((value) => (value === 'dark' ? 'light' : 'dark'))}
       />
       <main className="relative z-10 mx-auto max-w-[1100px] space-y-6 px-4 pb-16 pt-6 sm:px-6">
         {!canAct && (
@@ -374,17 +445,16 @@ export default function App() {
             {!session && <button type="button" onClick={() => { setAuthError(''); setAuthMode('register') }} className="shrink-0 rounded-full bg-[#2f6b4f] px-4 py-2 text-sm font-semibold text-white">Регистрация</button>}
           </div>
         )}
-        <HeroBoard
-          place={FLAGSHIP}
+        <TodayScreen
+          days={days}
           day={day}
-          approved={day.status === 'approved'}
+          todayNumber={todayNumber}
+          news={recentNews}
           canAct={canAct}
-          onPillar={(next) => { setPillar(next); setTab('plan-30') }}
-          text={shownPost(day)}
-          words={wordCount(shownPost(day))}
-          format={day.format || 'short'}
+          onPick={setFocus}
           onFormat={(format) => setFormat(day.day, format)}
           onImprove={() => improveDay(day.day)}
+          onImproveReel={() => refineReel(day.day)}
           onApprove={() => approve(day.day)}
           onReplace={() => rebuildDay(day.day)}
           onChat={() => forwardDay(day, 'post')}
@@ -414,27 +484,14 @@ export default function App() {
             onMatch={(trend) => rebuildDay(focus, trend)}
             onReplace={rebuildDay}
             onForward={forwardDay}
+            onImprove={improveDay}
+            onImproveReel={refineReel}
           />
         )}
         {tab === 'posts-30' && <PostsView days={days} onCopy={async (text) => { await navigator.clipboard.writeText(text); notify('Текст поста скопирован.') }} onExport={exportCsv} />}
-        {tab === 'news-feed' && <TrendFeed items={news.filter((item) => item.id !== 'instagram' && item.id !== 'telegram')} day={day} canAct={canAct} onWrite={writeNews} />}
-        {tab === 'reels-30' && <ReelsView days={days} />}
+        {tab === 'news-feed' && <TrendFeed items={recentNews} days={days} day={day} canAct={canAct} onPick={setFocus} onWrite={writeNews} />}
+        {tab === 'reels-30' && <ReelsView days={days} canAct={canAct} onImprove={refineReel} />}
         {tab === 'themes-30' && <ThemesView days={days} />}
-        {tab === 'video-ai' && (
-          <VideoView
-            url={url}
-            setUrl={setUrl}
-            presets={videoPresets}
-            busy={busy}
-            result={result}
-            news={news}
-            canAct={canAct}
-            onAnalyze={analyze}
-            onTake={(item) => { if (!requireAct()) return; patchDay(day.day, applyNews(day, item)); notify(`${item.source} поставлен на день ${day.day}.`) }}
-            onRefresh={() => setNews((current) => [...current].reverse())}
-            onApply={() => { if (!requireAct()) return; setDays((current) => current.map((item) => ([4, 9, 17].includes(item.day) ? { ...item, reelAudio: 'Склейка ~0.8 сек и треск дров' } : item))); setTab('plan-30'); notify('Паттерн огня записан в дни 4, 9 и 17.') }}
-          />
-        )}
         {tab === 'files-tg' && (
           <FilesView
             files={files}
@@ -456,6 +513,11 @@ export default function App() {
             canAct={canAct}
             onOpen={(item) => { setFocus(item.day); setModal('day') }}
             onQueue={(item) => openChannel('instagram', item)}
+            url={url}
+            setUrl={setUrl}
+            busy={busy}
+            result={result}
+            onAnalyze={analyze}
           />
         )}
         {tab === 'github-tz' && (
@@ -540,6 +602,13 @@ export default function App() {
         <Modal title={session.name} onClose={() => setModal(null)}>
           <p className="text-sm text-ink/70">{session.email}</p>
           <p className="mt-1 text-sm text-[#2f6b4f]">{roleLabel(session.role)} · {session.status === 'active' ? 'доступ открыт' : 'ожидает подтверждения'}</p>
+          <p className="mt-4 text-sm text-ink/70">{session.secretHash ? 'Секретная фраза сохранена в этом кабинете. Её нельзя посмотреть повторно.' : 'Фраза ещё не задана. Придумайте её один раз — по ней восстанавливается пароль.'}</p>
+          {!session.secretHash && (
+            <form className="mt-3 space-y-3" onSubmit={savePhrase}>
+              <input value={phraseDraft} onChange={(event) => setPhraseDraft(event.target.value)} minLength={4} required placeholder="Секретная фраза" className="w-full rounded-2xl border border-white/80 bg-white/70 px-4 py-3 text-sm text-ink outline-none focus:border-[#2f6b4f]" />
+              <Button3D type="submit" className="w-full">Зафиксировать фразу</Button3D>
+            </form>
+          )}
           <Button3D tone="ghost" className="mt-5 w-full" onClick={logout}>Выйти</Button3D>
         </Modal>
       )}
@@ -553,6 +622,8 @@ export default function App() {
           onClose={() => { setAuthMode(null); setAuthError('') }}
           onLogin={login}
           onRegister={register}
+          onReset={resetPassword}
+          onRequest={requestRecovery}
         />
       )}
     </div>

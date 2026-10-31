@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { wordCount, WIDE_SAMPLE } from '../lib/compose.js'
+import { dateForDay, formatLong } from '../lib/planDates.js'
 
-export default function TrendFeed({ items, day, canAct, onWrite }) {
+export default function TrendFeed({ items, days, day, canAct, onWrite, onPick }) {
   const [openId, setOpenId] = useState(items[0]?.id || null)
   const [sample, setSample] = useState(false)
   const current = items.find((item) => item.id === openId) || items[0]
@@ -10,10 +11,18 @@ export default function TrendFeed({ items, day, canAct, onWrite }) {
     <section className="space-y-5">
       <div className="rounded-[28px] border border-ink/10 bg-card p-6">
         <p className="text-xs uppercase tracking-[0.18em] text-[#2f6b4f]">Мировая лента</p>
-        <h2 className="font-fraunces mt-1 text-3xl text-ink">Тренды ресторанного года</h2>
+        <h2 className="font-fraunces mt-1 text-3xl text-ink">Новости ресторанного года</h2>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink/70">
-          Разбор чужого материала, затем пост на день {day.day}. Короткий — несколько фраз. Широкий — до 500 слов, в тёплом тоне брони.
+          Материал до сегодняшнего дня. Из него можно переписать пост на любой день плана: короткий или широкий, до 500 слов.
         </p>
+        <label className="mt-4 block text-sm text-ink/70">
+          День для нового поста
+          <select value={day.day} onChange={(event) => onPick(Number(event.target.value))} className="mt-2 w-full rounded-2xl border border-white/80 bg-white/70 px-3 py-3 text-ink">
+            {days.map((item) => (
+              <option key={item.day} value={item.day}>{formatLong(dateForDay(item.day))} · день {item.day} · {item.title}</option>
+            ))}
+          </select>
+        </label>
         <button type="button" onClick={() => setSample((value) => !value)} className="press mt-4 text-sm text-[#2f6b4f]">
           {sample ? 'Скрыть образец широкого поста' : 'Показать образец широкого поста'}
         </button>
