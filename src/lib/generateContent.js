@@ -52,7 +52,13 @@ export function generateTelegramPost(rubricId, topic, plate = {}) {
   return `${storyText}\n\n${SALES}`
 }
 
-export function generateInfinitePlan(startDate = '2026-10-31', limit = 365) {
+export function adaptSourceToToday(day, sourceText) {
+  const raw = String(sourceText || '')
+  const rubric = raw.includes('?') ? 'engage' : raw.length > 500 ? 'kitchen' : 'sense'
+  return generateTelegramPost(rubric, day?.scene, day)
+}
+
+export function generateInfinitePlan(startDate = isoDate(PLAN_START), limit = 365) {
   const [year, month, day] = String(startDate).split('-').map(Number)
   const start = new Date(year, month - 1, day)
   if (Number.isNaN(start.getTime())) return []

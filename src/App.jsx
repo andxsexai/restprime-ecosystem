@@ -19,7 +19,10 @@ import ChannelDesk from './components/ChannelDesk.jsx'
 import telegramFeed from './data/telegramFeed.json'
 import TrendFeed from './components/TrendFeed.jsx'
 import { applyTrend, nextTrend, trendBoards, trends } from './data/trends.js'
-import { dateForDay, formatLong, isoDate, planDayForDate } from './lib/planDates.js'
+import { dateForDay, formatLong, isoDate, moscowToday, planDayForDate } from './lib/planDates.js'
+import { adaptSourceToToday } from './lib/generateContent.js'
+import PostWorkshop from './pages/PostWorkshop.jsx'
+import SiteDesk from './pages/SiteDesk.jsx'
 import { loadAccess, saveAccess } from './lib/access.js'
 import { hashPassword, normalizePhrase, roleLabel } from './lib/auth.js'
 import {
@@ -58,11 +61,13 @@ function uid() {
 
 export default function App() {
   const saved = useMemo(loadState, [])
-  const todayNumber = useMemo(() => planDayForDate(new Date()), [])
+  const [clock, setClock] = useState(() => moscowToday())
+  const todayNumber = planDayForDate(clock)
   const [tab, setTab] = useState('overview')
   const [navOpen, setNavOpen] = useState(false)
   const [days, setDays] = useState(saved?.days || contentPlan)
-  const [focus, setFocus] = useState(todayNumber || saved?.focus || 1)
+  const [focus, setFocus] = useState(() => planDayForDate(moscowToday()) || saved?.focus || 1)
+  const [siteNotes, setSiteNotes] = useState(saved?.siteNotes || '')
   const [status, setStatus] = useState('all')
   const [pillar, setPillar] = useState('all')
   const [files, setFiles] = useState(saved?.files || starterFiles)
@@ -91,15 +96,22 @@ export default function App() {
   const isDeveloper = canAct && session?.role === 'developer'
   const pending = access.users.filter((user) => user.status === 'pending')
   const members = access.users.filter((user) => user.status === 'active')
-  const approved = days.filter((item) => item.status === 'approved')
+  const approved = days.filter((item) => item.status === 'approved' || item.status === 'agreed')
   const recentNews = useMemo(() => {
-    const limit = isoDate(new Date())
+    const limit = isoDate(clock)
     return news.filter((item) => item.iso && item.iso <= limit).sort((a, b) => b.iso.localeCompare(a.iso))
-  }, [news])
+  }, [news, clock])
+  const todayDay = days.find((item) => item.day === todayNumber) || days[0]
+  const todayLabel = formatLong(clock)
 
   useEffect(() => {
-    localStorage.setItem(KEY, JSON.stringify({ edition: 'readable', days, focus, files, telegram, chat }))
-  }, [days, focus, files, telegram, chat])
+    localStorage.setItem(KEY, JSON.stringify({ edition: 'readable', days, focus, files, telegram, chat, siteNotes }))
+  }, [days, focus, files, telegram, chat, siteNotes])
+
+  useEffect(() => {
+    const timer = setInterval(() => setClock(moscowToday()), 30000)
+    return () => clearInterval(timer)
+  }, [])
 
   useEffect(() => { saveAccess(access) }, [access])
 
@@ -147,6 +159,32 @@ export default function App() {
       badge: roleLabel(session?.role),
       attachment,
     }])
+  }
+
+  function setDayStatus(dayNumber, status) {
+    if (!requireAct()) return
+    const item = days.find((entry) => entry.day === dayNumber)
+    patchDay(dayNumber, { status })
+    const label = status === 'agreed' ? 'Согласовано' : status === 'approved' ? 'Утвердил' : 'На проверку'
+    notify(`День ${dayNumber}: ${label}.`)
+    if (item && status !== 'review') {
+      pushMessage(`${label}: день ${dayNumber}, ${item.title}`, {
+        kind: 'post',
+        day: item.day,
+        title: item.title,
+        body: shownPost(item),
+      })
+    }
+  }
+
+  function adaptForToday(sourceText) {
+    if (!requireAct()) return
+    const target = days.find((item) => item.day === todayNumber) || day
+    const text = adaptSourceToToday(target, sourceText)
+    patchDay(target.day, { format: 'short', postText: text, status: 'review' })
+    setFocus(target.day)
+    setTab('posts-edit')
+    notify(`Текст перебран под ${formatLong(dateForDay(target.day))} и поставлен на проверку.`)
   }
 
   function approve(dayNumber) {
@@ -477,6 +515,7 @@ export default function App() {
       <div className="min-w-0 flex-1">
       <TopBar
         title={section}
+        dateLabel={todayLabel}
         onMenu={() => setNavOpen(true)}
         onAuth={() => {
           if (session) setModal('session')
@@ -495,13 +534,13 @@ export default function App() {
         <motion.div key={tab} initial={{ opacity: 0, filter: 'blur(8px)' }} animate={{ opacity: 1, filter: 'blur(0px)' }} transition={{ duration: 0.35 }}>
         {tab === 'overview' && (
           <Dashboard
-            day={day}
+            day={todayDay}
             days={days}
             todayNumber={todayNumber}
             news={recentNews}
             canAct={canAct}
-            onPublish={() => openChannel('telegram', day)}
-            onAdapt={(story) => writeNews(story, 'short')}
+            onPublish={() => openChannel('telegram', todayDay)}
+            onAdapt={(story) => adaptForToday(`${story.title}. ${story.watch}`)}
             onOpenAgent={() => setTab('agent')}
             onToggleExtension={toggleExtension}
           />
@@ -509,6 +548,7 @@ export default function App() {
         {tab === 'calendar-year' && (
           <YearCalendar
             days={days}
+            todayIso={isoDate(clock)}
             onOpenDay={(dayNumber) => { setFocus(dayNumber); setTab('plan-30') }}
             onCopy={async (text) => { await navigator.clipboard.writeText(text); notify('Текст скопирован.') }}
           />
@@ -539,7 +579,7 @@ export default function App() {
             }}
             onRebuild={rebuildAll}
             onOpen={(item) => { setFocus(item.day); setModal('day') }}
-            onApprove={approve}
+            onSetStatus={setDayStatus}
             onTelegram={(item) => openChannel('telegram', item)}
             onInstagram={(item) => openChannel('instagram', item)}
             onProject={(item) => openChannel('project', item)}
@@ -551,8 +591,31 @@ export default function App() {
           />
         )}
         {tab === 'posts-30' && <PostsView days={days} canAct={canAct} onToggleExtension={toggleExtension} onCopy={async (text) => { await navigator.clipboard.writeText(text); notify('Текст поста скопирован.') }} onExport={exportCsv} />}
-        {tab === 'news-feed' && <TrendFeed items={recentNews} days={days} day={day} canAct={canAct} onPick={setFocus} onWrite={writeNews} />}
-        {tab === 'tg-channels' && <ChannelDesk days={days} day={day} canAct={canAct} onPick={setFocus} onWrite={writeChannel} />}
+        {tab === 'posts-edit' && (
+          <PostWorkshop
+            days={days}
+            day={day}
+            canAct={canAct}
+            onPick={setFocus}
+            onStatus={setDayStatus}
+            onSave={(dayNumber, patch) => {
+              if (!requireAct()) return
+              patchDay(dayNumber, patch)
+              notify(`Правка дня ${dayNumber} сохранена.`)
+            }}
+          />
+        )}
+        {tab === 'site-desk' && isDeveloper && (
+          <SiteDesk
+            days={days}
+            notes={siteNotes}
+            onNotes={(text) => { setSiteNotes(text); notify('Заметка кабинета сохранена.') }}
+            onStatus={setDayStatus}
+            onPatch={(dayNumber, patch) => { patchDay(dayNumber, patch); notify(`День ${dayNumber} записан.`) }}
+          />
+        )}
+        {tab === 'news-feed' && <TrendFeed items={recentNews} days={days} day={day} todayLabel={todayLabel} canAct={canAct} onPick={setFocus} onWrite={writeNews} onAdaptToday={adaptForToday} />}
+        {tab === 'tg-channels' && <ChannelDesk days={days} day={day} todayLabel={todayLabel} canAct={canAct} onPick={setFocus} onWrite={writeChannel} onAdaptToday={adaptForToday} />}
         {tab === 'reels-30' && <ReelsView days={days} canAct={canAct} onImprove={refineReel} />}
         {tab === 'themes-30' && <ThemesView days={days} />}
         {tab === 'files-tg' && (

@@ -1,7 +1,7 @@
 import { Menu, UserRound } from 'lucide-react'
 import { roleLabel } from '../../lib/auth.js'
 
-export default function TopBar({ title, onMenu, onAuth, onRegister, account }) {
+export default function TopBar({ title, dateLabel, onMenu, onAuth, onRegister, account }) {
   return (
     <header className="sticky top-0 z-[60] flex h-16 items-center justify-between gap-3 border-b border-[#C9A96A]/15 bg-[#0A0F0B]/80 px-4 backdrop-blur-md sm:px-6">
       <div className="flex items-center gap-3">
@@ -10,7 +10,7 @@ export default function TopBar({ title, onMenu, onAuth, onRegister, account }) {
         </button>
         <div>
           <p className="font-display text-2xl italic leading-none text-[#F4F0E6]">{title}</p>
-          <p className="text-[10px] uppercase tracking-[0.16em] text-[#7A8580]">KEDR · Зайцево</p>
+          <p className="text-[10px] uppercase tracking-[0.16em] text-[#7A8580]">KEDR · {dateLabel}</p>
         </div>
       </div>
       {account ? (

@@ -9,10 +9,10 @@ const FILTERS = [
   { id: 'reel', label: 'Рилс' },
 ]
 
-export default function Calendar({ days, onOpenDay, onCopy }) {
+export default function Calendar({ days, todayIso, onOpenDay, onCopy }) {
   const [filter, setFilter] = useState('all')
-  const [selectedId, setSelectedId] = useState(null)
-  const plan = useMemo(() => generateInfinitePlan('2026-10-31', 365), [])
+  const [selectedId, setSelectedId] = useState(todayIso || null)
+  const plan = useMemo(() => generateInfinitePlan(), [])
   const visible = plan.filter((item) => filter === 'all' || item.type === filter)
   const selected = plan.find((item) => item.id === selectedId) || null
   const live = selected?.inCabinet ? days.find((day) => day.day === selected.dayNumber) : null
@@ -29,6 +29,7 @@ export default function Calendar({ days, onOpenDay, onCopy }) {
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
       <div className="space-y-5 lg:col-span-8">
+        <p className="font-display text-4xl italic text-[#F4F0E6]">Сегодня {plan.find((item) => item.date === todayIso)?.label || 'вне плана'}</p>
         <div className="flex flex-wrap gap-2">
           {FILTERS.map((item) => (
             <button key={item.id} type="button" onClick={() => setFilter(item.id)} className={`rounded-full px-4 py-2 text-sm ${filter === item.id ? 'bg-[#C9A96A] text-[#0A0F0B]' : 'border border-[#C9A96A]/25 text-[#F4F0E6]'}`}>
@@ -43,8 +44,8 @@ export default function Calendar({ days, onOpenDay, onCopy }) {
               {month.items.map((item) => {
                 const active = item.id === selectedId
                 return (
-                  <button key={item.id} type="button" onClick={() => setSelectedId(item.id)} className={`rounded-2xl border p-3 text-left ${active ? 'border-[#C6FF5E] bg-[#C6FF5E]/10' : 'border-[#C9A96A]/20 bg-[#121A14]/60'}`}>
-                    <span className="text-[10px] uppercase tracking-wider text-[#7A8580]">{item.type === 'reel' ? 'Рилс' : 'Пост'} · {item.label}</span>
+                  <button key={item.id} type="button" onClick={() => setSelectedId(item.id)} className={`rounded-2xl border p-3 text-left ${item.date === todayIso ? 'border-[#C6FF5E]' : ''} ${active ? 'bg-[#C6FF5E]/10' : 'border-[#C9A96A]/20 bg-[#121A14]/60'}`}>
+                    <span className="text-[10px] uppercase tracking-wider text-[#7A8580]">{item.date === todayIso ? 'Сегодня · ' : ''}{item.type === 'reel' ? 'Рилс' : 'Пост'} · {item.label}</span>
                     <span className="mt-1 block text-sm font-medium text-[#F4F0E6]">{item.title}</span>
                     <span className="mt-1 block text-xs text-[#C9A96A]">{item.rubric}</span>
                   </button>

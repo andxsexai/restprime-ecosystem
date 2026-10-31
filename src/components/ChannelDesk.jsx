@@ -14,7 +14,7 @@ function moscowLabel(iso) {
   return new Intl.DateTimeFormat('ru-RU', { timeZone: 'Europe/Moscow', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }).format(new Date(iso)).replace(/[\s\u202f\u00a0]+/g, ' ').trim()
 }
 
-export default function ChannelDesk({ days, day, canAct, onPick, onWrite }) {
+export default function ChannelDesk({ days, day, todayLabel, canAct, onPick, onWrite, onAdaptToday }) {
   const [openId, setOpenId] = useState('sysoevfm')
   const today = moscowDay(new Date().toISOString())
   const channel = TELEGRAM_CHANNELS.find((item) => item.id === openId) || TELEGRAM_CHANNELS[0]
@@ -91,7 +91,10 @@ export default function ChannelDesk({ days, day, canAct, onPick, onWrite }) {
                 {moscowDay(post.date) === today ? ' · сегодня' : ''}
               </p>
               <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-ink/80">{post.text}</p>
-              <a href={post.url} target="_blank" rel="noreferrer" className="mt-3 inline-block text-xs text-gold underline-offset-4 hover:underline">Полный пост в Telegram</a>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <a href={post.url} target="_blank" rel="noreferrer" className="rounded-xl border border-[#C9A96A]/35 px-3 py-1.5 text-xs text-[#F4F0E6]">Посмотреть</a>
+                <button type="button" disabled={!canAct} onClick={() => onAdaptToday(post.text)} className="rounded-xl bg-[#C6FF5E] px-3 py-1.5 text-xs font-semibold text-[#0A0F0B] disabled:opacity-40">Переделать под сегодня · {todayLabel}</button>
+              </div>
             </article>
           ))}
         </div>

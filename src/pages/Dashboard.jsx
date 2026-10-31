@@ -16,9 +16,9 @@ export default function Dashboard({
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
       <GlassCard className="lg:col-span-7">
-        <p className="text-[11px] uppercase tracking-[0.18em] text-[#C9A96A]">Выход сегодня</p>
+        <p className="text-[11px] uppercase tracking-[0.18em] text-[#C9A96A]">Сегодня по Москве</p>
         <h2 className="font-display mt-2 text-4xl italic text-[#F4F0E6]">{day.title}</h2>
-        <p className="mt-1 text-sm text-[#7A8580]">{formatLong(dateForDay(day.day))} · день {day.day}</p>
+        <p className="mt-1 text-sm text-[#7A8580]">{formatLong(dateForDay(day.day))} · {day.day} день плана</p>
         <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-[#F4F0E6]/90">{text}</p>
         <ExtensionBar day={day} canAct={canAct} onToggle={(id) => onToggleExtension(day.day, id)} />
         <div className="mt-4">
@@ -51,9 +51,10 @@ export default function Dashboard({
             <li key={item.id} className="border-t border-[#C9A96A]/15 pt-3">
               <p className="text-xs text-[#7A8580]">{item.dateLabel} · {item.source}</p>
               <p className="mt-1 text-sm text-[#F4F0E6]">{item.title}</p>
-              <PremiumButton tone="ghost" className="mt-2 px-3 py-1.5 text-xs" disabled={!canAct} onClick={() => onAdapt(item)}>
-                Перенести в пост KEDR
-              </PremiumButton>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <a href={item.url} target="_blank" rel="noreferrer" className="rounded-xl border border-[#C9A96A]/35 px-3 py-1.5 text-xs text-[#F4F0E6]">Посмотреть</a>
+                <PremiumButton tone="signal" className="px-3 py-1.5 text-xs" disabled={!canAct} onClick={() => onAdapt(item)}>Переделать под сегодня</PremiumButton>
+              </div>
             </li>
           ))}
         </ul>

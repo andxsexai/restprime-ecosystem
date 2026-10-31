@@ -11,10 +11,9 @@ export function weekSeries(days, todayNumber = 1) {
 }
 
 export function statusSeries(days) {
-  const approved = days.filter((day) => day.status === 'approved').length
-  const review = days.length - approved
   return [
-    { name: 'На проверке', value: review },
-    { name: 'Утверждено', value: approved },
+    { name: 'На проверке', value: days.filter((day) => day.status !== 'approved' && day.status !== 'agreed').length },
+    { name: 'Утвердил', value: days.filter((day) => day.status === 'approved').length },
+    { name: 'Согласовано', value: days.filter((day) => day.status === 'agreed').length },
   ]
 }

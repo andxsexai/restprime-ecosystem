@@ -1,4 +1,4 @@
-import { BarChart3, Bell, CalendarRange, Clapperboard, Compass, FolderUp, Instagram, LayoutDashboard, MessagesSquare, Newspaper, PenLine, Send, Sparkles, X } from 'lucide-react'
+import { BarChart3, Bell, CalendarRange, Clapperboard, Compass, FolderUp, Instagram, LayoutDashboard, MessagesSquare, Newspaper, PenLine, Send, Settings2, Sparkles, X } from 'lucide-react'
 
 export const NAV = [
   { id: 'overview', title: 'Обзор', note: 'Сегодня', icon: LayoutDashboard },
@@ -9,6 +9,8 @@ export const NAV = [
   { id: 'tg-channels', title: 'Каналы', note: 'Москва · Telegram', icon: Send },
   { id: 'plan-30', title: 'План', note: '30 дней меню', icon: CalendarRange },
   { id: 'posts-30', title: 'Посты', note: 'Короткий и широкий', icon: PenLine },
+  { id: 'posts-edit', title: 'Правка', note: 'Ручная доработка', icon: PenLine },
+  { id: 'site-desk', title: 'Сайт', note: 'Только разработчик', icon: Settings2, developer: true },
   { id: 'reels-30', title: 'Reels', note: 'Сценарии', icon: Clapperboard },
   { id: 'themes-30', title: 'Темы', note: 'Прогрев', icon: Compass },
   { id: 'insta-analytics', title: 'Instagram', note: 'Профиль и разбор', icon: Instagram },
@@ -31,7 +33,7 @@ export default function Sidebar({ tab, onTab, open, onClose, isDeveloper, pendin
           </button>
         </div>
         <nav aria-label="Разделы" className="flex-1 space-y-1 overflow-y-auto pr-1">
-          {NAV.map((item) => {
+          {NAV.filter((item) => !item.developer || isDeveloper).map((item) => {
             const Icon = item.icon
             const active = tab === item.id
             return (

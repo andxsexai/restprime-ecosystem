@@ -1,4 +1,16 @@
 export const PLAN_START = new Date(2026, 9, 31)
+export const PLAN_LIMIT = 365
+
+export function moscowToday() {
+  const stamp = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Moscow',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date())
+  const [year, month, day] = stamp.split('-').map(Number)
+  return new Date(year, month - 1, day)
+}
 
 const MONTHS = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря']
 const MONTHS_NOM = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь']
@@ -10,7 +22,7 @@ export function planDayForDate(date) {
   const target = new Date(date)
   target.setHours(0, 0, 0, 0)
   const diff = Math.round((target.getTime() - start.getTime()) / 86400000) + 1
-  if (diff < 1 || diff > 30) return null
+  if (diff < 1 || diff > PLAN_LIMIT) return null
   return diff
 }
 

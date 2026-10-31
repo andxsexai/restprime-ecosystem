@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Check, Copy, Download, ExternalLink, RefreshCw, Send, Sparkles, Upload } from 'lucide-react'
 import { FLAGSHIP } from '../data/place.js'
 import { shownPost, wordCount } from '../lib/compose.js'
+import { dateForDay, formatLong, formatWeekday } from '../lib/planDates.js'
+import StatusButtons, { statusLabel } from './StatusButtons.jsx'
 import ExtensionBar from './ExtensionBar.jsx'
 import DayPhoto from './DayPhoto.jsx'
 import { roleLabel } from '../lib/auth.js'
@@ -11,7 +13,7 @@ import GlassCard from './ui/GlassCard.jsx'
 const TASKS = ['all', 'Быт', 'Гости', 'Зал', 'Меню', 'Напиток', 'Повод']
 const TASK_LABEL = { all: 'Все задания', Быт: 'Быт', Гости: 'Гости', Зал: 'Зал', Меню: 'Из меню', Напиток: 'Напиток', Повод: 'Повод' }
 
-export function PlanView({ days, status, pillar, onStatus, onPillar, onApproveAll, onRebuild, onOpen, onApprove, onMatch, onReplace, onForward, onImprove, onImproveReel, trends, boards, canAct }) {
+export function PlanView({ days, status, pillar, onStatus, onPillar, onApproveAll, onRebuild, onOpen, onSetStatus, onMatch, onReplace, onForward, onImprove, onImproveReel, trends, boards, canAct }) {
   const visible = days.filter((day) => (status === 'all' || day.status === status) && (pillar === 'all' || day.pillar === pillar))
   return (
     <section className="space-y-5">
@@ -34,7 +36,7 @@ export function PlanView({ days, status, pillar, onStatus, onPillar, onApproveAl
           ))}
         </div>
         <div className="flex rounded-full border border-ink/10 bg-card p-1 text-xs w-fit">
-          {[['all', 'Все'], ['approved', 'Готово'], ['review', 'Черновик']].map(([id, label]) => (
+          {[['all', 'Все'], ['review', 'На проверку'], ['approved', 'Утвердил'], ['agreed', 'Согласовано']].map(([id, label]) => (
             <button key={id} type="button" onClick={() => onStatus(id)} className={`rounded-full px-3 py-1.5 ${status === id ? 'bg-[#2f6b4f] font-semibold text-white' : 'text-ink/75'}`}>{label}</button>
           ))}
         </div>
@@ -66,9 +68,9 @@ export function PlanView({ days, status, pillar, onStatus, onPillar, onApproveAl
             <DayPhoto day={day.day} className="mb-3 h-36 w-full rounded-2xl object-cover" />
             <button type="button" className="w-full text-left" onClick={() => onOpen(day)}>
               <div className="mb-2 flex items-center gap-2">
-                <span className="font-fraunces text-2xl text-gold">{String(day.day).padStart(2, '0')}</span>
-                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${day.status === 'approved' ? 'bg-[#e7f0ea] text-kedr' : 'bg-card text-ink/70'}`}>
-                  {day.status === 'approved' ? 'Утверждено' : 'На проверке'}
+                <span className="font-fraunces text-2xl text-gold">{formatLong(dateForDay(day.day))}</span>
+                <span className="rounded-full border border-[#C9A96A]/30 px-2 py-0.5 text-[11px] font-semibold text-[#C9A96A]">
+                  {statusLabel(day.status)} · {formatWeekday(dateForDay(day.day))}
                 </span>
               </div>
               <h3 className="text-base font-semibold leading-snug text-ink">{day.title}</h3>
@@ -77,8 +79,10 @@ export function PlanView({ days, status, pillar, onStatus, onPillar, onApproveAl
               <p className="mt-1 text-xs text-gold">{day.dish} · {day.margin}</p>
               <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-ink/70">Reels: {day.reelHook} {day.reelScript}</p>
             </button>
-            <div className="hidden-3d-dock flex flex-wrap gap-2 border-t border-gold/25 pt-3">
-              <button type="button" disabled={!canAct} onClick={() => onApprove(day.day)} className="press rounded-full bg-[#2f6b4f] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40">Утвердить</button>
+            <div className="mt-3 border-t border-gold/25 pt-3">
+              <StatusButtons value={day.status} disabled={!canAct} onChange={(next) => onSetStatus(day.day, next)} />
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2">
               <button type="button" disabled={!canAct} onClick={() => onImprove(day.day)} className="press rounded-full border border-ink/10 px-3 py-1.5 text-xs text-ink disabled:opacity-40">Улучшить пост</button>
               <button type="button" disabled={!canAct} onClick={() => onImproveReel(day.day)} className="press rounded-full border border-ink/10 px-3 py-1.5 text-xs text-ink disabled:opacity-40">Улучшить рилс</button>
               <button type="button" disabled={!canAct} onClick={() => onReplace(day.day)} className="press rounded-full border border-ink/10 px-3 py-1.5 text-xs text-ink disabled:opacity-40">Переделать</button>

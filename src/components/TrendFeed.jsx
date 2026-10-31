@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { wordCount, WIDE_SAMPLE } from '../lib/compose.js'
 import { dateForDay, formatLong } from '../lib/planDates.js'
 
-export default function TrendFeed({ items, days, day, canAct, onWrite, onPick }) {
+export default function TrendFeed({ items, days, day, todayLabel, canAct, onWrite, onPick, onAdaptToday }) {
   const [openId, setOpenId] = useState(items[0]?.id || null)
   const [sample, setSample] = useState(false)
   const current = items.find((item) => item.id === openId) || items[0]
@@ -49,7 +49,10 @@ export default function TrendFeed({ items, days, day, canAct, onWrite, onPick })
             <p className="text-xs text-gold">{current.service}</p>
             <h3 className="font-fraunces mt-2 text-3xl text-ink">{current.title}</h3>
             <p className="mt-4 text-base leading-relaxed text-ink/80">{current.watch}</p>
-            <a href={current.url} target="_blank" rel="noreferrer" className="mt-4 inline-block text-sm text-gold underline-offset-4 hover:underline">Открыть источник</a>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <a href={current.url} target="_blank" rel="noreferrer" className="rounded-xl border border-[#C9A96A]/35 px-4 py-2 text-sm text-[#F4F0E6]">Посмотреть</a>
+              <button type="button" disabled={!canAct} onClick={() => onAdaptToday(`${current.title}. ${current.watch}`)} className="rounded-xl bg-[#C6FF5E] px-4 py-2 text-sm font-semibold text-[#0A0F0B] disabled:opacity-40">Переделать под сегодня · {todayLabel}</button>
+            </div>
             <div className="mt-6 rounded-2xl bg-paper p-4 text-sm leading-relaxed text-ink/80">
               <p className="font-semibold text-ink">Как ляжет на день {day.day}</p>
               <p className="mt-2">{current.title}. Сцена дня: {day.scene}. Опора меню: {day.dish}.</p>
