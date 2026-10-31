@@ -1,4 +1,4 @@
-import { BarChart3, Bell, CalendarRange, Clapperboard, Compass, FolderUp, Instagram, LayoutDashboard, MessagesSquare, Newspaper, PenLine, Send, Settings2, Sparkles, X } from 'lucide-react'
+import { BarChart3, CalendarRange, Clapperboard, Compass, FolderUp, Instagram, LayoutDashboard, MessagesSquare, Newspaper, PenLine, Send, Settings2, Sparkles, X } from 'lucide-react'
 
 export const NAV = [
   { id: 'overview', title: 'Сегодня', note: 'Пост этого дня', icon: LayoutDashboard },
@@ -18,7 +18,7 @@ export const NAV = [
   { id: 'github-tz', title: 'Чат', note: 'Команда', icon: MessagesSquare },
 ]
 
-export default function Sidebar({ tab, onTab, open, onClose, isDeveloper, pendingCount, onDesk }) {
+export default function Sidebar({ tab, onTab, open, onClose, isDeveloper }) {
   return (
     <>
       {open && <button type="button" aria-label="Закрыть меню" className="fixed inset-0 z-[70] bg-black/50 lg:hidden" onClick={onClose} />}
@@ -52,12 +52,6 @@ export default function Sidebar({ tab, onTab, open, onClose, isDeveloper, pendin
             )
           })}
         </nav>
-        {isDeveloper && (
-          <button type="button" onClick={onDesk} className="mt-3 flex items-center justify-between rounded-2xl border border-[#C9A96A]/30 px-3 py-2 text-sm text-[#C9A96A]">
-            <span className="flex items-center gap-2"><Bell size={15} /> Заявки</span>
-            {pendingCount > 0 && <span className="rounded-full bg-[#C9A96A] px-2 text-[10px] font-bold text-[#0A0F0B]">{pendingCount}</span>}
-          </button>
-        )}
       </aside>
     </>
   )

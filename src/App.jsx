@@ -26,7 +26,7 @@ import SiteDesk from './pages/SiteDesk.jsx'
 import ReviewSheet from './components/ReviewSheet.jsx'
 import { EVENT_FORMATS } from './data/eventFormats.js'
 import { loadAccess, saveAccess } from './lib/access.js'
-import { hashPassword, normalizePhrase, roleLabel } from './lib/auth.js'
+import { ADMIN_EMAIL, ROLES, SIGNUP_ROLES, hashPassword, normalizePhrase, roleLabel } from './lib/auth.js'
 import {
   DayModalBody, FilesView, InstaView, PlanView, PostsView, ReelsView, TeamView, ThemesView,
 } from './components/Modules.jsx'
@@ -69,6 +69,31 @@ function uid() {
   return Math.random().toString(36).slice(2, 10)
 }
 
+function ProfileEditor({ session, onSave }) {
+  const [name, setName] = useState(session.name || '')
+  const [role, setRole] = useState(session.role || 'director')
+  const choices = session.email === ADMIN_EMAIL ? ROLES : SIGNUP_ROLES
+  return (
+    <form className="mt-4 space-y-3" onSubmit={(event) => { event.preventDefault(); onSave({ name, role }) }}>
+      <label className="block text-sm text-ink">
+        Имя в кабинете
+        <input value={name} onChange={(event) => setName(event.target.value)} minLength={2} required className="mt-2 w-full rounded-2xl border border-white/15 bg-card px-4 py-3 text-sm text-ink outline-none focus:border-[#C9A96A]" />
+      </label>
+      <div>
+        <p className="text-sm text-ink">Роль</p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {choices.map((item) => (
+            <button key={item.id} type="button" onClick={() => setRole(item.id)} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${role === item.id ? 'bg-[#C9A96A] text-[#0A0F0B]' : 'border border-[#C9A96A]/35 text-[#F4F0E6]'}`}>
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <Button3D type="submit" className="w-full">Сохранить профиль</Button3D>
+    </form>
+  )
+}
+
 export default function App() {
   const saved = useMemo(loadState, [])
   const [clock, setClock] = useState(() => moscowToday())
@@ -106,7 +131,7 @@ export default function App() {
   const day = days.find((item) => item.day === focus) || days[0]
   const session = access.users.find((user) => user.email === access.sessionEmail) || null
   const canAct = session?.status === 'active'
-  const isDeveloper = canAct && session?.role === 'developer'
+  const isDeveloper = canAct && (session?.role === 'developer' || session?.email === ADMIN_EMAIL)
   const pending = access.users.filter((user) => user.status === 'pending')
   const members = access.users.filter((user) => user.status === 'active')
   const approved = days.filter((item) => item.status === 'approved' || item.status === 'agreed')
@@ -568,6 +593,22 @@ export default function App() {
     notify('Секретная фраза сохранена в кабинете и больше не показывается.')
   }
 
+  function saveProfile({ name, role }) {
+    if (!session) return
+    const cleanName = String(name || '').trim()
+    if (cleanName.length < 2) {
+      notify('Имя короче двух букв.')
+      return
+    }
+    const allowed = session.email === ADMIN_EMAIL ? ROLES : SIGNUP_ROLES
+    const nextRole = allowed.some((item) => item.id === role) ? role : session.role
+    setAccess((current) => ({
+      ...current,
+      users: current.users.map((user) => (user.email === session.email ? { ...user, name: cleanName, role: nextRole } : user)),
+    }))
+    notify(`Профиль сохранён: ${cleanName}, ${roleLabel(nextRole)}.`)
+  }
+
   function logout() {
     setAccess((current) => ({ ...current, sessionEmail: null }))
     setModal(null)
@@ -587,13 +628,14 @@ export default function App() {
         open={navOpen}
         onClose={() => setNavOpen(false)}
         isDeveloper={isDeveloper}
-        pendingCount={pending.length}
-        onDesk={() => setDeskOpen((open) => !open)}
       />
       <div className="min-w-0 flex-1">
       <TopBar
         title={section}
         dateLabel={todayLabel}
+        isDeveloper={isDeveloper}
+        pendingCount={pending.length}
+        onDesk={() => setDeskOpen((open) => !open)}
         onMenu={() => setNavOpen(true)}
         onAuth={() => {
           if (session) setModal('session')
@@ -830,6 +872,7 @@ export default function App() {
         <Modal title={session.name} onClose={() => setModal(null)}>
           <p className="text-sm text-ink/70">{session.email}</p>
           <p className="mt-1 text-sm text-gold">{roleLabel(session.role)} · {session.status === 'active' ? 'доступ открыт' : 'ожидает подтверждения'}</p>
+          <ProfileEditor key={`${session.email}-${session.name}-${session.role}`} session={session} onSave={saveProfile} />
           <p className="mt-4 text-sm text-ink/70">{session.secretHash ? 'Секретная фраза сохранена в этом кабинете. Её нельзя посмотреть повторно.' : 'Фраза ещё не задана. Придумайте её один раз — по ней восстанавливается пароль.'}</p>
           {!session.secretHash && (
             <form className="mt-3 space-y-3" onSubmit={savePhrase}>
