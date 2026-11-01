@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Sparkles } from 'lucide-react'
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
+import { Sparkles, X } from 'lucide-react'
 import { contentPlan } from './data/contentPlan.js'
 import { newsFeed } from './data/news.js'
 import { FLAGSHIP } from './data/place.js'
@@ -8,28 +8,23 @@ import { motion } from 'framer-motion'
 import Sidebar, { NAV } from './components/layout/Sidebar.jsx'
 import TopBar from './components/layout/TopBar.jsx'
 import Dashboard from './pages/Dashboard.jsx'
-import YearCalendar from './pages/Calendar.jsx'
 import AIAgent from './pages/AIAgent.jsx'
-import Analytics from './pages/Analytics.jsx'
 import ReleaseCorner from './components/ReleaseCorner.jsx'
 import AccessModal from './components/AccessModal.jsx'
 import DeveloperDesk from './components/DeveloperDesk.jsx'
 import { improveReel, shownPost, wideFromDay, wordCount, writeFromNews, writeLikeChannel } from './lib/compose.js'
-import ChannelDesk from './components/ChannelDesk.jsx'
 import telegramFeed from './data/telegramFeed.json'
-import TrendFeed from './components/TrendFeed.jsx'
 import { applyTrend, nextTrend, trendBoards, trends } from './data/trends.js'
 import { dateForDay, formatLong, isoDate, moscowToday, planDayForDate } from './lib/planDates.js'
 import { adaptSourceToToday } from './lib/generateContent.js'
 import { autoPlan, findRepeats } from './lib/autoPlan.js'
 import { readSignals } from './lib/signals.js'
 import PostWorkshop from './pages/PostWorkshop.jsx'
-import SiteDesk from './pages/SiteDesk.jsx'
 import ReviewSheet from './components/ReviewSheet.jsx'
 import { copyText } from './lib/clipboard.js'
 import { EVENT_FORMATS, THEME_SOURCES, formatGroup } from './data/eventFormats.js'
 import { REEL_BANK } from './data/reelBank.js'
-import CookieGate from './components/CookieGate.jsx'
+import { announceDecision, announceRecovery, announceSignup, pollRelay, resendSignup } from './lib/relay.js'
 import TaskDesk, { taskStamp } from './components/TaskDesk.jsx'
 import { loadAccess, saveAccess } from './lib/access.js'
 import { ADMIN_EMAIL, ROLES, SIGNUP_ROLES, hashPassword, normalizePhrase, roleLabel } from './lib/auth.js'
@@ -38,6 +33,12 @@ import {
 } from './components/Modules.jsx'
 import Button3D from './components/ui/Button3D.jsx'
 import Modal from './components/ui/Modal.jsx'
+
+const YearCalendar = lazy(() => import('./pages/Calendar.jsx'))
+const Analytics = lazy(() => import('./pages/Analytics.jsx'))
+const ChannelDesk = lazy(() => import('./components/ChannelDesk.jsx'))
+const TrendFeed = lazy(() => import('./components/TrendFeed.jsx'))
+const SiteDesk = lazy(() => import('./pages/SiteDesk.jsx'))
 
 const KEY = 'restprime-cabinet-v3'
 
@@ -124,9 +125,11 @@ export default function App() {
   const [taskLog, setTaskLog] = useState(saved?.taskLog || [])
   const [tasksOpen, setTasksOpen] = useState(false)
   const [autoFeedAt, setAutoFeedAt] = useState(saved?.autoFeedAt || '')
-  const [cookiesOn, setCookiesOn] = useState(() => {
-    try { return localStorage.getItem('restprime-cookies') === 'yes' } catch { return false }
+  const [bannerHidden, setBannerHidden] = useState(() => {
+    try { return sessionStorage.getItem('restprime-banner') === 'hidden' } catch { return false }
   })
+  const [relayState, setRelayState] = useState('')
+  const relaySeen = useRef(new Set())
   const undoRef = useRef([])
   const [undoCount, setUndoCount] = useState(0)
   const [siteNotes, setSiteNotes] = useState(saved?.siteNotes || '')
@@ -163,15 +166,6 @@ export default function App() {
     const limit = isoDate(clock)
     return news.filter((item) => item.iso && item.iso <= limit).sort((a, b) => b.iso.localeCompare(a.iso))
   }, [news, clock])
-  const storageOk = useMemo(() => {
-    try {
-      localStorage.setItem('restprime-cookie-probe', '1')
-      localStorage.removeItem('restprime-cookie-probe')
-      return true
-    } catch {
-      return false
-    }
-  }, [])
   const todayDay = days.find((item) => item.day === todayNumber) || days[0]
   const todayLabel = formatLong(clock)
   const signals = useMemo(() => readSignals(telegramFeed, recentNews.slice(0, 20)), [recentNews])
@@ -187,14 +181,30 @@ export default function App() {
   }, [days, focus, files, telegram, chat, siteNotes, extraReels, tasks, taskLog, autoFeedAt])
 
   useEffect(() => {
-    if (!cookiesOn || !signals.fetchedAt || autoFeedAt === signals.fetchedAt) return
+    if (!signals.fetchedAt || autoFeedAt === signals.fetchedAt) return
     const result = autoPlan(days, { signals, fromDay: (todayNumber || 0) + 1 })
     setAutoFeedAt(signals.fetchedAt)
     if (!result.changed.length) return
     remember({ kind: 'days', items: days })
     setDays(result.days)
     notify(`Автоплан: лента от ${feedLabel(signals.fetchedAt)}, пересобрано дней: ${result.changed.length}. Утверждённые и ручные правки не тронуты.`)
-  }, [cookiesOn, signals, autoFeedAt])
+  }, [signals, autoFeedAt])
+
+  useEffect(() => {
+    const watching = isDeveloper || access.users.some((user) => user.status === 'pending' && user.passwordHash)
+    if (!watching) return undefined
+    let alive = true
+    const run = () => { syncRelay().catch(() => alive && setRelayState('offline')) }
+    run()
+    const timer = setInterval(run, isDeveloper ? 20000 : 30000)
+    const onFocus = () => { if (document.visibilityState === 'visible') run() }
+    document.addEventListener('visibilitychange', onFocus)
+    return () => {
+      alive = false
+      clearInterval(timer)
+      document.removeEventListener('visibilitychange', onFocus)
+    }
+  }, [isDeveloper, access.users.length, pending.length])
 
   useEffect(() => {
     const timer = setInterval(() => setClock(moscowToday()), 30000)
@@ -252,11 +262,6 @@ export default function App() {
     setDays((current) => current.map((entry) => (entry.day === item.day ? item : entry)))
     setFocus(item.day)
     notify(`Убрано. Вернулось ${formatLong(dateForDay(item.day))} · «${item.title}».`)
-  }
-
-  function acceptCookies() {
-    try { localStorage.setItem('restprime-cookies', 'yes') } catch { /* память браузера закрыта */ }
-    setCookiesOn(true)
   }
 
   function requireAct() {
@@ -715,10 +720,100 @@ export default function App() {
       users: [...current.users, person],
       notices: [{ id: uid(), text: `${person.name} (${roleLabel(role)}) зарегистрировался: ${person.email}`, at: stamp() }, ...current.notices],
     }))
-    setAuthBusy(false)
     setAuthMode(null)
     setAuthError('')
-    notify('Заявка отправлена. Пока открыт только просмотр.')
+    notify('Отправляем заявку разработчику…')
+    const sent = await announceSignup(person)
+    setAuthBusy(false)
+    try { localStorage.setItem(`restprime-ping-${clean}`, String(Date.now())) } catch { /* память закрыта */ }
+    notify(sent ? 'Заявка ушла разработчику: пуш и письмо. Кнопки откроются сами, как только он подтвердит.' : 'Заявка сохранена, но сеть не ответила. Нажмите «Отправить ещё раз» в плашке сверху.')
+  }
+
+  async function resendMine() {
+    if (!session || session.status !== 'pending') return
+    const sent = await announceSignup(session)
+    try { localStorage.setItem(`restprime-ping-${session.email}`, String(Date.now())) } catch { /* память закрыта */ }
+    notify(sent ? 'Заявка отправлена ещё раз.' : 'Сеть не ответила. Проверьте интернет и попробуйте снова.')
+  }
+
+  async function syncRelay() {
+    const events = await pollRelay()
+    setRelayState('online')
+    const fresh = events.filter((event) => !relaySeen.current.has(event.relayId))
+    fresh.forEach((event) => relaySeen.current.add(event.relayId))
+    if (!fresh.length) {
+      pingIfQuiet(events)
+      return
+    }
+    const known = new Map(access.users.map((user) => [user.email, user]))
+    const added = []
+    const decided = []
+    const repeatDecisions = []
+    for (const event of fresh) {
+      const local = known.get(event.email)
+      if (event.type === 'signup' && isDeveloper) {
+        if (!local) {
+          const person = { id: event.id || uid(), name: event.name, email: event.email, role: event.role, status: 'pending', at: event.at || stamp(), remote: true }
+          known.set(event.email, person)
+          added.push(person)
+        } else if (local.status !== 'pending' && local.email !== ADMIN_EMAIL && !events.some((item) => item.type === 'decision' && item.email === local.email && item.time >= event.time)) {
+          repeatDecisions.push(local)
+        }
+      }
+      if (event.type === 'decision' && local && local.status === 'pending' && local.passwordHash) {
+        decided.push({ email: event.email, status: event.status === 'active' ? 'active' : 'rejected' })
+      }
+      if (event.type === 'recovery' && isDeveloper) {
+        setAccess((current) => (current.notices.some((notice) => notice.relayId === event.relayId) ? current : {
+          ...current,
+          notices: [{ id: uid(), relayId: event.relayId, text: `${event.name} просит восстановить пароль: ${event.email}`, at: stamp() }, ...current.notices],
+        }))
+      }
+    }
+    if (added.length) {
+      setAccess((current) => ({
+        ...current,
+        users: [...current.users, ...added.filter((person) => !current.users.some((user) => user.email === person.email))],
+        notices: [...added.map((person) => ({ id: uid(), text: `${person.name} (${roleLabel(person.role)}) зарегистрировался: ${person.email}`, at: stamp() })), ...current.notices],
+      }))
+      notify(added.length === 1 ? `Новая заявка: ${added[0].name}, ${roleLabel(added[0].role)}. Откройте «Заявки».` : `Новых заявок: ${added.length}. Откройте «Заявки».`)
+      showSystemNotice('RESTPRIME: новая заявка', added.map((person) => `${person.name} · ${person.email}`).join('\n'))
+    }
+    if (decided.length) {
+      setAccess((current) => ({
+        ...current,
+        users: current.users.map((user) => decided.find((item) => item.email === user.email) ? { ...user, status: decided.find((item) => item.email === user.email).status } : user),
+      }))
+      const mine = decided.find((item) => item.email === session?.email)
+      if (mine) notify(mine.status === 'active' ? 'Разработчик подтвердил вход. Кнопки открыты.' : 'Разработчик отклонил заявку.')
+    }
+    repeatDecisions.forEach((person) => announceDecision(person, person.status))
+    pingIfQuiet(events)
+  }
+
+  function pingIfQuiet(events) {
+    if (!session || session.status !== 'pending' || !session.passwordHash) return
+    if (events.some((event) => event.email === session.email && event.type === 'signup')) return
+    let last = 0
+    try { last = Number(localStorage.getItem(`restprime-ping-${session.email}`) || 0) } catch { /* память закрыта */ }
+    if (Date.now() - last < 6 * 3600000) return
+    try { localStorage.setItem(`restprime-ping-${session.email}`, String(Date.now())) } catch { /* память закрыта */ }
+    resendSignup(session)
+  }
+
+  function showSystemNotice(title, body) {
+    try {
+      if ('Notification' in window && Notification.permission === 'granted') new Notification(title, { body })
+    } catch { /* уведомления браузера недоступны */ }
+  }
+
+  async function enableSystemNotices() {
+    if (!('Notification' in window)) {
+      notify('Этот браузер не показывает системные уведомления. Подпишитесь на канал в приложении ntfy.')
+      return
+    }
+    const result = await Notification.requestPermission()
+    notify(result === 'granted' ? 'Уведомления браузера включены, пока вкладка открыта.' : 'Браузер запретил уведомления. Подпишитесь на канал в приложении ntfy.')
   }
 
   function confirmUser(id) {
@@ -729,7 +824,7 @@ export default function App() {
       users: current.users.map((user) => (user.id === id ? { ...user, status: 'active' } : user)),
       notices: [{ id: uid(), text: `${person.name} в команде. Роль: ${roleLabel(person.role)}.`, at: stamp() }, ...current.notices],
     }))
-    notify(`${person.name} подтверждён.`)
+    announceDecision(person, 'active').then((sent) => notify(sent ? `${person.name} подтверждён. У него кнопки откроются в течение минуты.` : `${person.name} подтверждён здесь, но сеть не ответила. Нажмите «Подтвердить» ещё раз позже.`))
   }
 
   function rejectUser(id) {
@@ -740,6 +835,7 @@ export default function App() {
       users: current.users.map((user) => (user.id === id ? { ...user, status: 'rejected' } : user)),
       notices: [{ id: uid(), text: `Заявка ${person.name} отклонена.`, at: stamp() }, ...current.notices],
     }))
+    announceDecision(person, 'rejected')
     notify(`Заявка ${person.name} отклонена.`)
   }
 
@@ -784,7 +880,7 @@ export default function App() {
     }))
     setAuthMode(null)
     setAuthError('')
-    notify('Заявка на восстановление отправлена разработчику.')
+    announceRecovery(person).then((sent) => notify(sent ? 'Просьба ушла разработчику: пуш и письмо.' : 'Сеть не ответила. Попробуйте ещё раз.'))
   }
 
   async function savePhrase(event) {
@@ -831,10 +927,6 @@ export default function App() {
   const reelSources = news.filter((item) => REEL_SOURCE_IDS.includes(item.id))
   const gameFormats = EVENT_FORMATS.filter((item) => formatGroup(item) === 'игры')
 
-  if (!cookiesOn) {
-    return <CookieGate storageOk={storageOk} onAccept={acceptCookies} />
-  }
-
   return (
     <div className="min-h-screen lg:flex">
       <Sidebar
@@ -862,12 +954,17 @@ export default function App() {
         account={session}
       />
       <main className="relative z-10 mx-auto max-w-[1440px] space-y-6 px-4 pb-16 pt-6 sm:px-6">
-        {!canAct && (
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-[24px] border border-[#C9A96A]/20 bg-[#121A14]/60 px-5 py-3 text-sm leading-relaxed text-[#F4F0E6]/80">
-            <p>{session?.status === 'pending' ? 'Заявка отправлена. Пока можно читать план, посты и чат. Кнопки откроются после подтверждения.' : 'Сейчас открыт просмотр. Чтобы утверждать дни и писать команде, зарегистрируйтесь. Разработчик подтвердит вход.'}</p>
+        {!canAct && (!bannerHidden || session?.status === 'pending') && (
+          <div className="relative flex flex-wrap items-center justify-between gap-3 rounded-[24px] border border-[#C9A96A]/20 bg-[#121A14]/60 py-3 pl-5 pr-12 text-sm leading-relaxed text-[#F4F0E6]/80">
+            <p>{session?.status === 'pending'
+              ? `Заявка у разработчика. Кнопки откроются сами, как только он подтвердит${relayState === 'offline' ? ' — сейчас нет связи, проверим позже' : ''}.`
+              : session?.status === 'rejected' ? 'Заявку отклонили. Пока открыт только просмотр.' : 'Сейчас открыт просмотр. Чтобы утверждать дни и писать команде, зарегистрируйтесь. Разработчик подтвердит вход.'}</p>
             {!session && <button type="button" onClick={() => { setAuthError(''); setAuthMode('register') }} className="shrink-0 rounded-full bg-[#C9A96A] px-4 py-2 text-sm font-semibold text-[#0A0F0B]">Регистрация</button>}
+            {session?.status === 'pending' && <button type="button" onClick={resendMine} className="shrink-0 rounded-full border border-[#C9A96A]/50 px-4 py-2 text-sm text-[#C9A96A]">Отправить ещё раз</button>}
+            <button type="button" aria-label="Закрыть" onClick={() => { setBannerHidden(true); try { sessionStorage.setItem('restprime-banner', 'hidden') } catch { /* память закрыта */ } }} className="absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-full text-[#F4F0E6]/60 hover:bg-white/10 hover:text-[#F4F0E6]"><X size={16} /></button>
           </div>
         )}
+        <Suspense fallback={<p className="py-16 text-center text-sm text-[#7A8580]">Открываем раздел…</p>}>
         <motion.div key={tab} initial={{ opacity: 0, filter: 'blur(8px)' }} animate={{ opacity: 1, filter: 'blur(0px)' }} transition={{ duration: 0.35 }}>
         {tab === 'overview' && (
           <Dashboard
@@ -1042,6 +1139,7 @@ export default function App() {
           />
         )}
         </motion.div>
+        </Suspense>
       </main>
       </div>
 
@@ -1082,12 +1180,23 @@ export default function App() {
         />
       )}
       {isDeveloper && deskOpen && (
-        <DeveloperDesk pending={pending} notices={access.notices} onClose={() => setDeskOpen(false)} onConfirm={confirmUser} onReject={rejectUser} />
+        <DeveloperDesk
+          pending={pending}
+          notices={access.notices}
+          relayState={relayState}
+          onClose={() => setDeskOpen(false)}
+          onConfirm={confirmUser}
+          onReject={rejectUser}
+          onRefresh={() => syncRelay().then(() => notify('Заявки проверены.')).catch(() => notify('Нет связи с каналом заявок.'))}
+          onEnableNotices={enableSystemNotices}
+          onDismissNotice={(id) => setAccess((current) => ({ ...current, notices: current.notices.filter((notice) => notice.id !== id) }))}
+        />
       )}
       {toast && (
         <div className="fixed left-1/2 top-[76px] sm:top-auto sm:bottom-6 z-[120] flex w-[min(92vw,460px)] -translate-x-1/2 items-start justify-between gap-3 rounded-2xl bg-[#C9A96A] px-4 py-3 text-sm leading-snug text-[#0A0F0B] shadow-xl">
-          <p>{toast || 'Последнее действие можно убрать.'}</p>
-          <button type="button" onClick={undoLast} disabled={!undoCount} className="shrink-0 rounded-full bg-[#0A0F0B] px-3 py-1 text-xs font-semibold text-[#C9A96A] disabled:opacity-40">Убрать</button>
+          <p className="min-w-0 flex-1">{toast}</p>
+          {undoCount > 0 && <button type="button" onClick={undoLast} className="shrink-0 rounded-full bg-[#0A0F0B] px-3 py-1 text-xs font-semibold text-[#C9A96A]">Убрать</button>}
+          <button type="button" aria-label="Закрыть уведомление" onClick={() => setToast('')} className="-mr-1 grid h-7 w-7 shrink-0 place-items-center rounded-full hover:bg-[#0A0F0B]/15"><X size={16} /></button>
         </div>
       )}
 

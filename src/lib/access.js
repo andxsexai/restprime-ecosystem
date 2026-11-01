@@ -17,7 +17,11 @@ export function loadAccess() {
 }
 
 export function saveAccess(access) {
-  localStorage.setItem(KEY, JSON.stringify(access))
+  try {
+    localStorage.setItem(KEY, JSON.stringify(access))
+  } catch {
+    /* память браузера закрыта: доступ живёт до закрытия вкладки */
+  }
 }
 
 function seed() {
