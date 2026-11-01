@@ -107,6 +107,7 @@ export default function PostWorkshop({ days, day, canAct, repeats = {}, onPick, 
           <StatusButtons value={day.status} disabled={!canAct} onChange={(status) => onStatus(day.day, status)} />
         </div>
         {teamNote(day) && <p className={`text-sm font-semibold ${statusTone(day.status).text}`}>{teamNote(day)}</p>}
+        {day.event?.title && <p className="rounded-2xl border border-[#C6FF5E]/30 px-3 py-2 text-sm text-[#C6FF5E]">Плюсом само допишется: {day.event.title}. В поле ниже его дублировать не нужно.</p>}
         {repeats[day.day] && <p className="rounded-2xl border border-red-300/40 px-3 py-2 text-sm text-red-200">{repeatNote(repeats[day.day])}. Нажмите «Новая версия» или перепишите фразу.</p>}
         <label className="block space-y-1.5">
           <span className="text-xs text-[#7A8580]">Заголовок</span>

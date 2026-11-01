@@ -7,7 +7,7 @@ import PremiumButton from '../components/ui/PremiumButton.jsx'
 import ExtensionBar from '../components/ExtensionBar.jsx'
 
 export default function Dashboard({
-  day, canAct, decisions = [], onPublish, onEdit, onOpenPlan, onOpenAgent, onOpenChannels, onOpenThree, onOpenRework, onReview, onStatus, onToggleExtension,
+  day, canAct, decisions = [], onPublish, onEdit, onOpenPlan, onOpenAgent, onOpenChannels, onOpenThree, onOpenRework, onOpenCheck, onOpenEvents, onReview, onStatus, onToggleExtension,
 }) {
   const date = dateForDay(day.day)
   return (
@@ -23,6 +23,7 @@ export default function Dashboard({
         </p>
         <p className="mt-4 text-sm text-[#C9A96A]">{formatLong(date)} · {formatWeekday(date)}</p>
         <h3 className="font-display mt-1 text-3xl italic text-[#F4F0E6]">{day.title}</h3>
+        {day.event?.title && <p className="mt-2 text-sm text-[#C6FF5E]">Плюсом сегодня: {day.event.title}. {day.event.hook}</p>}
         <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-[#F4F0E6]/90">{shownPost(day)}</p>
         {teamNote(day) && <p className={`mt-3 text-sm font-semibold ${statusTone(day.status).text}`}>{teamNote(day)}</p>}
         <div className="mt-4">
@@ -54,7 +55,15 @@ export default function Dashboard({
         </button>
         <button type="button" onClick={onOpenRework} className="w-full rounded-2xl border border-[#C6FF5E]/30 px-4 py-3 text-left">
           <span className="block text-sm font-semibold text-[#F4F0E6]">Переработка</span>
-          <span className="mt-1 block text-xs text-[#7A8580]">Агент уже собрал текст KEDR на каждый пост ленты</span>
+          <span className="mt-1 block text-xs text-[#7A8580]">Пересобиратор: тема ленты, свой текст «Кедра»</span>
+        </button>
+        <button type="button" onClick={onOpenCheck} className="w-full rounded-2xl border border-[#C6FF5E]/30 px-4 py-3 text-left">
+          <span className="block text-sm font-semibold text-[#F4F0E6]">Проверка</span>
+          <span className="mt-1 block text-xs text-[#7A8580]">Агент смотрит часы, скидку, чужие цитаты и мероприятия</span>
+        </button>
+        <button type="button" onClick={onOpenEvents} className="w-full rounded-2xl border border-[#C9A96A]/30 px-4 py-3 text-left">
+          <span className="block text-sm font-semibold text-[#F4F0E6]">Мероприятия</span>
+          <span className="mt-1 block text-xs text-[#7A8580]">Что уже стоит в плане плюсом к посту</span>
         </button>
         {decisions.length > 0 && (
           <div className="rounded-2xl border border-[#7DCE6A]/35 bg-[#7DCE6A]/10 px-4 py-3">

@@ -1,16 +1,9 @@
 import { contentPlan } from '../data/contentPlan.js'
 import { PLAN_START, formatLong, isoDate, planDayForDate } from './planDates.js'
-import { topicsOf } from './signals.js'
-import { CONTACT_LINES, capital, composePost, seasonDay } from './writer.js'
+import { CONTACT_LINES, RUBRICS, capital, composePost, seasonDay } from './writer.js'
+import { rebuildPost } from './rebuild.js'
 
-export const RUBRICS = [
-  { id: 'sense', title: 'Сенсорика' },
-  { id: 'kitchen', title: 'Кухня изнутри' },
-  { id: 'events', title: 'События' },
-  { id: 'people', title: 'Люди' },
-  { id: 'engage', title: 'Вовлечение' },
-  { id: 'service', title: 'Сервис' },
-]
+export { RUBRICS }
 
 const FOOTER = [CONTACT_LINES.address, CONTACT_LINES.hours, CONTACT_LINES.phones].join('\n')
 
@@ -19,8 +12,7 @@ export function generateTelegramPost(rubricId, day) {
 }
 
 export function adaptSourceToToday(day, sourceText) {
-  const topic = topicsOf(sourceText)[0] || null
-  return composePost(day, { topic, variant: 1 })
+  return rebuildPost(day, { sourceText, variant: 1 }).text
 }
 
 export function generateInfinitePlan(startDate = isoDate(PLAN_START), limit = 365) {

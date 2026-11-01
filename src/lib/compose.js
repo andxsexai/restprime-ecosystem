@@ -1,5 +1,6 @@
-import { CLOSERS, CONTACT_LINES, capital, closerFor, composePost, composeWide, dishLine, hashSeed } from './writer.js'
-import { reworkFor } from './rework.js'
+import { CLOSERS, CONTACT_LINES, closerFor, composePost, composeWide, dishLine, hashSeed } from './writer.js'
+import { withEvent } from './eventDay.js'
+import { rebuildPost, rebuildReel } from './rebuild.js'
 
 const WIDE_LIMIT = 500
 
@@ -30,7 +31,8 @@ export function extensionPresent(day, id) {
 }
 
 export function shownPost(day) {
-  const base = String(day?.format === 'wide' ? (day.wideText || wideFromDay(day)) : (day?.postText || '')).trim()
+  const raw = String(day?.format === 'wide' ? (day.wideText || wideFromDay(day)) : (day?.postText || '')).trim()
+  const base = withEvent(raw, day?.event)
   const parts = base ? base.split(/\n{2,}/) : []
   const ctaAt = parts.length && /kedr-res\.ru/i.test(parts[parts.length - 1]) ? parts.length - 1 : parts.length
   const middle = extensionLines(day, base, ['close', 'address', 'phones', 'booking'])
@@ -50,35 +52,11 @@ export function wideFromDay(day, angle) {
 }
 
 export function improveReel(day) {
-  const hall = !day?.dish || day.dish.startsWith('без тарелки')
-  const hooks = hall
-    ? ['Вот зал, пока никто не сел.', 'Пять секунд тишины до первых гостей.', 'Пустой зал за минуту до открытия.']
-    : [`${capital(day.scene)}.`, 'Звук раньше картинки: сначала слышно, потом видно.', 'Без слов: только руки, стол и тарелка.']
-  const scripts = hall
-    ? ['Свет, дерево, пустые стулья. Тарелки в кадре нет. В конце адрес: Сосновая, 3.', 'Камера идёт от двери к окну. Рука поправляет прибор. В конце kedr-res.ru.']
-    : [
-      `Сначала сцена: ${day.scene}. Потом крупно ${day.dish}. В конце одна фраза про стол и kedr-res.ru.`,
-      `Три кадра: дорога или дверь, руки за столом, ${day.dish} крупно. Подпись в конце — kedr-res.ru.`,
-      `Начинаем со звука зала. ${capital(day.dish)} появляется на пятой секунде. Лица в камеру не смотрят.`,
-    ]
-  const seed = hashSeed(day.day, day.reelVariant || 0, 'reel')
-  const pickNext = (list, current) => {
-    const start = seed % list.length
-    for (let step = 0; step < list.length; step += 1) {
-      const option = list[(start + step) % list.length]
-      if (option !== current) return option
-    }
-    return list[start]
-  }
-  return {
-    reelVariant: (day.reelVariant || 0) + 1,
-    reelHook: pickNext(hooks, day.reelHook),
-    reelScript: pickNext(scripts, day.reelScript),
-  }
+  return rebuildReel(day)
 }
 
 export function writeFromNews(day, news, format) {
-  return reworkFor(day, `${news.title} ${news.watch}`, { format }).text
+  return rebuildPost(day, { sourceText: `${news.title} ${news.watch}`, format, variant: 1 }).text
 }
 
 const CHANNEL_OPEN = {

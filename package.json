@@ -6,6 +6,7 @@
     "dev": "vite",
     "build": "vite build",
     "parse:tg": "node scripts/parse-telegram.mjs",
+    "check:content": "node scripts/check-content.mjs",
     "preview": "vite preview --host 127.0.0.1 --port 4173"
   },
   "dependencies": {

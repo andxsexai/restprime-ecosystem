@@ -1,20 +1,21 @@
-import { BarChart3, Lightbulb, CalendarRange, Clapperboard, Compass, FolderUp, Instagram, LayoutDashboard, MessagesSquare, Newspaper, PenLine, ScanText, Send, Settings2, Sparkles, X } from 'lucide-react'
+import { CalendarRange, Clapperboard, Compass, FolderUp, Instagram, LayoutDashboard, Lightbulb, MessagesSquare, Newspaper, PartyPopper, PenLine, ScanText, Send, Settings2, ShieldCheck, Sparkles, X } from 'lucide-react'
 
 export const NAV = [
   { id: 'overview', title: 'Сегодня', note: 'Пост этого дня', icon: LayoutDashboard },
   { id: 'calendar-year', title: 'Календарь', note: '3 месяца', icon: CalendarRange },
   { id: 'agent', title: 'Агент', note: 'День и пересборка', icon: Sparkles },
+  { id: 'check', title: 'Проверка', note: 'Агент по текстам', icon: ShieldCheck },
   { id: 'three-days', title: '3 дня', note: '3 поста и 3 рилс в день', icon: Lightbulb },
-  { id: 'rework', title: 'Переработка', note: 'Агент · каждый пост', icon: ScanText },
-  { id: 'analytics', title: 'Аналитика', note: 'Тексты плана', icon: BarChart3 },
+  { id: 'rework', title: 'Переработка', note: 'Пересобиратор · каждый пост', icon: ScanText },
   { id: 'news-feed', title: 'Лента', note: 'Оригинал и KEDR', icon: Newspaper },
   { id: 'tg-channels', title: 'Каналы', note: 'Москва · Telegram', icon: Send },
   { id: 'plan-30', title: 'План', note: '30 дней меню', icon: CalendarRange },
   { id: 'posts-30', title: 'Посты', note: 'Короткий и широкий', icon: PenLine },
   { id: 'posts-edit', title: 'Правка', note: 'Ручная доработка', icon: PenLine },
   { id: 'site-desk', title: 'Сайт', note: 'Тексты кабинета', icon: Settings2, developer: true },
-  { id: 'reels-30', title: 'Reels', note: 'Сценарии и тренды', icon: Clapperboard },
-  { id: 'themes-30', title: 'Темы', note: '30 мероприятий и реклама', icon: Compass },
+  { id: 'reels-30', title: 'Reels', note: 'Сценарии по секундам', icon: Clapperboard },
+  { id: 'themes-30', title: 'Темы', note: '30 форматов и реклама', icon: Compass },
+  { id: 'events-30', title: 'Мероприятия', note: 'Уже в плане и в постах', icon: PartyPopper },
   { id: 'insta-analytics', title: 'Instagram', note: 'Профиль и разбор', icon: Instagram },
   { id: 'files-tg', title: 'Файлы', note: 'Документы', icon: FolderUp },
   { id: 'github-tz', title: 'Чат', note: 'Команда', icon: MessagesSquare },

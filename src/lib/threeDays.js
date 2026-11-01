@@ -98,6 +98,9 @@ const TOPIC_REELS = {
   birthday: { hook: 'День рождения на неделю', shots: ['Календарь ±3 дня', 'Стол для своих', '{dish} со свечой'], sound: 'Зал и аплодисменты' },
   weather: { hook: 'Когда снаружи вот так, а внутри вот так', shots: ['Непогода за окном машины', 'Тёплый свет зала', '{dish} с паром крупно'], sound: 'Дождь или ветер, затем тишина зала' },
   russian: { hook: 'Русская кухня без музейной подачи', shots: ['Руки, тесто или кастрюля', 'Подача без лишнего декора', '{dish} крупно, ложка в кадре'], sound: 'Кухня, без балалайки' },
+  games: { hook: 'Карты на столе. Ужин не отменяли', shots: ['Руки тасуют, бокал стоит', 'Стол не превращён в сцену', '{dish} рядом с игрой'], sound: 'Карты и тихий смех' },
+  culture: { hook: 'После смысла нужен стол', shots: ['Свет зала, без чужой афиши', 'Жест руками, книга или пластинка гостя', '{dish} и разговор'], sound: 'Зал, без саундтрека фильма' },
+  wellness: { hook: 'Сначала сосны. Стол с двенадцати', shots: ['Дорога и воздух', 'Вход не раньше открытия', '{dish} после тишины'], sound: 'Бор, потом зал' },
 }
 
 const DISH_REELS = [
@@ -129,13 +132,20 @@ function shortDish(dish) {
   return String(dish).split(':')[0].replace(/,\s*\d+\s*(мл|г)$/, '').trim()
 }
 
-function reelFrom(template, dish, title, why) {
+function reelFrom(template, dish, title, why, event) {
   const name = shortDish(dish)
+  const timed = template.shots.map((shot, index) => {
+    const start = index === 0 ? 0 : index === 1 ? 3 : 8
+    const end = index === 0 ? 3 : index === 1 ? 8 : 13
+    return `${start}–${end} с: ${shot.replaceAll('{dish}', name)}`
+  })
+  if (event?.title) timed[2] = `8–13 с: ${event.title}. ${event.hook} Текст на экране — название вечера, не чужая афиша.`
+  timed.push(`13–18 с: плашка kedr-res.ru${event?.title ? `, подпись «${event.title}»` : ''}. Чужой логотип не ставим.`)
   return {
     title,
     why,
-    hook: template.hook.replaceAll('{dish}', name),
-    shots: template.shots.map((shot, index) => `${index * 3 + 1}–${index * 3 + 3} с: ${shot.replaceAll('{dish}', name)}`).join('\n'),
+    hook: event?.hook || template.hook.replaceAll('{dish}', name),
+    shots: timed.join('\n'),
     sound: template.sound,
   }
 }
@@ -161,9 +171,16 @@ export function threeDays(days, { signals, fromDay, variant = 0 } = {}) {
     const posts = []
     const reels = []
 
-    const topic = topics.length ? topics[(index + variant) % topics.length] : null
-    const topicPlate = plateFor(topic?.pillars, seed('topic-plate'), taken)
-    if (topic) {
+    const event = base.event
+    const topic = event ? null : (topics.length ? topics[(index + variant) % topics.length] : null)
+    const topicPlate = plateFor(topic?.pillars || event && ['Повод'], seed('topic-plate'), taken)
+    if (event) {
+      const why = `Мероприятие из плана: «${event.title}». Пост дня не стираем — вечер идёт плюсом.`
+      const text = composePost({ ...base, day: dayNumber, dish: topicPlate.dish, margin: topicPlate.margin }, { angle: `${event.hook} ${event.how?.[0] || event.note || ''}`, used, variant: variant + index, date, occasion: null })
+      takeLines(text, used)
+      posts.push({ id: `e-${dayNumber}`, kind: 'Мероприятие', title: event.title, why, refs: [], dish: topicPlate.dish, text, event })
+      reels.push({ id: `re-${dayNumber}`, kind: 'Мероприятие', refs: [], ...reelFrom({ hook: event.hook, shots: ['Хук на экране, живой звук', 'Зал и стол, без чужой сцены', '{dish} или жест вечера крупно'], sound: 'Живой зал, без трека сверху' }, topicPlate.dish, event.title, why, event) })
+    } else if (topic) {
       const refs = topic.refs.filter((ref, index, list) => list.findIndex((item) => item.from === ref.from) === index).slice(0, 2)
       const why = `В каналах за три дня: «${topic.label}» — ${topic.count} упоминаний. Берём только тему, чужой текст не цитируем.`
       const text = composePost({ ...topicPlate }, { topic, used, variant: variant + index, date, occasion: null })

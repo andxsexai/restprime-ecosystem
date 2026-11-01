@@ -12,6 +12,7 @@ export default function ReviewSheet({ day, onApprove, onAgree, onRedo, onClose }
         <p className="mt-2 text-sm text-[#7A8580]">{formatLong(date)} · {formatWeekday(date)} · {day.title}</p>
         <div className="mt-2"><StatusMark status={day.status} decidedBy={day.decidedBy} /></div>
         {teamNote(day) && <p className="mt-2 text-sm text-[#7DCE6A]">{teamNote(day)}</p>}
+        {day.event?.title && <p className="mt-2 text-sm text-[#C6FF5E]">Плюсом к посту: {day.event.title}. {day.event.hook}</p>}
         <p className="mt-4 max-h-64 overflow-y-auto whitespace-pre-wrap text-sm leading-relaxed text-[#F4F0E6]/90">{shownPost(day)}</p>
         <div className="mt-5 flex flex-wrap gap-2">
           <button type="button" onClick={onApprove} className="inline-flex items-center gap-1.5 rounded-xl bg-[#7DCE6A] px-4 py-2.5 text-sm font-semibold text-[#0A0F0B]"><Chameleon />Утвердил</button>

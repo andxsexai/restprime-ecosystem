@@ -52,9 +52,9 @@ export default function ReworkDesk({ pack, days, focusId, canAct, onPlace, onSen
     <section className="space-y-5">
       <div className="rounded-[28px] border border-[#C6FF5E]/25 bg-card p-5 sm:p-6">
         <p className="text-xs uppercase tracking-[0.18em] text-[#C6FF5E]">Агент · отдельное окно</p>
-        <h2 className="font-fraunces mt-1 text-3xl text-ink">Переработка каждого актуального поста</h2>
+        <h2 className="font-fraunces mt-1 text-3xl text-ink">Пересобиратор: тема ленты → текст «Кедра»</h2>
         <p className="mt-2 max-w-3xl text-sm leading-relaxed text-ink/70">
-          Агент заранее, каждые три часа, подбирает рубрику и собирает текст KEDR на каждый пост из ленты. Слева оригинал, справа наша версия. Чужие фразы не берём, блюдо только из меню.
+          Берём только тему чужого поста, не фразы. Справа — заход «Кедра»: зачем это гостю в Зайцево, сцена дня, блюдо из меню. Если на день стоит мероприятие, оно допишется плюсом само.
         </p>
         <p className="mt-2 text-xs text-ink/50">Собрано {stampOf(pack?.fetchedAt)} · {items.length} постов в окне.</p>
       </div>

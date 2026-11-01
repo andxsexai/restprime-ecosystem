@@ -76,6 +76,7 @@ export function PlanView({ days, status, pillar, onStatus, onPillar, onApproveAl
                 <span className="text-[11px] text-ink/45">{formatWeekday(dateForDay(day.day))}</span>
               </div>
               <h3 className="text-base font-semibold leading-snug text-ink">{day.title}</h3>
+              {day.event?.title && <p className="mt-2 rounded-full bg-[#C6FF5E]/15 px-2 py-1 text-[11px] font-semibold text-[#C6FF5E]">Плюсом: {day.event.title}</p>}
               <p className="mt-3 line-clamp-4 whitespace-pre-wrap text-sm leading-relaxed text-ink/75">{shownPost(day)}</p>
               <p className="mt-2 text-xs text-ink/50">{day.pillar} · {day.scene}</p>
               <p className="mt-1 text-xs text-gold">{day.dish} · {day.margin}</p>
@@ -125,6 +126,7 @@ export function PostsView({ days, onCopy, onExport, canAct, onToggleExtension, o
             </div>
             <DayPhoto day={day.day} className="mb-3 h-44 w-full rounded-2xl object-cover" />
             <h3 className="font-fraunces text-3xl text-ink">{day.title}</h3>
+            {day.event?.title && <p className="mt-2 text-sm text-[#C6FF5E]">Плюсом к посту: {day.event.title}. {day.event.hook}</p>}
             <p className="mt-1 text-xs text-gold">{(day.format === 'wide' ? 'Широкий' : 'Короткий')} · {wordCount(shownPost(day))} слов</p>
             <p className="mt-4 whitespace-pre-wrap text-base leading-relaxed text-ink/75">{shownPost(day)}</p>
             {onToggleExtension && <ExtensionBar day={day} canAct={canAct} onToggle={(id) => onToggleExtension(day.day, id)} />}
@@ -147,7 +149,7 @@ export function ReelsView({ days, day, sources, bank, custom, canAct, onPick, on
     <section className="space-y-5">
       <GlassCard className="space-y-4 rounded-2xl p-5">
         <h2 className="font-fraunces text-2xl text-ink">Reels</h2>
-        <p className="max-w-3xl text-sm text-ink/70">Новые ролики живут отдельно от поста: дорога, дождь, игра, чай, пустой зал. К дню их можно поставить только отдельной кнопкой. Сценарии дней и тренды изданий остаются рядом.</p>
+        <p className="max-w-3xl text-sm text-ink/70">Сценарий по секундам: хук 0–3, зал 3–8, блюдо или мероприятие 8–13, kedr-res.ru в конце. Если на день стоит вечер из «Тем», он сам попадает в кадр 8–13 с.</p>
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={() => setPane('bank')} className={`rounded-full px-4 py-2 text-sm ${pane === 'bank' ? 'bg-[#C6FF5E] font-semibold text-[#0A0F0B]' : 'border border-white/15 text-ink'}`}>Новые</button>
           <button type="button" onClick={() => setPane('scripts')} className={`rounded-full px-4 py-2 text-sm ${pane === 'scripts' ? 'bg-[#C9A96A] font-semibold text-[#0A0F0B]' : 'border border-white/15 text-ink'}`}>Сценарии дней</button>
@@ -189,8 +191,9 @@ export function ReelsView({ days, day, sources, bank, custom, canAct, onPick, on
               <DayPhoto day={item.day} className="mb-3 h-32 w-full rounded-2xl object-cover" />
               <p className="text-[11px] uppercase tracking-widest text-gold">{formatLong(dateForDay(item.day))}</p>
               <h3 className="mt-1 text-sm font-semibold text-ink">{item.title}</h3>
+              {item.event?.title && <p className="mt-2 text-xs text-[#C6FF5E]">Мероприятие в кадре: {item.event.title}</p>}
               <p className="mt-3 text-sm text-gold">{item.reelHook}</p>
-              <p className="mt-2 text-sm leading-relaxed text-ink/75">{item.reelScript}</p>
+              <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-ink/75">{item.reelScript}</p>
               <p className="mt-3 text-[11px] text-ink/50">Звук: {item.reelAudio}</p>
               <p className="mt-1 text-[11px] text-ink/45">Ситуация: {item.scene}</p>
               <button type="button" disabled={!canAct} onClick={() => onImprove(item.day)} className="press mt-3 rounded-full border border-ink/10 px-3 py-1.5 text-xs text-ink disabled:opacity-40">Пересобрать сценарий</button>
@@ -254,8 +257,13 @@ export function ThemesView({ days, day, formats, groups = [], sources, canAct, o
         <p className="text-xs uppercase tracking-[0.16em] text-gold">30 форматов</p>
         <h2 className="font-fraunces mt-1 text-3xl text-ink">Темы мероприятий</h2>
         <p className="mt-2 max-w-3xl text-sm leading-relaxed text-ink/75">
-          Пять тем. У каждого формата — как сделать это в «Кедре» и в каких наших Telegram-каналах покупать рекламу. Блюда только из меню. Зал с 12:00 до 24:00. Пруд, отель и настойки вне карты не обещаем.
+          Карточка только выбирает формат. Чтобы вечер попал в план, посты и рилс, нажмите «В план, посты и рилс». Текст дня не стирается — мероприятие дописывается плюсом. Потом его видно во вкладке «Мероприятия».
         </p>
+        {day.event?.title && (
+          <p className="mt-3 rounded-2xl border border-[#C6FF5E]/30 bg-[#C6FF5E]/10 px-4 py-3 text-sm text-[#C6FF5E]">
+            На {formatLong(dateForDay(day.day))} уже стоит «{day.event.title}». Посты и рилс это подхватили.
+          </p>
+        )}
         <label className="mt-4 block text-sm text-ink/70">
           День, на который поставить тему
           <select value={day.day} onChange={(event) => onPick(Number(event.target.value))} className="mt-2 w-full rounded-2xl border border-white/15 bg-[#0A0F0B] px-3 py-3 text-ink">
@@ -305,7 +313,7 @@ export function ThemesView({ days, day, formats, groups = [], sources, canAct, o
               ))}
             </ol>
             <div className="mt-4 flex flex-wrap gap-2">
-              <button type="button" disabled={!canAct} onClick={() => onApply(day.day, picked)} className="rounded-xl bg-[#C9A96A] px-4 py-2 text-sm font-semibold text-[#0A0F0B] disabled:opacity-40">Поставить на {formatLong(dateForDay(day.day))}</button>
+              <button type="button" onClick={() => onApply(day.day, picked)} className="rounded-xl bg-[#C9A96A] px-4 py-2 text-sm font-semibold text-[#0A0F0B]">В план, посты и рилс · {formatLong(dateForDay(day.day))}</button>
               <button type="button" onClick={onUndo} className="rounded-xl border border-white/15 px-4 py-2 text-sm text-ink">Убрать действие</button>
             </div>
           </GlassCard>
@@ -601,6 +609,7 @@ export function DayModalBody({ day, onCopy }) {
         <p className="text-sm text-gold">{day.pillar} • {day.dish} • {day.margin}</p>
       </div>
       {teamNote(day) && <p className={`text-sm font-semibold ${statusTone(day.status).text}`}>{teamNote(day)}</p>}
+      {day.event?.title && <p className="text-sm text-[#C6FF5E]">Плюсом: {day.event.title}. {day.event.hook}</p>}
       <p className="whitespace-pre-wrap text-base leading-relaxed text-ink/80">{shownPost(day)}</p>
       <p className="text-xs text-ink/75"><span className="text-gold">Хук. </span>{day.reelHook}</p>
       <p className="text-xs text-ink/75"><span className="text-gold">Сценарий. </span>{day.reelScript}</p>

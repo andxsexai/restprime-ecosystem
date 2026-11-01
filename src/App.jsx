@@ -24,6 +24,8 @@ import PostWorkshop from './pages/PostWorkshop.jsx'
 import ReviewSheet from './components/ReviewSheet.jsx'
 import { copyText } from './lib/clipboard.js'
 import { EVENT_FORMATS, EVENT_GROUPS, THEME_SOURCES } from './data/eventFormats.js'
+import { packEvent } from './lib/eventDay.js'
+import { rebuildReel } from './lib/rebuild.js'
 import { REEL_BANK } from './data/reelBank.js'
 import { RELAY_TEST, announceDecision, announceRecovery, announceSignup, pollRelay, pollTeam, resendSignup, sendTeam } from './lib/relay.js'
 import TaskDesk, { taskStamp } from './components/TaskDesk.jsx'
@@ -36,7 +38,8 @@ import Button3D from './components/ui/Button3D.jsx'
 import Modal from './components/ui/Modal.jsx'
 
 const YearCalendar = lazy(() => import('./pages/Calendar.jsx'))
-const Analytics = lazy(() => import('./pages/Analytics.jsx'))
+const CheckDesk = lazy(() => import('./pages/CheckDesk.jsx'))
+const EventsDesk = lazy(() => import('./pages/EventsDesk.jsx'))
 const ChannelDesk = lazy(() => import('./components/ChannelDesk.jsx'))
 const TrendFeed = lazy(() => import('./components/TrendFeed.jsx'))
 const SiteDesk = lazy(() => import('./pages/SiteDesk.jsx'))
@@ -574,23 +577,29 @@ export default function App() {
   }
 
   function applyFormat(dayNumber, format) {
-    if (!requireAct()) return
     const item = days.find((entry) => entry.day === dayNumber)
     if (!item) return
-    const scene = item.scene ? item.scene.charAt(0).toUpperCase() + item.scene.slice(1) : item.title
-    const plate = String(item.dish || '').startsWith('без тарелки')
-      ? 'В этом кадре нет тарелки. Есть зал.'
-      : `Из меню этого дня: ${item.dish}${item.margin && item.margin !== 'зал' ? `, ${item.margin}` : ''}.`
+    const event = packEvent(format)
     remember(item)
-    const hook = format.hook || format.note || ''
-    const step = format.how?.[0] || format.note || ''
+    const reel = rebuildReel({ ...item, event })
     patchDay(dayNumber, {
+      event,
       warmupTheme: format.title,
-      format: 'short',
-      status: 'review',
-      postText: `${hook}\n\n${scene}. ${step}\n\n${plate}\n\nkedr-res.ru`,
+      status: item.status === 'approved' || item.status === 'agreed' ? 'review' : item.status,
+      ...reel,
     })
-    notify(`Тема «${format.title}»: ${formatLong(dateForDay(item.day))} · «${item.title}».`)
+    setFocus(dayNumber)
+    setTab('events-30')
+    notify(`«${format.title}» стоит на ${formatLong(dateForDay(item.day))} плюсом к посту, плану и рилсу. Текст дня не стёрт.`)
+  }
+
+  function removeEvent(dayNumber) {
+    const item = days.find((entry) => entry.day === dayNumber)
+    if (!item?.event) return
+    const source = contentPlan.find((entry) => entry.day === ((dayNumber - 1) % 30) + 1)
+    remember(item)
+    patchDay(dayNumber, { event: null, warmupTheme: source?.warmupTheme || item.warmupTheme })
+    notify(`Мероприятие снято с ${formatLong(dateForDay(item.day))}. Пост дня на месте.`)
   }
 
   function applyReelSource(dayNumber, source) {
@@ -1055,7 +1064,7 @@ export default function App() {
     notify('Вы вышли. Снова открыт только просмотр.')
   }
 
-  const section = NAV.find((item) => item.id === tab)?.title || 'Сегодня'
+  const section = NAV.find((item) => item.id === (tab === 'analytics' ? 'check' : tab))?.title || 'Сегодня'
   const reviewItem = days.find((item) => item.day === reviewDay) || null
   const reelSources = news.filter((item) => REEL_SOURCE_IDS.includes(item.id))
   return (
@@ -1108,6 +1117,8 @@ export default function App() {
             onOpenChannels={() => setTab('tg-channels')}
             onOpenThree={() => setTab('three-days')}
             onOpenRework={() => openRework()}
+            onOpenCheck={() => setTab('check')}
+            onOpenEvents={() => setTab('events-30')}
             decisions={chat.filter((item) => item.attachment?.kind === 'decision').slice(-3).reverse()}
             onReview={openReview}
             onStatus={setDayStatus}
@@ -1158,7 +1169,26 @@ export default function App() {
             onCopy={async (text) => { await copyText(text); notify('Скопировано.') }}
           />
         )}
-        {tab === 'analytics' && <Analytics days={days} todayNumber={todayNumber || day.day} />}
+        {(tab === 'check' || tab === 'analytics') && (
+          <CheckDesk
+            days={days}
+            canAct={canAct}
+            onOpen={(dayNumber) => { setFocus(dayNumber); setTab('posts-30') }}
+            onRebuild={improveDay}
+            onReview={openReview}
+          />
+        )}
+        {tab === 'events-30' && (
+          <EventsDesk
+            days={days}
+            canAct={canAct}
+            onOpenThemes={() => setTab('themes-30')}
+            onOpenPosts={() => setTab('posts-30')}
+            onOpenPlan={() => setTab('plan-30')}
+            onRemove={removeEvent}
+            onFocus={(dayNumber) => { setFocus(dayNumber); setTab('posts-30') }}
+          />
+        )}
         {tab === 'plan-30' && (
           <PlanView
             days={days}

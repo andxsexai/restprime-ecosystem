@@ -1,8 +1,8 @@
 import { TELEGRAM_CHANNELS } from '../data/telegramChannels.js'
-import { RUBRICS } from './generateContent.js'
 import { moscowKey, recentMoscowKeys } from './planDates.js'
 import { topicsOf } from './signals.js'
-import { composePost, composeWide, hashSeed } from './writer.js'
+import { hashSeed } from './writer.js'
+import { rebuildPost } from './rebuild.js'
 
 function pickDay(days, topic, fromDay, seed) {
   const upcoming = days.filter((day) => day.day >= fromDay && day.status !== 'approved' && day.status !== 'agreed' && !day.manual)
@@ -13,14 +13,7 @@ function pickDay(days, topic, fromDay, seed) {
 }
 
 export function reworkFor(day, sourceText, { variant = 0, format = 'short' } = {}) {
-  const topic = topicsOf(sourceText)[0] || null
-  const rubric = RUBRICS[hashSeed(day?.day || 0, variant, 'rubric') % RUBRICS.length]
-  const options = { topic, rubric: rubric.id, variant, occasion: null }
-  const text = format === 'wide' ? composeWide(day, options) : composePost(day, options)
-  const why = topic
-    ? `Тема «${topic.label}», рубрика «${rubric.title}». Чужой текст не цитируем — только смысл для «Кедра».`
-    : `В источнике нет явной темы. Рубрика «${rubric.title}», сцена и блюдо остаются из дня плана.`
-  return { text, topic, rubric, why }
+  return rebuildPost(day, { sourceText, variant, format })
 }
 
 export function buildReworkPack({ feed, news = [], days, fromDay }) {

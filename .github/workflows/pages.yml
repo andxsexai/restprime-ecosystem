@@ -26,7 +26,11 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: node scripts/parse-telegram.mjs || true
+      - name: Parse Telegram
+        run: node scripts/parse-telegram.mjs
+        continue-on-error: true
+      - name: Check content
+        run: node scripts/check-content.mjs
       - run: GITHUB_PAGES=true npm run build
       - uses: actions/upload-pages-artifact@v3
         with:
