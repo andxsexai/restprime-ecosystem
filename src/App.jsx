@@ -23,7 +23,7 @@ import { buildReworkPack } from './lib/rework.js'
 import PostWorkshop from './pages/PostWorkshop.jsx'
 import ReviewSheet from './components/ReviewSheet.jsx'
 import { copyText } from './lib/clipboard.js'
-import { EVENT_FORMATS, THEME_SOURCES, formatGroup } from './data/eventFormats.js'
+import { EVENT_FORMATS, EVENT_GROUPS, THEME_SOURCES } from './data/eventFormats.js'
 import { REEL_BANK } from './data/reelBank.js'
 import { RELAY_TEST, announceDecision, announceRecovery, announceSignup, pollRelay, pollTeam, resendSignup, sendTeam } from './lib/relay.js'
 import TaskDesk, { taskStamp } from './components/TaskDesk.jsx'
@@ -582,11 +582,13 @@ export default function App() {
       ? 'В этом кадре нет тарелки. Есть зал.'
       : `Из меню этого дня: ${item.dish}${item.margin && item.margin !== 'зал' ? `, ${item.margin}` : ''}.`
     remember(item)
+    const hook = format.hook || format.note || ''
+    const step = format.how?.[0] || format.note || ''
     patchDay(dayNumber, {
       warmupTheme: format.title,
       format: 'short',
       status: 'review',
-      postText: `${format.title}.\n\n${scene}. ${format.note}.\n\n${plate}\n\nkedr-res.ru`,
+      postText: `${hook}\n\n${scene}. ${step}\n\n${plate}\n\nkedr-res.ru`,
     })
     notify(`Тема «${format.title}»: ${formatLong(dateForDay(item.day))} · «${item.title}».`)
   }
@@ -1056,8 +1058,6 @@ export default function App() {
   const section = NAV.find((item) => item.id === tab)?.title || 'Сегодня'
   const reviewItem = days.find((item) => item.day === reviewDay) || null
   const reelSources = news.filter((item) => REEL_SOURCE_IDS.includes(item.id))
-  const gameFormats = EVENT_FORMATS.filter((item) => formatGroup(item) === 'игры')
-
   return (
     <div className="min-h-screen lg:flex">
       <Sidebar
@@ -1253,8 +1253,8 @@ export default function App() {
             days={days}
             day={day}
             formats={EVENT_FORMATS}
+            groups={EVENT_GROUPS}
             sources={THEME_SOURCES}
-            games={gameFormats}
             canAct={canAct}
             onPick={setFocus}
             onApply={applyFormat}

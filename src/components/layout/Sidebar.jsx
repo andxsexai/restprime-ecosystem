@@ -14,7 +14,7 @@ export const NAV = [
   { id: 'posts-edit', title: 'Правка', note: 'Ручная доработка', icon: PenLine },
   { id: 'site-desk', title: 'Сайт', note: 'Тексты кабинета', icon: Settings2, developer: true },
   { id: 'reels-30', title: 'Reels', note: 'Сценарии и тренды', icon: Clapperboard },
-  { id: 'themes-30', title: 'Темы', note: '30 форматов', icon: Compass },
+  { id: 'themes-30', title: 'Темы', note: '30 мероприятий и реклама', icon: Compass },
   { id: 'insta-analytics', title: 'Instagram', note: 'Профиль и разбор', icon: Instagram },
   { id: 'files-tg', title: 'Файлы', note: 'Документы', icon: FolderUp },
   { id: 'github-tz', title: 'Чат', note: 'Команда', icon: MessagesSquare },

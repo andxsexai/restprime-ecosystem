@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Check, Copy, Download, ExternalLink, RefreshCw, Send, Upload } from 'lucide-react'
 import { FLAGSHIP } from '../data/place.js'
+import { TELEGRAM_CHANNELS } from '../data/telegramChannels.js'
+import { groupTitle } from '../data/eventFormats.js'
 import { shownPost, wordCount } from '../lib/compose.js'
 import { dateForDay, formatLong, formatWeekday } from '../lib/planDates.js'
 import StatusButtons, { StatusMark, statusTone, teamNote } from './StatusButtons.jsx'
@@ -229,82 +231,107 @@ export function ReelsView({ days, day, sources, bank, custom, canAct, onPick, on
   )
 }
 
-export function ThemesView({ days, day, formats, sources, games, canAct, onPick, onApply, onUndo }) {
-  const [pickedId, setPickedId] = useState(formats.find((item) => item.title === day.warmupTheme)?.id || '')
-  const gameList = games || []
-  const picked = formats.find((item) => item.id === pickedId) || null
-  const group = picked ? (gameList.some((item) => item.id === picked.id) ? 'игры' : 'стол') : ''
-  const links = sources?.[group] || []
+function channelTitle(id) {
+  return TELEGRAM_CHANNELS.find((item) => item.id === id)?.title || `@${id}`
+}
+
+export function ThemesView({ days, day, formats, groups = [], sources, canAct, onPick, onApply, onUndo }) {
+  const [groupId, setGroupId] = useState(groups[0]?.id || 'games')
+  const [pickedId, setPickedId] = useState(formats.find((item) => item.group === (groups[0]?.id || 'games'))?.id || '')
+  const visible = formats.filter((item) => item.group === groupId)
+  const picked = formats.find((item) => item.id === pickedId) || visible[0] || null
+  const links = sources?.[picked?.group] || []
+
+  function chooseGroup(id) {
+    setGroupId(id)
+    const first = formats.find((item) => item.group === id)
+    if (first) setPickedId(first.id)
+  }
+
   return (
     <section className="space-y-5">
       <GlassCard className="rounded-2xl p-5">
-        <h2 className="font-fraunces text-2xl text-ink">Темы вечера</h2>
-        <p className="text-sm text-ink/75">Формат выбирается первым. Сразу открываются источники и, если это игра, соседние игровые темы. На день тема встаёт отдельной кнопкой. «Убрать» возвращает прошлый текст.</p>
+        <p className="text-xs uppercase tracking-[0.16em] text-gold">30 форматов</p>
+        <h2 className="font-fraunces mt-1 text-3xl text-ink">Темы мероприятий</h2>
+        <p className="mt-2 max-w-3xl text-sm leading-relaxed text-ink/75">
+          Пять тем. У каждого формата — как сделать это в «Кедре» и в каких наших Telegram-каналах покупать рекламу. Блюда только из меню. Зал с 12:00 до 24:00. Пруд, отель и настойки вне карты не обещаем.
+        </p>
         <label className="mt-4 block text-sm text-ink/70">
-          День
+          День, на который поставить тему
           <select value={day.day} onChange={(event) => onPick(Number(event.target.value))} className="mt-2 w-full rounded-2xl border border-white/15 bg-[#0A0F0B] px-3 py-3 text-ink">
             {days.map((item) => (
               <option key={item.day} value={item.day}>{formatLong(dateForDay(item.day))} · {item.warmupTheme} · {item.title}</option>
             ))}
           </select>
         </label>
-        <div className="mt-4 rounded-2xl border border-[#C6FF5E]/25 p-3">
-          <p className="text-xs uppercase tracking-[0.16em] text-[#C6FF5E]">Игры</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {gameList.map((item) => (
-              <button key={item.id} type="button" onClick={() => setPickedId(item.id)} className={`rounded-full px-3 py-1 text-xs ${pickedId === item.id ? 'bg-[#C6FF5E] font-semibold text-[#0A0F0B]' : 'border border-[#C6FF5E]/40 text-[#C6FF5E]'}`}>{item.title}</button>
-            ))}
-          </div>
+        <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+          {groups.map((group) => (
+            <button key={group.id} type="button" onClick={() => chooseGroup(group.id)} className={`shrink-0 rounded-2xl border px-4 py-2 text-left ${groupId === group.id ? 'border-[#C9A96A] bg-[#C9A96A] text-[#0A0F0B]' : 'border-white/15 text-ink'}`}>
+              <span className="block text-sm font-semibold">{group.title}</span>
+              <span className={`block text-[11px] ${groupId === group.id ? 'text-[#0A0F0B]/70' : 'text-ink/50'}`}>{group.note}</span>
+            </button>
+          ))}
         </div>
-        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-          {formats.map((format) => {
-            const active = format.id === pickedId
+        <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {visible.map((format) => {
+            const active = format.id === picked?.id
             return (
               <button
                 key={format.id}
                 type="button"
                 onClick={() => setPickedId(format.id)}
-                className={`rounded-2xl border px-3 py-3 text-left ${active ? 'border-[#C9A96A] bg-[#C9A96A] text-[#0A0F0B]' : 'border-[#C9A96A]/25 text-ink hover:border-[#C9A96A]'}`}
+                className={`rounded-2xl border px-4 py-3 text-left ${active ? 'border-[#C9A96A] bg-[#C9A96A] text-[#0A0F0B]' : 'border-[#C9A96A]/25 text-ink hover:border-[#C9A96A]'}`}
               >
                 <span className="font-fraunces block text-xl leading-tight">{format.title}</span>
-                <span className={`mt-1 block text-[11px] leading-snug ${active ? 'text-[#0A0F0B]/70' : 'text-ink/55'}`}>{format.note}</span>
+                <span className={`mt-1 block text-sm leading-snug ${active ? 'text-[#0A0F0B]/80' : 'text-[#C9A96A]'}`}>{format.hook}</span>
+                <span className={`mt-1 block text-[11px] ${active ? 'text-[#0A0F0B]/60' : 'text-ink/50'}`}>{format.note}</span>
               </button>
             )
           })}
         </div>
-        {picked && (
-          <div className="mt-4 rounded-2xl border border-white/10 p-4">
-            <p className="text-xs uppercase tracking-[0.16em] text-[#C9A96A]">{group === 'игры' ? 'Игры · источники' : 'Источники темы'}</p>
-            <p className="mt-2 text-sm text-ink/80">{picked.title}. {picked.note}</p>
-            {group === 'игры' && (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {gameList.map((item) => (
-                  <button key={item.id} type="button" onClick={() => setPickedId(item.id)} className="rounded-full border border-[#C6FF5E]/40 px-3 py-1 text-xs text-[#C6FF5E]">{item.title}</button>
-                ))}
-              </div>
-            )}
-            <div className="mt-3 flex flex-wrap gap-2">
-              {links.map((link) => (
-                <a key={link.url} href={link.url} target="_blank" rel="noreferrer" className="rounded-full border border-[#C9A96A]/35 px-3 py-1 text-xs text-[#F4F0E6]">{link.place} · {link.title}</a>
+      </GlassCard>
+
+      {picked && (
+        <div className="grid gap-4 lg:grid-cols-12">
+          <GlassCard className="rounded-2xl p-5 lg:col-span-7">
+            <p className="text-xs uppercase tracking-[0.16em] text-gold">{groupTitle(picked.group)}</p>
+            <h3 className="font-fraunces mt-1 text-3xl text-ink">{picked.title}</h3>
+            <p className="mt-2 text-lg text-[#C9A96A]">{picked.hook}</p>
+            <p className="mt-3 text-sm text-ink/70"><span className="text-gold">Что нужно. </span>{picked.need}</p>
+            <p className="mt-4 text-xs uppercase tracking-[0.16em] text-gold">Как сделать в «Кедре»</p>
+            <ol className="mt-2 list-decimal space-y-2 pl-5 text-sm leading-relaxed text-ink/85">
+              {picked.how.map((step) => (
+                <li key={step}>{step}</li>
               ))}
-            </div>
+            </ol>
             <div className="mt-4 flex flex-wrap gap-2">
               <button type="button" disabled={!canAct} onClick={() => onApply(day.day, picked)} className="rounded-xl bg-[#C9A96A] px-4 py-2 text-sm font-semibold text-[#0A0F0B] disabled:opacity-40">Поставить на {formatLong(dateForDay(day.day))}</button>
               <button type="button" onClick={onUndo} className="rounded-xl border border-white/15 px-4 py-2 text-sm text-ink">Убрать действие</button>
             </div>
-          </div>
-        )}
-      </GlassCard>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {days.map((day) => (
-          <GlassCard key={day.day} className="rounded-2xl p-4">
-            <p className="text-[11px] text-gold">{formatLong(dateForDay(day.day))} · {day.pillar}</p>
-            <h3 className="mt-1 text-sm font-semibold text-ink">{day.warmupTheme}</h3>
-            <p className="mt-2 text-xs text-ink/75">{day.dish}</p>
-            <p className="mt-3 text-xs text-ink/60">{day.kpi}</p>
           </GlassCard>
-        ))}
-      </div>
+          <GlassCard className="rounded-2xl p-5 lg:col-span-5">
+            <p className="text-xs uppercase tracking-[0.16em] text-[#C6FF5E]">Реклама в Telegram</p>
+            <h3 className="mt-1 text-xl font-semibold text-ink">Куда ставить под этот формат</h3>
+            <p className="mt-2 text-sm text-ink/60">Только каналы из нашей ленты. Свои, молчащие и «открытия-закрытия» не предлагаем: там другую аудиторию.</p>
+            <div className="mt-4 space-y-3">
+              {(picked.ads || []).map((item) => (
+                <a key={item.id} href={`https://t.me/${item.id}`} target="_blank" rel="noreferrer" className="block rounded-2xl border border-[#C6FF5E]/25 px-3 py-3">
+                  <span className="block text-sm font-semibold text-[#C6FF5E]">{channelTitle(item.id)}</span>
+                  <span className="mt-1 block text-xs leading-relaxed text-ink/65">{item.why}</span>
+                  <span className="mt-1 block text-[11px] text-ink/40">t.me/{item.id}</span>
+                </a>
+              ))}
+            </div>
+            {links.length > 0 && (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {links.map((link) => (
+                  <a key={link.url} href={link.url} target="_blank" rel="noreferrer" className="rounded-full border border-[#C9A96A]/35 px-3 py-1 text-xs text-[#F4F0E6]">{link.place} · {link.title}</a>
+                ))}
+              </div>
+            )}
+          </GlassCard>
+        </div>
+      )}
     </section>
   )
 }
