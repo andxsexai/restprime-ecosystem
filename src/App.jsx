@@ -19,6 +19,7 @@ import { dateForDay, formatLong, isoDate, moscowToday, planDayForDate } from './
 import { adaptSourceToToday } from './lib/generateContent.js'
 import { autoPlan, findRepeats } from './lib/autoPlan.js'
 import { readSignals } from './lib/signals.js'
+import { buildReworkPack } from './lib/rework.js'
 import PostWorkshop from './pages/PostWorkshop.jsx'
 import ReviewSheet from './components/ReviewSheet.jsx'
 import { copyText } from './lib/clipboard.js'
@@ -40,6 +41,7 @@ const ChannelDesk = lazy(() => import('./components/ChannelDesk.jsx'))
 const TrendFeed = lazy(() => import('./components/TrendFeed.jsx'))
 const SiteDesk = lazy(() => import('./pages/SiteDesk.jsx'))
 const ThreeDaysDesk = lazy(() => import('./pages/ThreeDaysDesk.jsx'))
+const ReworkDesk = lazy(() => import('./pages/ReworkDesk.jsx'))
 
 const KEY = 'restprime-cabinet-v3'
 
@@ -130,6 +132,8 @@ export default function App() {
   const [taskLog, setTaskLog] = useState(saved?.taskLog || [])
   const [tasksOpen, setTasksOpen] = useState(false)
   const [autoFeedAt, setAutoFeedAt] = useState(saved?.autoFeedAt || '')
+  const [reworkPack, setReworkPack] = useState(saved?.reworkPack || null)
+  const [reworkFocus, setReworkFocus] = useState('')
   const [bannerHidden, setBannerHidden] = useState(() => {
     try { return sessionStorage.getItem('restprime-banner') === 'hidden' } catch { return false }
   })
@@ -183,20 +187,32 @@ export default function App() {
   useEffect(() => {
     try {
       const storedFiles = files.map((file) => (String(file.url || '').startsWith('blob:') ? { ...file, url: '' } : file))
-      localStorage.setItem(KEY, JSON.stringify({ edition: 'readable', days, focus, files: storedFiles, telegram, chat, siteNotes, extraReels, tasks, taskLog, autoFeedAt }))
+      localStorage.setItem(KEY, JSON.stringify({ edition: 'readable', days, focus, files: storedFiles, telegram, chat, siteNotes, extraReels, tasks, taskLog, autoFeedAt, reworkPack }))
     } catch {
       /* браузер закрыл память: кабинет остаётся только на этот заход */
     }
-  }, [days, focus, files, telegram, chat, siteNotes, extraReels, tasks, taskLog, autoFeedAt])
+  }, [days, focus, files, telegram, chat, siteNotes, extraReels, tasks, taskLog, autoFeedAt, reworkPack])
+
+  useEffect(() => {
+    if (!signals.fetchedAt) return
+    setReworkPack((current) => {
+      if (current?.fetchedAt === signals.fetchedAt && current.items?.length) return current
+      return buildReworkPack({ feed: telegramFeed, news: recentNews.slice(0, 12), days, fromDay: (todayNumber || 0) + 1 })
+    })
+  }, [signals.fetchedAt, todayNumber])
 
   useEffect(() => {
     if (!signals.fetchedAt || autoFeedAt === signals.fetchedAt) return
     const result = autoPlan(days, { signals, fromDay: (todayNumber || 0) + 1 })
     setAutoFeedAt(signals.fetchedAt)
-    if (!result.changed.length) return
+    const packCount = reworkPack?.items?.length || 0
+    if (!result.changed.length) {
+      notify(`Агент обновил подборку: лента от ${feedLabel(signals.fetchedAt)}, ${packCount} переработок во вкладке «Переработка».`)
+      return
+    }
     remember({ kind: 'days', items: days })
     setDays(result.days)
-    notify(`Автоплан: лента от ${feedLabel(signals.fetchedAt)}, пересобрано дней: ${result.changed.length}. Утверждённые и ручные правки не тронуты.`)
+    notify(`Автоплан: лента от ${feedLabel(signals.fetchedAt)}, пересобрано дней: ${result.changed.length}. Подборка из ${packCount} постов — во вкладке «Переработка».`)
   }, [signals, autoFeedAt])
 
   useEffect(() => {
@@ -359,16 +375,21 @@ export default function App() {
     }
   }
 
+  function decisionPatch(status) {
+    if (status === 'review') return { status, decidedBy: '', decidedRole: '', decidedAt: '' }
+    return { status, decidedBy: session?.name || 'Команда', decidedRole: roleLabel(session?.role), decidedAt: new Date().toISOString() }
+  }
+
   function setDayStatus(dayNumber, status) {
     if (!requireAct()) return
     const item = days.find((entry) => entry.day === dayNumber)
     if (item) remember(item)
-    patchDay(dayNumber, { status })
+    patchDay(dayNumber, decisionPatch(status))
     const label = status === 'agreed' ? 'Согласовано' : status === 'approved' ? 'Утвердил' : 'На проверку'
-    notify(item ? `${formatLong(dateForDay(item.day))} · «${item.title}»: ${label}.` : `Статус: ${label}.`)
+    notify(item ? `${formatLong(dateForDay(item.day))} · «${item.title}»: ${label}. Команда видит это везде.` : `Статус: ${label}.`)
     if (item && status !== 'review') {
-      pushMessage(`${label}: ${formatLong(dateForDay(item.day))}, ${item.title}`, {
-        kind: 'post',
+      pushMessage(`${session?.name || 'Команда'} · ${label}: ${formatLong(dateForDay(item.day))}, ${item.title}`, {
+        kind: 'decision',
         day: item.day,
         title: item.title,
         body: shownPost(item),
@@ -405,11 +426,11 @@ export default function App() {
     if (!requireAct()) return
     const item = days.find((entry) => entry.day === dayNumber)
     if (item) remember(item)
-    patchDay(dayNumber, { status: 'approved' })
+    patchDay(dayNumber, decisionPatch('approved'))
     setFocus(dayNumber)
     if (item) {
-      pushMessage(`Утверждено ${formatLong(dateForDay(item.day))}: ${item.title}`, {
-        kind: 'post',
+      pushMessage(`${session?.name || 'Команда'} утвердил: ${formatLong(dateForDay(item.day))}, ${item.title}`, {
+        kind: 'decision',
         day: item.day,
         title: item.title,
         body: shownPost(item),
@@ -510,6 +531,25 @@ export default function App() {
     patchDay(target.day, { format: 'short', postText: text, status: 'review' })
     setFocus(target.day)
     notify(`Пересобрано: ${formatLong(dateForDay(target.day))} · «${target.title}».`)
+  }
+
+  function openRework(postId = '') {
+    setReworkFocus(postId || '')
+    setTab('rework')
+    setGoalOpen(false)
+  }
+
+  function placeRework(dayNumber, item) {
+    if (!requireAct()) return
+    const target = days.find((entry) => entry.day === dayNumber)
+    if (!target) {
+      notify('Этот день не найден в плане. Текст не записан.')
+      return
+    }
+    remember(target)
+    patchDay(target.day, { format: 'short', postText: item.text, status: 'review', manual: true, auto: { why: item.why, refs: item.url ? [{ from: item.from, url: item.url }] : [], at: new Date().toISOString() } })
+    setFocus(target.day)
+    notify(`Переработка поставлена на ${formatLong(dateForDay(target.day))}. День помечен ручным — автоплан его не перепишет.`)
   }
 
   function placeIdeaPost(dayNumber, post) {
@@ -1067,6 +1107,8 @@ export default function App() {
             onOpenAgent={() => setTab('agent')}
             onOpenChannels={() => setTab('tg-channels')}
             onOpenThree={() => setTab('three-days')}
+            onOpenRework={() => openRework()}
+            decisions={chat.filter((item) => item.attachment?.kind === 'decision').slice(-3).reverse()}
             onReview={openReview}
             onStatus={setDayStatus}
             onToggleExtension={toggleExtension}
@@ -1089,6 +1131,19 @@ export default function App() {
             onRebuild={placeAgentText}
             onUndo={undoLast}
             onCopy={async (text) => { await copyText(text); notify('Текст агента скопирован.') }}
+            onOpenRework={() => openRework()}
+            packCount={reworkPack?.items?.length || 0}
+          />
+        )}
+        {tab === 'rework' && (
+          <ReworkDesk
+            pack={reworkPack}
+            days={days}
+            focusId={reworkFocus}
+            canAct={canAct}
+            onPlace={placeRework}
+            onSendChat={(text, attachment) => { if (!requireAct()) return; pushMessage(text, attachment); notify('Отправлено в чат команды.') }}
+            onCopy={async (text) => { await copyText(text); notify('Скопировано.') }}
           />
         )}
         {tab === 'three-days' && (
@@ -1116,8 +1171,10 @@ export default function App() {
             boards={trendBoards}
             onApproveAll={() => {
               if (!requireAct()) return
-              setDays((current) => current.map((item) => ({ ...item, status: 'approved' })))
-              notify('Все 30 дней утверждены.')
+              const stamp = decisionPatch('approved')
+              setDays((current) => current.map((item) => ({ ...item, ...stamp })))
+              pushMessage(`${session?.name || 'Команда'} утвердил все 30 дней`, { kind: 'decision', day: todayDay?.day || 1, title: 'Весь план', body: 'Команда закрыла все дни.' })
+              notify('Все 30 дней утверждены. Команда видит зелёный статус везде.')
             }}
             onAutoPlan={runAutoPlan}
             onFixRepeats={fixRepeats}
@@ -1174,7 +1231,7 @@ export default function App() {
           />
         )}
         {tab === 'news-feed' && <TrendFeed items={recentNews} days={days} day={day} canAct={canAct} onPick={setFocus} onWrite={writeNews} />}
-        {tab === 'tg-channels' && <ChannelDesk canAct={canAct} onWrite={writeChannel} onRework={openGoal} />}
+        {tab === 'tg-channels' && <ChannelDesk canAct={canAct} onWrite={writeChannel} onOpenRework={() => openRework()} onRework={(post) => openRework(`${post.channelId}-${post.id}`)} />}
         {tab === 'reels-30' && (
           <ReelsView
             days={days}

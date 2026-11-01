@@ -18,7 +18,7 @@ function windowLabel(keys) {
   return dates.length > 1 ? `С ${dates[dates.length - 1]} по ${dates[0]}` : dates[0]
 }
 
-export default function ChannelDesk({ canAct, onWrite, onRework }) {
+export default function ChannelDesk({ canAct, onWrite, onRework, onOpenRework }) {
   const [openId, setOpenId] = useState('all')
   const [place, setPlace] = useState('all')
   const [copiedId, setCopiedId] = useState('')
@@ -54,9 +54,12 @@ export default function ChannelDesk({ canAct, onWrite, onRework }) {
         <p className="text-xs uppercase tracking-[0.18em] text-gold">Telegram · {TELEGRAM_CHANNELS.length} каналов и {TREND_SITES.length} трендов</p>
         <h2 className="font-fraunces mt-1 text-3xl text-ink">Каналы и тренды</h2>
         <p className="mt-2 max-w-3xl text-sm leading-relaxed text-ink/70">
-          {windowText}, по часам Москвы. Текст на карточке целиком, без обрезки. «Скопировать» забирает пост как есть. «Переработка» открывает цель: день выбирается кнопкой, и агент собирает уже формат KEDR.
+          {windowText}, по часам Москвы. Текст на карточке целиком, без обрезки. «Переработка» открывает отдельное окно: слева оригинал, справа уже готовый текст KEDR, который агент собрал заранее.
         </p>
         <p className="mt-2 text-xs text-ink/50">Последний съём: {fetched}. В окне {posts.length} постов.</p>
+        {onOpenRework && (
+          <button type="button" onClick={() => onOpenRework('')} className="mt-3 rounded-xl bg-[#C6FF5E] px-4 py-2 text-sm font-semibold text-[#0A0F0B]">Открыть все переработки</button>
+        )}
       </div>
 
       <div className="rounded-[28px] border border-white/10 bg-card p-5">
@@ -134,7 +137,7 @@ export default function ChannelDesk({ canAct, onWrite, onRework }) {
                   {copiedId === copyKey ? 'Скопировано' : 'Скопировать'}
                 </button>
                 <a href={post.url} target="_blank" rel="noreferrer" className="rounded-xl border border-white/15 px-4 py-2 text-sm text-ink/80">Посмотреть</a>
-                <button type="button" onClick={() => onRework(post)} className="rounded-xl bg-[#C6FF5E] px-4 py-2 text-sm font-semibold text-[#0A0F0B]">Переработка</button>
+                <button type="button" onClick={() => onRework(post)} className="rounded-xl bg-[#C6FF5E] px-4 py-2 text-sm font-semibold text-[#0A0F0B]">Смотреть переработку</button>
               </div>
             </article>
           )

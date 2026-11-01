@@ -1,5 +1,5 @@
 import { CLOSERS, CONTACT_LINES, capital, closerFor, composePost, composeWide, dishLine, hashSeed } from './writer.js'
-import { topicsOf } from './signals.js'
+import { reworkFor } from './rework.js'
 
 const WIDE_LIMIT = 500
 
@@ -78,9 +78,7 @@ export function improveReel(day) {
 }
 
 export function writeFromNews(day, news, format) {
-  const topic = topicsOf(`${news.title} ${news.watch}`)[0] || null
-  if (format === 'wide') return capWords(composeWide(day, { topic }))
-  return composePost(day, { topic })
+  return reworkFor(day, `${news.title} ${news.watch}`, { format }).text
 }
 
 const CHANNEL_OPEN = {

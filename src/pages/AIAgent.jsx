@@ -3,6 +3,7 @@ import { RUBRICS, generateTelegramPost } from '../lib/generateContent.js'
 import { dateForDay, formatLong } from '../lib/planDates.js'
 import GlassCard from '../components/ui/GlassCard.jsx'
 import PremiumButton from '../components/ui/PremiumButton.jsx'
+import { StatusMark, statusTone } from '../components/StatusButtons.jsx'
 
 const RUBRIC_SOURCES = {
   sense: 'Сенсорика берёт дорогу, свет и тишину. Блюдо не открывает текст.',
@@ -13,7 +14,7 @@ const RUBRIC_SOURCES = {
   service: 'Сервис говорит, куда писать, и не обещает бронь на следующий год.',
 }
 
-export default function AIAgent({ days, day, canAct, onPick, onRebuild, onUndo, onCopy }) {
+export default function AIAgent({ days, day, canAct, onPick, onRebuild, onUndo, onCopy, onOpenRework, packCount = 0 }) {
   const [picked, setPicked] = useState(day.day)
   const [rubricId, setRubricId] = useState('sense')
   const current = days.find((item) => item.day === picked) || day
@@ -36,18 +37,25 @@ export default function AIAgent({ days, day, canAct, onPick, onRebuild, onUndo, 
         <p className="text-[11px] uppercase tracking-[0.18em] text-[#C6FF5E]">Агент</p>
         <h2 className="font-display text-4xl italic text-[#F4F0E6]">Пересобрать день</h2>
         <p className="text-sm leading-relaxed text-[#7A8580]">
-          Выберите дату и рубрику. «Пересобрать» запишет на эту дату ровно тот текст, который виден справа. Адрес, часы и телефоны стоят в тексте один раз.
+          Выберите дату и рубрику. «Пересобрать» запишет на эту дату ровно тот текст, который виден справа. Актуальные посты ленты агент уже пересобрал заранее — они во вкладке «Переработка».
         </p>
+        {onOpenRework && (
+          <button type="button" onClick={onOpenRework} className="w-full rounded-2xl border border-[#C6FF5E]/40 px-4 py-3 text-left">
+            <span className="block text-sm font-semibold text-[#C6FF5E]">Открыть подборку агента</span>
+            <span className="mt-1 block text-xs text-[#7A8580]">{packCount ? `${packCount} переработок готовы, обновляется каждые 3 часа` : 'Подборка появится после съёма ленты'}</span>
+          </button>
+        )}
         <div className="flex max-h-64 flex-col gap-2 overflow-y-auto pr-1">
           {days.map((item) => (
             <button
               key={item.day}
               type="button"
               onClick={() => choose(item.day)}
-              className={`rounded-2xl border px-3 py-2 text-left ${item.day === current.day ? 'border-[#C9A96A] bg-[#C9A96A] text-[#0A0F0B]' : 'border-white/10 text-[#F4F0E6]'}`}
+              className={`rounded-2xl border px-3 py-2 text-left ${item.day === current.day ? 'border-[#C9A96A] bg-[#C9A96A] text-[#0A0F0B]' : 'border-white/10 text-[#F4F0E6]'} ${statusTone(item.status).ring}`}
             >
               <span className="font-display block text-2xl italic">{formatLong(dateForDay(item.day))}</span>
               <span className={`block text-xs ${item.day === current.day ? 'text-[#0A0F0B]/70' : 'text-[#7A8580]'}`}>{item.title}</span>
+              <span className="mt-1 block"><StatusMark status={item.status} decidedBy={item.decidedBy} /></span>
             </button>
           ))}
         </div>

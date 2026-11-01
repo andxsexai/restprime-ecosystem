@@ -1,10 +1,11 @@
-import { BarChart3, Lightbulb, CalendarRange, Clapperboard, Compass, FolderUp, Instagram, LayoutDashboard, MessagesSquare, Newspaper, PenLine, Send, Settings2, Sparkles, X } from 'lucide-react'
+import { BarChart3, Lightbulb, CalendarRange, Clapperboard, Compass, FolderUp, Instagram, LayoutDashboard, MessagesSquare, Newspaper, PenLine, ScanText, Send, Settings2, Sparkles, X } from 'lucide-react'
 
 export const NAV = [
   { id: 'overview', title: 'Сегодня', note: 'Пост этого дня', icon: LayoutDashboard },
   { id: 'calendar-year', title: 'Календарь', note: '3 месяца', icon: CalendarRange },
   { id: 'agent', title: 'Агент', note: 'День и пересборка', icon: Sparkles },
   { id: 'three-days', title: '3 дня', note: '3 поста и 3 рилс в день', icon: Lightbulb },
+  { id: 'rework', title: 'Переработка', note: 'Агент · каждый пост', icon: ScanText },
   { id: 'analytics', title: 'Аналитика', note: 'Тексты плана', icon: BarChart3 },
   { id: 'news-feed', title: 'Лента', note: 'Оригинал и KEDR', icon: Newspaper },
   { id: 'tg-channels', title: 'Каналы', note: 'Москва · Telegram', icon: Send },

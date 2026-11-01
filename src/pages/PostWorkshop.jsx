@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Copy, Save, Sparkles } from 'lucide-react'
 import EmojiBar from '../components/EmojiBar.jsx'
 import ExtensionBar from '../components/ExtensionBar.jsx'
-import StatusButtons, { statusLabel } from '../components/StatusButtons.jsx'
+import StatusButtons, { StatusMark, statusTone, teamNote } from '../components/StatusButtons.jsx'
 import { repeatNote } from '../lib/autoPlan.js'
 import { shownPost, wideFromDay, wordCount } from '../lib/compose.js'
 import { dateForDay, formatLong, formatWeekday } from '../lib/planDates.js'
@@ -89,11 +89,11 @@ export default function PostWorkshop({ days, day, canAct, repeats = {}, onPick, 
               data-day={item.day}
               type="button"
               onClick={() => choose(item.day)}
-              className={`w-[132px] shrink-0 snap-start rounded-2xl border px-3 py-2 text-left lg:w-full ${active ? 'border-[#C9A96A] bg-[#C9A96A]/15' : 'border-[#C9A96A]/20 bg-[#121A14]/60'}`}
+              className={`w-[132px] shrink-0 snap-start rounded-2xl border px-3 py-2 text-left lg:w-full ${active ? 'border-[#C9A96A] bg-[#C9A96A]/15' : 'border-[#C9A96A]/20 bg-[#121A14]/60'} ${statusTone(item.status).ring}`}
             >
               <span className="block text-xs text-[#C9A96A]">{formatLong(date)} · {SHORT_WEEK[date.getDay()]}</span>
               <span className="mt-0.5 block truncate text-sm text-[#F4F0E6]">{item.title}</span>
-              <span className={`mt-0.5 block text-[10px] ${repeats[item.day] ? 'text-red-300' : 'text-[#7A8580]'}`}>{repeats[item.day] ? 'есть повтор' : item.manual ? 'ручная правка' : statusLabel(item.status)}</span>
+              <span className="mt-1 block"><StatusMark status={item.status} decidedBy={item.decidedBy} /></span>
             </button>
           )
         })}
@@ -106,6 +106,7 @@ export default function PostWorkshop({ days, day, canAct, repeats = {}, onPick, 
           <p className="text-xs uppercase tracking-[0.16em] text-[#C9A96A]">{formatLong(dateForDay(day.day))} · {formatWeekday(dateForDay(day.day))}</p>
           <StatusButtons value={day.status} disabled={!canAct} onChange={(status) => onStatus(day.day, status)} />
         </div>
+        {teamNote(day) && <p className={`text-sm font-semibold ${statusTone(day.status).text}`}>{teamNote(day)}</p>}
         {repeats[day.day] && <p className="rounded-2xl border border-red-300/40 px-3 py-2 text-sm text-red-200">{repeatNote(repeats[day.day])}. Нажмите «Новая версия» или перепишите фразу.</p>}
         <label className="block space-y-1.5">
           <span className="text-xs text-[#7A8580]">Заголовок</span>

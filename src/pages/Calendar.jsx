@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { generateInfinitePlan } from '../lib/generateContent.js'
 import { shownPost } from '../lib/compose.js'
+import { StatusMark, statusTone, teamNote } from '../components/StatusButtons.jsx'
 import GlassCard from '../components/ui/GlassCard.jsx'
 import PremiumButton from '../components/ui/PremiumButton.jsx'
 
@@ -53,11 +54,12 @@ export default function Calendar({ days, todayIso, onOpenDay, onCopy }) {
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
               {month.items.map((item) => {
                 const active = item.id === selectedId
+                const liveDay = item.inCabinet ? days.find((day) => day.day === item.dayNumber) : null
                 return (
-                  <button key={item.id} type="button" onClick={() => setSelectedId(item.id)} className={`rounded-2xl border p-3 text-left ${item.date === todayIso ? 'border-[#C6FF5E]' : ''} ${active ? 'bg-[#C6FF5E]/10' : 'border-[#C9A96A]/20 bg-[#121A14]/60'}`}>
+                  <button key={item.id} type="button" onClick={() => setSelectedId(item.id)} className={`rounded-2xl border p-3 text-left ${item.date === todayIso ? 'border-[#C6FF5E]' : ''} ${liveDay ? statusTone(liveDay.status).ring : ''} ${active ? 'bg-[#C6FF5E]/10' : 'border-[#C9A96A]/20 bg-[#121A14]/60'}`}>
                     <span className="text-[10px] uppercase tracking-wider text-[#7A8580]">{item.date === todayIso ? 'Сегодня · ' : ''}{item.type === 'reel' ? 'Рилс' : 'Пост'} · {item.label}</span>
-                    <span className="mt-1 block text-sm font-medium text-[#F4F0E6]">{item.title}</span>
-                    <span className="mt-1 block text-xs text-[#C9A96A]">{item.rubric}</span>
+                    <span className="mt-1 block text-sm font-medium text-[#F4F0E6]">{liveDay?.title || item.title}</span>
+                    {liveDay ? <span className="mt-1 block"><StatusMark status={liveDay.status} decidedBy={liveDay.decidedBy} /></span> : <span className="mt-1 block text-xs text-[#C9A96A]">{item.rubric}</span>}
                   </button>
                 )
               })}
@@ -70,6 +72,8 @@ export default function Calendar({ days, todayIso, onOpenDay, onCopy }) {
         {selected && (
           <>
             <p className="text-[11px] uppercase tracking-[0.16em] text-[#C9A96A]">{selected.label} · {selected.rubric}</p>
+            {live && <div className="mt-2"><StatusMark status={live.status} decidedBy={live.decidedBy} /></div>}
+            {live && teamNote(live) && <p className={`mt-2 text-sm font-semibold ${statusTone(live.status).text}`}>{teamNote(live)}</p>}
             <h3 className="font-display mt-2 text-3xl italic text-[#F4F0E6]">{live?.title || selected.title}</h3>
             <p className="mt-2 text-sm text-[#7A8580]">{selected.hook}</p>
             <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-[#F4F0E6]/90">{draft}</p>

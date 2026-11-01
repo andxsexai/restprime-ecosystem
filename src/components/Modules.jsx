@@ -3,7 +3,7 @@ import { Check, Copy, Download, ExternalLink, RefreshCw, Send, Upload } from 'lu
 import { FLAGSHIP } from '../data/place.js'
 import { shownPost, wordCount } from '../lib/compose.js'
 import { dateForDay, formatLong, formatWeekday } from '../lib/planDates.js'
-import StatusButtons, { statusLabel } from './StatusButtons.jsx'
+import StatusButtons, { StatusMark, statusTone, teamNote } from './StatusButtons.jsx'
 import ExtensionBar from './ExtensionBar.jsx'
 import AutoPlanCard from './AutoPlanCard.jsx'
 import { repeatNote } from '../lib/autoPlan.js'
@@ -38,7 +38,7 @@ export function PlanView({ days, status, pillar, onStatus, onPillar, onApproveAl
         </div>
         <div className="flex rounded-full border border-ink/10 bg-card p-1 text-xs w-fit">
           {[['all', 'Все'], ['review', 'На проверку'], ['approved', 'Утвердил'], ['agreed', 'Согласовано']].map(([id, label]) => (
-            <button key={id} type="button" onClick={() => onStatus(id)} className={`rounded-full px-3 py-1.5 ${status === id ? 'bg-[#C9A96A] font-semibold text-[#0A0F0B]' : 'text-ink/75'}`}>{label}</button>
+            <button key={id} type="button" onClick={() => onStatus(id)} className={`rounded-full px-3 py-1.5 ${status === id ? `${statusTone(id === 'all' ? 'review' : id).active} font-semibold` : 'text-ink/75'}`}>{label}</button>
           ))}
         </div>
         {boards?.length > 0 && (
@@ -65,19 +65,19 @@ export function PlanView({ days, status, pillar, onStatus, onPillar, onApproveAl
       </GlassCard>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {visible.map((day) => (
-          <GlassCard key={day.day} className="relative rounded-2xl p-4">
+          <GlassCard key={day.day} className={`relative rounded-2xl p-4 ${statusTone(day.status).ring}`}>
             <DayPhoto day={day.day} className="mb-3 h-36 w-full rounded-2xl object-cover" />
             <button type="button" className="w-full text-left" onClick={() => onOpen(day)}>
-              <div className="mb-2 flex items-center gap-2">
+              <div className="mb-2 flex flex-wrap items-center gap-2">
                 <span className="font-fraunces text-2xl text-gold">{formatLong(dateForDay(day.day))}</span>
-                <span className="rounded-full border border-[#C9A96A]/30 px-2 py-0.5 text-[11px] font-semibold text-[#C9A96A]">
-                  {statusLabel(day.status)} · {formatWeekday(dateForDay(day.day))}
-                </span>
+                <StatusMark status={day.status} decidedBy={day.decidedBy} />
+                <span className="text-[11px] text-ink/45">{formatWeekday(dateForDay(day.day))}</span>
               </div>
               <h3 className="text-base font-semibold leading-snug text-ink">{day.title}</h3>
               <p className="mt-3 line-clamp-4 whitespace-pre-wrap text-sm leading-relaxed text-ink/75">{shownPost(day)}</p>
               <p className="mt-2 text-xs text-ink/50">{day.pillar} · {day.scene}</p>
               <p className="mt-1 text-xs text-gold">{day.dish} · {day.margin}</p>
+              {teamNote(day) && <p className={`mt-1 text-xs font-semibold ${statusTone(day.status).text}`}>{teamNote(day)}</p>}
               {day.manual && <p className="mt-1 text-xs text-[#7A8580]">Ручная правка — автоплан не трогает</p>}
               {!day.manual && day.auto?.why?.length > 0 && <p className="mt-1 text-xs text-[#C6FF5E]/80">Почему так: {day.auto.why.join(' · ')}</p>}
               {repeats[day.day] && <p className="mt-1 text-xs font-semibold text-red-300">{repeatNote(repeats[day.day])}</p>}
@@ -116,9 +116,9 @@ export function PostsView({ days, onCopy, onExport, canAct, onToggleExtension, o
       </GlassCard>
       <div className="grid gap-4 lg:grid-cols-2">
         {visible.map((day) => (
-          <GlassCard key={day.day} className="rounded-2xl p-5">
+          <GlassCard key={day.day} className={`rounded-2xl p-5 ${statusTone(day.status).ring}`}>
             <div className="mb-2 flex items-center justify-between gap-2 text-xs text-ink/50">
-              <span>{formatLong(dateForDay(day.day))} · {formatWeekday(dateForDay(day.day))} · {day.pillar}</span>
+              <span className="flex flex-wrap items-center gap-2">{formatLong(dateForDay(day.day))} · {formatWeekday(dateForDay(day.day))} · {day.pillar} <StatusMark status={day.status} decidedBy={day.decidedBy} /></span>
               <button type="button" onClick={() => onCopy(shownPost(day))} className="press inline-flex items-center gap-1 text-gold"><Copy size={13} />Копировать</button>
             </div>
             <DayPhoto day={day.day} className="mb-3 h-44 w-full rounded-2xl object-cover" />
@@ -472,9 +472,9 @@ export function InstaView({ days, canAct, onOpen, onQueue, url, setUrl, busy, re
       </div>
       <div className="grid gap-3">
         {days.map((day) => (
-          <GlassCard key={day.day} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl p-4">
+          <GlassCard key={day.day} className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl p-4 ${statusTone(day.status).ring}`}>
             <button type="button" className="min-w-0 flex-1 text-left" onClick={() => onOpen(day)}>
-              <p className="text-xs text-gold">{formatLong(dateForDay(day.day))} · {statusLabel(day.status)}</p>
+              <p className="flex flex-wrap items-center gap-2 text-xs text-gold">{formatLong(dateForDay(day.day))} <StatusMark status={day.status} decidedBy={day.decidedBy} /></p>
               <p className="mt-1 text-base font-semibold text-ink">{day.title}</p>
               <p className="mt-1 line-clamp-2 text-sm text-ink/75">{day.reelHook}</p>
             </button>
@@ -522,9 +522,9 @@ export function TeamView({ messages, members, approved, canAct, teamState, onSen
               </div>
               <p className="mt-2 whitespace-pre-wrap text-base leading-relaxed text-ink">{message.text}</p>
               {message.attachment && (
-                <div className="mt-3 rounded-xl border border-ink/10 bg-paper p-3">
-                  <p className="text-[10px] uppercase tracking-[0.16em] text-gold">
-                    {message.attachment.kind === 'theme' ? 'Тема' : message.attachment.kind === 'reel' ? 'Рилс' : 'Пост'} · {formatLong(dateForDay(message.attachment.day))}
+                <div className={`mt-3 rounded-xl border p-3 ${message.attachment.kind === 'decision' ? 'border-[#7DCE6A]/40 bg-[#7DCE6A]/10' : 'border-ink/10 bg-paper'}`}>
+                  <p className={`text-[10px] uppercase tracking-[0.16em] ${message.attachment.kind === 'decision' ? 'text-[#7DCE6A]' : 'text-gold'}`}>
+                    {message.attachment.kind === 'theme' ? 'Тема' : message.attachment.kind === 'reel' ? 'Рилс' : message.attachment.kind === 'decision' ? 'Команда утвердила' : 'Пост'} · {formatLong(dateForDay(message.attachment.day))}
                   </p>
                   <p className="mt-1 font-semibold text-ink">{message.attachment.title}</p>
                   <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-ink/75">{message.attachment.body}</p>
@@ -549,9 +549,10 @@ export function TeamView({ messages, members, approved, canAct, teamState, onSen
         <div className="mt-4 max-h-[560px] space-y-3 overflow-y-auto pr-1">
           {approved.length === 0 && <p className="text-sm text-ink/50">Пока пусто. Утвердите день в плане — он появится здесь.</p>}
           {approved.map((day) => (
-            <div key={day.day} className="rounded-2xl border border-ink/10 bg-card p-3">
-              <p className="text-xs text-gold">{formatLong(dateForDay(day.day))}</p>
+            <div key={day.day} className={`rounded-2xl border bg-card p-3 ${day.status === 'approved' ? 'border-[#7DCE6A]/40' : 'border-ink/10'}`}>
+              <p className="flex flex-wrap items-center gap-2 text-xs text-gold">{formatLong(dateForDay(day.day))} <StatusMark status={day.status} decidedBy={day.decidedBy} /></p>
               <p className="mt-1 font-semibold text-ink">{day.title}</p>
+              {teamNote(day) && <p className={`mt-1 text-xs ${statusTone(day.status).text}`}>{teamNote(day)}</p>}
               <p className="mt-1 line-clamp-2 text-sm text-ink/75">{shownPost(day)}</p>
               <div className="mt-3 flex gap-2">
                 <button type="button" disabled={!canAct} onClick={() => onForward(day, 'post')} className="rounded-full bg-[#C9A96A] px-3 py-1.5 text-xs font-semibold text-[#0A0F0B] disabled:opacity-40">Пост</button>
@@ -568,7 +569,11 @@ export function TeamView({ messages, members, approved, canAct, teamState, onSen
 export function DayModalBody({ day, onCopy }) {
   return (
     <div className="space-y-3 text-base leading-relaxed text-ink/75">
-      <p className="text-sm text-gold">{day.pillar} • {day.dish} • {day.margin}</p>
+      <div className="flex flex-wrap items-center gap-2">
+        <StatusMark status={day.status} decidedBy={day.decidedBy} />
+        <p className="text-sm text-gold">{day.pillar} • {day.dish} • {day.margin}</p>
+      </div>
+      {teamNote(day) && <p className={`text-sm font-semibold ${statusTone(day.status).text}`}>{teamNote(day)}</p>}
       <p className="whitespace-pre-wrap text-base leading-relaxed text-ink/80">{shownPost(day)}</p>
       <p className="text-xs text-ink/75"><span className="text-gold">Хук. </span>{day.reelHook}</p>
       <p className="text-xs text-ink/75"><span className="text-gold">Сценарий. </span>{day.reelScript}</p>
