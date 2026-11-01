@@ -15,14 +15,14 @@ function windowLabel(keys) {
     const [year, month, day] = key.split('-').map(Number)
     return formatLong(new Date(year, month - 1, day))
   })
-  return dates.length > 1 ? `${dates[dates.length - 1]} и ${dates[0]}` : dates[0]
+  return dates.length > 1 ? `С ${dates[dates.length - 1]} по ${dates[0]}` : dates[0]
 }
 
 export default function ChannelDesk({ canAct, onWrite, onRework }) {
   const [openId, setOpenId] = useState('all')
   const [place, setPlace] = useState('all')
   const [copiedId, setCopiedId] = useState('')
-  const windowKeys = recentMoscowKeys(2)
+  const windowKeys = recentMoscowKeys(3)
   const windowText = windowLabel(windowKeys)
   const channel = TELEGRAM_CHANNELS.find((item) => item.id === openId)
   const posts = useMemo(() => {
@@ -91,7 +91,7 @@ export default function ChannelDesk({ canAct, onWrite, onRework }) {
               onClick={() => setOpenId(item.id)}
               className={`rounded-full border px-4 py-2 text-sm ${active ? 'border-[#C9A96A] bg-[#C9A96A]/15 text-[#C9A96A]' : 'border-white/10 text-ink/80'}`}
             >
-              {item.title} · {count}
+              {item.title} · {item.feed === false ? 'без ленты' : item.quiet ? 'молчит' : count}
             </button>
           )
         })}
@@ -102,6 +102,11 @@ export default function ChannelDesk({ canAct, onWrite, onRework }) {
           <p className="text-xs uppercase tracking-[0.16em] text-gold">{channel.kind}</p>
           <h3 className="font-fraunces mt-2 text-3xl text-ink">{channel.title}</h3>
           <p className="mt-2 text-sm leading-relaxed text-ink/70">{channel.voice}</p>
+          {(channel.feed === false || channel.quiet) && (
+            <a href={`https://t.me/${channel.id}`} target="_blank" rel="noreferrer" className="mt-3 inline-block text-sm text-gold underline decoration-gold/30 underline-offset-2">
+              Открыть @{channel.id} в Telegram
+            </a>
+          )}
           <div className="mt-4 flex flex-wrap gap-2">
             {notes.map((note) => (
               <span key={note} className="rounded-full border border-gold/30 px-3 py-1 text-xs text-gold">{note}</span>
@@ -115,7 +120,7 @@ export default function ChannelDesk({ canAct, onWrite, onRework }) {
       )}
 
       <div className="space-y-3">
-        {visible.length === 0 && <p className="rounded-[28px] border border-white/10 bg-card p-6 text-sm text-ink/60">За эти два дня в выбранных каналах нет текстовых постов.</p>}
+        {visible.length === 0 && <p className="rounded-[28px] border border-white/10 bg-card p-6 text-sm text-ink/60">За эти три дня в выбранных каналах нет текстовых постов.</p>}
         {visible.map((post) => {
           const copyKey = post.id + post.channelId
           return (

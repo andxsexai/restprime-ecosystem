@@ -1,8 +1,13 @@
 import { ADMIN_EMAIL, roleLabel } from './auth.js'
 
 const HOST = 'https://ntfy.sh'
-export const PUSH_TOPIC = 'restprime-kedr-desk-4f8c2a91'
-const DATA_TOPIC = 'restprime-kedr-sync-9b31d7e6'
+const TEST = (() => {
+  try { return new URLSearchParams(window.location.search).get('relay')?.replace(/[^\w-]/g, '') || '' } catch { return '' }
+})()
+export const PUSH_TOPIC = TEST ? `restprime-test-${TEST}-desk` : 'restprime-kedr-desk-4f8c2a91'
+const DATA_TOPIC = TEST ? `restprime-test-${TEST}-sync` : 'restprime-kedr-sync-9b31d7e6'
+const TEAM_TOPIC = TEST ? `restprime-test-${TEST}-team` : 'restprime-kedr-team-5d27e0b4'
+export const RELAY_TEST = TEST
 const SITE = 'https://andxsexai.github.io/restprime-ecosystem/'
 export const PUSH_URL = `${HOST}/${PUSH_TOPIC}`
 
@@ -72,6 +77,26 @@ export async function pollRelay(since = '12h') {
       if (item.event !== 'message') return null
       const event = JSON.parse(item.message)
       return event?.v === 1 && event.email ? { ...event, relayId: item.id, time: item.time } : null
+    } catch {
+      return null
+    }
+  }).filter(Boolean)
+}
+
+export function sendTeam(event) {
+  return publish({ topic: TEAM_TOPIC, message: JSON.stringify({ v: 1, ...event }) })
+}
+
+export async function pollTeam(since = '12h') {
+  const response = await fetch(`${HOST}/${TEAM_TOPIC}/json?poll=1&since=${encodeURIComponent(since)}`)
+  if (!response.ok) throw new Error(`ntfy ${response.status}`)
+  const text = await response.text()
+  return text.split('\n').filter(Boolean).map((line) => {
+    try {
+      const item = JSON.parse(line)
+      if (item.event !== 'message') return null
+      const event = JSON.parse(item.message)
+      return event?.v === 1 && (event.type === 'chat' || event.type === 'task') ? { ...event, relayId: item.id, time: item.time } : null
     } catch {
       return null
     }

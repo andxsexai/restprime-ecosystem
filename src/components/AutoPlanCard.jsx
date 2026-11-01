@@ -27,7 +27,7 @@ export default function AutoPlanCard({ signals, repeatCount, canAct, onAutoPlan,
           <p className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-[#C6FF5E]"><Radar size={14} />Автоплан</p>
           <h2 className="font-fraunces mt-1 text-2xl text-ink sm:text-3xl">План сам собирается по ленте</h2>
           <p className="mt-1 max-w-2xl text-sm leading-relaxed text-ink/70">
-            Лента от {stampOf(signals?.fetchedAt)}, {signals?.total || 0} постов и новостей. Обновляется каждое утро в 08:00 — дни впереди пересобираются сами. Утверждённое и ручные правки не трогаем, чужой текст не берём, только тему.
+            Лента от {stampOf(signals?.fetchedAt)}, {signals?.total || 0} постов и новостей. Обновляется каждые 3 часа — дни впереди пересобираются сами. Утверждённое и ручные правки не трогаем, чужой текст не берём, только тему.
           </p>
         </div>
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">

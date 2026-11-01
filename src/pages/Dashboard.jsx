@@ -7,7 +7,7 @@ import PremiumButton from '../components/ui/PremiumButton.jsx'
 import ExtensionBar from '../components/ExtensionBar.jsx'
 
 export default function Dashboard({
-  day, canAct, onPublish, onEdit, onOpenPlan, onOpenAgent, onOpenChannels, onReview, onStatus, onToggleExtension,
+  day, canAct, onPublish, onEdit, onOpenPlan, onOpenAgent, onOpenChannels, onOpenThree, onReview, onStatus, onToggleExtension,
 }) {
   const date = dateForDay(day.day)
   return (
@@ -42,7 +42,11 @@ export default function Dashboard({
         </button>
         <button type="button" onClick={onOpenChannels} className="w-full rounded-2xl border border-[#C9A96A]/30 px-4 py-3 text-left">
           <span className="block text-sm font-semibold text-[#F4F0E6]">Каналы</span>
-          <span className="mt-1 block text-xs text-[#7A8580]">Чужие посты за два дня и переработка</span>
+          <span className="mt-1 block text-xs text-[#7A8580]">Чужие посты за три дня и переработка</span>
+        </button>
+        <button type="button" onClick={onOpenThree} className="w-full rounded-2xl border border-[#C6FF5E]/30 px-4 py-3 text-left">
+          <span className="block text-sm font-semibold text-[#F4F0E6]">3 дня вперёд</span>
+          <span className="mt-1 block text-xs text-[#7A8580]">По три поста и три рилс на каждый день</span>
         </button>
         <a href={FLAGSHIP.site} target="_blank" rel="noreferrer" className="block rounded-2xl border border-white/10 px-4 py-3 text-sm text-[#C9A96A]">Сайт зала · kedr-res.ru</a>
       </GlassCard>

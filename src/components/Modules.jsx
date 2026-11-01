@@ -488,7 +488,7 @@ export function InstaView({ days, canAct, onOpen, onQueue, url, setUrl, busy, re
   )
 }
 
-export function TeamView({ messages, members, approved, canAct, onSend, onForward }) {
+export function TeamView({ messages, members, approved, canAct, teamState, onSend, onForward }) {
   const [text, setText] = useState('')
   const endRef = useRef(null)
   useEffect(() => { endRef.current?.scrollIntoView({ block: 'nearest' }) }, [messages])
@@ -499,6 +499,11 @@ export function TeamView({ messages, members, approved, canAct, onSend, onForwar
           <div>
             <h2 className="font-fraunces text-3xl text-ink">Комната команды</h2>
             <p className="text-sm text-ink/75">Обсуждение дней. Утверждённый пост или тему можно переслать одним нажатием.</p>
+            {teamState && (
+              <p className={`mt-1 text-xs ${teamState === 'offline' ? 'text-red-300' : 'text-[#C6FF5E]'}`}>
+                {teamState === 'online' ? '● Общий чат: сообщения и задачи видят все участники, проверка каждые 20 секунд' : teamState === 'offline' ? '● Нет связи с ретранслятором — сообщения пока остаются на этом устройстве' : '● Подключаемся к общему чату…'}
+              </p>
+            )}
           </div>
           <div className="flex flex-wrap gap-2">
             {members.map((member) => (
@@ -519,10 +524,10 @@ export function TeamView({ messages, members, approved, canAct, onSend, onForwar
               {message.attachment && (
                 <div className="mt-3 rounded-xl border border-ink/10 bg-paper p-3">
                   <p className="text-[10px] uppercase tracking-[0.16em] text-gold">
-                    {message.attachment.kind === 'theme' ? 'Тема' : 'Пост'} · {formatLong(dateForDay(message.attachment.day))}
+                    {message.attachment.kind === 'theme' ? 'Тема' : message.attachment.kind === 'reel' ? 'Рилс' : 'Пост'} · {formatLong(dateForDay(message.attachment.day))}
                   </p>
                   <p className="mt-1 font-semibold text-ink">{message.attachment.title}</p>
-                  <p className="mt-1 text-sm leading-relaxed text-ink/75">{message.attachment.body}</p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-ink/75">{message.attachment.body}</p>
                 </div>
               )}
             </article>

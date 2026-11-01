@@ -24,7 +24,7 @@ import ReviewSheet from './components/ReviewSheet.jsx'
 import { copyText } from './lib/clipboard.js'
 import { EVENT_FORMATS, THEME_SOURCES, formatGroup } from './data/eventFormats.js'
 import { REEL_BANK } from './data/reelBank.js'
-import { announceDecision, announceRecovery, announceSignup, pollRelay, resendSignup } from './lib/relay.js'
+import { RELAY_TEST, announceDecision, announceRecovery, announceSignup, pollRelay, pollTeam, resendSignup, sendTeam } from './lib/relay.js'
 import TaskDesk, { taskStamp } from './components/TaskDesk.jsx'
 import { loadAccess, saveAccess } from './lib/access.js'
 import { ADMIN_EMAIL, ROLES, SIGNUP_ROLES, hashPassword, normalizePhrase, roleLabel } from './lib/auth.js'
@@ -39,6 +39,7 @@ const Analytics = lazy(() => import('./pages/Analytics.jsx'))
 const ChannelDesk = lazy(() => import('./components/ChannelDesk.jsx'))
 const TrendFeed = lazy(() => import('./components/TrendFeed.jsx'))
 const SiteDesk = lazy(() => import('./pages/SiteDesk.jsx'))
+const ThreeDaysDesk = lazy(() => import('./pages/ThreeDaysDesk.jsx'))
 
 const KEY = 'restprime-cabinet-v3'
 
@@ -74,6 +75,10 @@ function initialChat(saved) {
   const raw = saved?.chat
   if (!raw?.length || raw.some((item) => item.sender === 'Бренд-Шеф')) return starterChat
   return raw
+}
+
+function chatStamp() {
+  return new Intl.DateTimeFormat('ru-RU', { timeZone: 'Europe/Moscow', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date()).replace(/[\s\u202f\u00a0]+/g, ' ')
 }
 
 function stamp() {
@@ -130,6 +135,10 @@ export default function App() {
   })
   const [relayState, setRelayState] = useState('')
   const relaySeen = useRef(new Set())
+  const [teamState, setTeamState] = useState('')
+  const teamLast = useRef('')
+  const teamSeen = useRef(new Set())
+  const tabRef = useRef('overview')
   const undoRef = useRef([])
   const [undoCount, setUndoCount] = useState(0)
   const [siteNotes, setSiteNotes] = useState(saved?.siteNotes || '')
@@ -206,6 +215,25 @@ export default function App() {
     }
   }, [isDeveloper, access.users.length, pending.length])
 
+  useEffect(() => { tabRef.current = tab }, [tab])
+
+  useEffect(() => {
+    if (!canAct && !RELAY_TEST) return undefined
+    let alive = true
+    const run = () => {
+      if (document.visibilityState === 'hidden') return
+      syncTeam().then(() => alive && setTeamState('online')).catch(() => alive && setTeamState('offline'))
+    }
+    run()
+    const timer = setInterval(run, 20000)
+    document.addEventListener('visibilitychange', run)
+    return () => {
+      alive = false
+      clearInterval(timer)
+      document.removeEventListener('visibilitychange', run)
+    }
+  }, [canAct, session?.email])
+
   useEffect(() => {
     const timer = setInterval(() => setClock(moscowToday()), 30000)
     return () => clearInterval(timer)
@@ -279,15 +307,56 @@ export default function App() {
   }
 
   function pushMessage(text, attachment) {
-    setChat((current) => [...current, {
+    const message = {
       id: uid(),
       sender: session?.name || 'Команда',
       role: roleLabel(session?.role),
-      time: stamp(),
+      time: chatStamp(),
       text,
       badge: roleLabel(session?.role),
+      from: session?.email || '',
       attachment,
-    }])
+    }
+    setChat((current) => [...current, message])
+    if (canAct) sendTeam({ type: 'chat', message }).then(() => setTeamState('online')).catch(() => setTeamState('offline'))
+  }
+
+  function shareTask(op, task, log) {
+    if (!canAct) return
+    sendTeam({ type: 'task', op, task, log: log ? { id: uid(), at: taskStamp(), text: log } : null }).catch(() => setTeamState('offline'))
+  }
+
+  async function syncTeam() {
+    const events = await pollTeam(teamLast.current || '12h')
+    const fresh = events.filter((event) => !teamSeen.current.has(event.relayId))
+    if (events.length) teamLast.current = events[events.length - 1].relayId
+    fresh.forEach((event) => teamSeen.current.add(event.relayId))
+    if (!fresh.length) return
+    const messages = fresh.filter((event) => event.type === 'chat' && event.message?.id).map((event) => event.message)
+    if (messages.length) {
+      let added = []
+      setChat((current) => {
+        const ids = new Set(current.map((item) => item.id))
+        added = messages.filter((item) => !ids.has(item.id))
+        return added.length ? [...current, ...added] : current
+      })
+      const foreign = messages.filter((item) => item.from !== session?.email)
+      if (foreign.length && tabRef.current !== 'github-tz') {
+        const last = foreign[foreign.length - 1]
+        notify(`Чат · ${last.sender}: ${String(last.text).slice(0, 90)}`)
+        showSystemNotice(`RESTPRIME · ${last.sender}`, String(last.text).slice(0, 140))
+      }
+    }
+    const taskEvents = fresh.filter((event) => event.type === 'task' && event.task?.id)
+    if (taskEvents.length) {
+      setTasks((current) => taskEvents.reduce((list, event) => {
+        if (event.op === 'remove') return list.filter((item) => item.id !== event.task.id)
+        if (list.some((item) => item.id === event.task.id)) return list.map((item) => (item.id === event.task.id ? event.task : item))
+        return [event.task, ...list]
+      }, current))
+      const logs = taskEvents.map((event) => event.log).filter(Boolean)
+      if (logs.length) setTaskLog((current) => [...logs.filter((log) => !current.some((item) => item.id === log.id)).reverse(), ...current].slice(0, 200))
+    }
   }
 
   function setDayStatus(dayNumber, status) {
@@ -443,6 +512,19 @@ export default function App() {
     notify(`Пересобрано: ${formatLong(dateForDay(target.day))} · «${target.title}».`)
   }
 
+  function placeIdeaPost(dayNumber, post) {
+    if (!requireAct()) return
+    const target = days.find((item) => item.day === dayNumber)
+    if (!target) {
+      notify('Этот день не найден в плане. Текст не записан.')
+      return
+    }
+    remember(target)
+    patchDay(target.day, { format: 'short', postText: post.text, status: 'review', manual: true, auto: { why: post.why, refs: post.refs || [], at: new Date().toISOString() } })
+    setFocus(target.day)
+    notify(`Поставлено на ${formatLong(dateForDay(target.day))}: «${post.title}». День помечен ручным — автоплан его не перепишет.`)
+  }
+
   function openReview(item) {
     if (!requireAct()) return
     remember(item)
@@ -546,7 +628,9 @@ export default function App() {
     if (!requireAct()) return
     const task = { id: uid(), title: draft.title, assignee: draft.assignee, due: draft.due || isoDate(clock), day: draft.day || null, by: session.name, createdAt: taskStamp(), doneAt: '', doneBy: '' }
     setTasks((current) => [task, ...current])
-    logTask(`${session.name} поставил «${task.title}» → ${ownerName(task.assignee)}`)
+    const line = `${session.name} поставил «${task.title}» → ${ownerName(task.assignee)}`
+    logTask(line)
+    shareTask('add', task, line)
     pushMessage(`Задача: ${task.title} → ${ownerName(task.assignee)}`)
     notify(`Задача поставлена: ${ownerName(task.assignee)}.`)
   }
@@ -556,8 +640,11 @@ export default function App() {
     const task = tasks.find((item) => item.id === id)
     if (!task) return
     const closing = !task.doneAt
-    setTasks((current) => current.map((item) => (item.id === id ? { ...item, doneAt: closing ? taskStamp() : '', doneBy: closing ? session.name : '' } : item)))
-    logTask(closing ? `${session.name} выполнил «${task.title}»` : `${session.name} вернул в работу «${task.title}»`)
+    const next = { ...task, doneAt: closing ? taskStamp() : '', doneBy: closing ? session.name : '' }
+    setTasks((current) => current.map((item) => (item.id === id ? next : item)))
+    const line = closing ? `${session.name} выполнил «${task.title}»` : `${session.name} вернул в работу «${task.title}»`
+    logTask(line)
+    shareTask('update', next, line)
     if (closing) pushMessage(`Выполнено: ${task.title}`)
     notify(closing ? `Выполнено: «${task.title}».` : `Снова в работе: «${task.title}».`)
   }
@@ -567,7 +654,9 @@ export default function App() {
     const task = tasks.find((item) => item.id === id)
     if (!task) return
     setTasks((current) => current.filter((item) => item.id !== id))
-    logTask(`${session.name} удалил «${task.title}»`)
+    const line = `${session.name} удалил «${task.title}»`
+    logTask(line)
+    shareTask('remove', task, line)
     notify(`Задача удалена: «${task.title}».`)
   }
 
@@ -586,7 +675,9 @@ export default function App() {
     }
     const fresh = plan.map((item) => ({ id: uid(), ...item, due, day: todayDay.day, by: session.name, createdAt: taskStamp(), doneAt: '', doneBy: '' }))
     setTasks((current) => [...fresh, ...current])
-    logTask(`${session.name} раздал задачи на ${when}: ${fresh.length}`)
+    const line = `${session.name} раздал задачи на ${when}: ${fresh.length}`
+    logTask(line)
+    fresh.forEach((task, index) => shareTask('add', task, index === fresh.length - 1 ? line : ''))
     notify(`Задачи на ${when} розданы по ролям.`)
   }
 
@@ -975,6 +1066,7 @@ export default function App() {
             onOpenPlan={() => setTab('plan-30')}
             onOpenAgent={() => setTab('agent')}
             onOpenChannels={() => setTab('tg-channels')}
+            onOpenThree={() => setTab('three-days')}
             onReview={openReview}
             onStatus={setDayStatus}
             onToggleExtension={toggleExtension}
@@ -997,6 +1089,18 @@ export default function App() {
             onRebuild={placeAgentText}
             onUndo={undoLast}
             onCopy={async (text) => { await copyText(text); notify('Текст агента скопирован.') }}
+          />
+        )}
+        {tab === 'three-days' && (
+          <ThreeDaysDesk
+            days={days}
+            signals={signals}
+            fromDay={(todayNumber || 0) + 1}
+            canAct={canAct}
+            onPlacePost={placeIdeaPost}
+            onPlaceReel={placeReel}
+            onSendChat={(text, attachment) => { if (!requireAct()) return; pushMessage(text, attachment); notify('Отправлено в чат команды.') }}
+            onCopy={async (text) => { await copyText(text); notify('Скопировано.') }}
           />
         )}
         {tab === 'analytics' && <Analytics days={days} todayNumber={todayNumber || day.day} />}
@@ -1132,6 +1236,7 @@ export default function App() {
           <TeamView
             messages={chat}
             members={members}
+            teamState={canAct || RELAY_TEST ? teamState || 'connecting' : ''}
             approved={approved}
             canAct={canAct}
             onSend={(text) => { if (!requireAct() || !text.trim()) return; pushMessage(text.trim()) }}

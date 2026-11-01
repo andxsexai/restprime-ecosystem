@@ -3,7 +3,7 @@ import { TELEGRAM_CHANNELS } from '../src/data/telegramChannels.js'
 import { moscowKey, recentMoscowKeys } from '../src/lib/planDates.js'
 
 const OUT = new URL('../src/data/telegramFeed.json', import.meta.url)
-const WINDOW = recentMoscowKeys(2)
+const WINDOW = recentMoscowKeys(3)
 const OLDEST = WINDOW[WINDOW.length - 1]
 const MAX_PAGES = 6
 
@@ -107,6 +107,11 @@ const previous = loadPrevious()
 const channels = {}
 
 for (const channel of TELEGRAM_CHANNELS) {
+  if (channel.feed === false) {
+    channels[channel.id] = { ok: false, title: channel.title, subscribers: '', posts: [], error: 'без публичной ленты' }
+    console.log(`${channel.id}: без публичной ленты`)
+    continue
+  }
   try {
     channels[channel.id] = await readChannel(channel.id)
     const count = channels[channel.id].posts.length
