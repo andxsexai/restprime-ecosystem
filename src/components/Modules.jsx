@@ -76,6 +76,7 @@ export function PlanView({ days, status, pillar, onStatus, onPillar, onApproveAl
                 <span className="text-[11px] text-ink/45">{formatWeekday(dateForDay(day.day))}</span>
               </div>
               <h3 className="text-base font-semibold leading-snug text-ink">{day.title}</h3>
+              {day.occupancy?.status === 'booked' && <p className="mt-2 rounded-full bg-white/10 px-2 py-1 text-[11px] text-[#7A8580]">Занято: {day.occupancy.title}</p>}
               {day.event?.title && <p className="mt-2 rounded-full bg-[#C6FF5E]/15 px-2 py-1 text-[11px] font-semibold text-[#C6FF5E]">Плюсом: {day.event.title}</p>}
               <p className="mt-3 line-clamp-4 whitespace-pre-wrap text-sm leading-relaxed text-ink/75">{shownPost(day)}</p>
               <p className="mt-2 text-xs text-ink/50">{day.pillar} · {day.scene}</p>
@@ -126,6 +127,7 @@ export function PostsView({ days, onCopy, onExport, canAct, onToggleExtension, o
             </div>
             <DayPhoto day={day.day} className="mb-3 h-44 w-full rounded-2xl object-cover" />
             <h3 className="font-fraunces text-3xl text-ink">{day.title}</h3>
+            {day.occupancy?.status === 'booked' && <p className="mt-2 text-sm text-[#7A8580]">Занято: {day.occupancy.title}. В пост гостю это не пишем.</p>}
             {day.event?.title && <p className="mt-2 text-sm text-[#C6FF5E]">Плюсом к посту: {day.event.title}. {day.event.hook}</p>}
             <p className="mt-1 text-xs text-gold">{(day.format === 'wide' ? 'Широкий' : 'Короткий')} · {wordCount(shownPost(day))} слов</p>
             <p className="mt-4 whitespace-pre-wrap text-base leading-relaxed text-ink/75">{shownPost(day)}</p>
@@ -259,6 +261,11 @@ export function ThemesView({ days, day, formats, groups = [], sources, canAct, o
         <p className="mt-2 max-w-3xl text-sm leading-relaxed text-ink/75">
           Карточка только выбирает формат. Чтобы вечер попал в план, посты и рилс, нажмите «В план, посты и рилс». Текст дня не стирается — мероприятие дописывается плюсом. Потом его видно во вкладке «Мероприятия».
         </p>
+        {day.occupancy?.status === 'booked' && (
+          <p className="mt-3 rounded-2xl border border-white/15 bg-white/5 px-4 py-3 text-sm text-[#7A8580]">
+            {formatLong(dateForDay(day.day))} занят: {day.occupancy.title}. Свой формат на эту дату не ставим.
+          </p>
+        )}
         {day.event?.title && (
           <p className="mt-3 rounded-2xl border border-[#C6FF5E]/30 bg-[#C6FF5E]/10 px-4 py-3 text-sm text-[#C6FF5E]">
             На {formatLong(dateForDay(day.day))} уже стоит «{day.event.title}». Посты и рилс это подхватили.
@@ -268,7 +275,9 @@ export function ThemesView({ days, day, formats, groups = [], sources, canAct, o
           День, на который поставить тему
           <select value={day.day} onChange={(event) => onPick(Number(event.target.value))} className="mt-2 w-full rounded-2xl border border-white/15 bg-[#0A0F0B] px-3 py-3 text-ink">
             {days.map((item) => (
-              <option key={item.day} value={item.day}>{formatLong(dateForDay(item.day))} · {item.warmupTheme} · {item.title}</option>
+              <option key={item.day} value={item.day}>
+                {formatLong(dateForDay(item.day))} · {item.occupancy?.status === 'booked' ? `занят · ${item.occupancy.title}` : item.occupancy?.status === 'event' ? item.occupancy.title : item.warmupTheme} · {item.title}
+              </option>
             ))}
           </select>
         </label>
@@ -313,7 +322,7 @@ export function ThemesView({ days, day, formats, groups = [], sources, canAct, o
               ))}
             </ol>
             <div className="mt-4 flex flex-wrap gap-2">
-              <button type="button" onClick={() => onApply(day.day, picked)} className="rounded-xl bg-[#C9A96A] px-4 py-2 text-sm font-semibold text-[#0A0F0B]">В план, посты и рилс · {formatLong(dateForDay(day.day))}</button>
+              <button type="button" disabled={day.occupancy?.status === 'booked' || day.occupancy?.status === 'event'} onClick={() => onApply(day.day, picked)} className="rounded-xl bg-[#C9A96A] px-4 py-2 text-sm font-semibold text-[#0A0F0B] disabled:opacity-40">В план, посты и рилс · {formatLong(dateForDay(day.day))}</button>
               <button type="button" onClick={onUndo} className="rounded-xl border border-white/15 px-4 py-2 text-sm text-ink">Убрать действие</button>
             </div>
           </GlassCard>
@@ -609,6 +618,7 @@ export function DayModalBody({ day, onCopy }) {
         <p className="text-sm text-gold">{day.pillar} • {day.dish} • {day.margin}</p>
       </div>
       {teamNote(day) && <p className={`text-sm font-semibold ${statusTone(day.status).text}`}>{teamNote(day)}</p>}
+      {day.occupancy?.status === 'booked' && <p className="text-sm text-[#7A8580]">Занято: {day.occupancy.title}</p>}
       {day.event?.title && <p className="text-sm text-[#C6FF5E]">Плюсом: {day.event.title}. {day.event.hook}</p>}
       <p className="whitespace-pre-wrap text-base leading-relaxed text-ink/80">{shownPost(day)}</p>
       <p className="text-xs text-ink/75"><span className="text-gold">Хук. </span>{day.reelHook}</p>

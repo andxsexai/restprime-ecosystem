@@ -2,7 +2,7 @@ import { CalendarRange, Clapperboard, Compass, FolderUp, Instagram, LayoutDashbo
 
 export const NAV = [
   { id: 'overview', title: 'Сегодня', note: 'Пост этого дня', icon: LayoutDashboard },
-  { id: 'calendar-year', title: 'Календарь', note: '3 месяца', icon: CalendarRange },
+  { id: 'calendar-year', title: 'Календарь', note: 'Ноябрь: бронь и события', icon: CalendarRange },
   { id: 'agent', title: 'Агент', note: 'День и пересборка', icon: Sparkles },
   { id: 'check', title: 'Проверка', note: 'Агент по текстам', icon: ShieldCheck },
   { id: 'three-days', title: '3 дня', note: '3 поста и 3 рилс в день', icon: Lightbulb },

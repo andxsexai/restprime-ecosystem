@@ -70,7 +70,7 @@ function cleanTitle(day, takenTitles) {
 }
 
 export function locked(day) {
-  return day.status === 'approved' || day.status === 'agreed' || day.manual
+  return day.status === 'approved' || day.status === 'agreed' || day.manual || day.occupancy?.status === 'booked'
 }
 
 export function autoPlan(days, { signals, fromDay = 1, only, force = false, variant = 0 } = {}) {

@@ -31,7 +31,10 @@ function issuesFor(day, repeats = {}) {
   if ((/рожд/i.test(`${day.scene} ${day.title} ${text}`) || day.event?.id === 'birthday') && !/10%/.test(text)) {
     push('stop', 'birthday', 'День рождения без скидки 10% на три дня до и после.', 'Вернуть правило скидки.')
   }
-  if (day.event && !eventMentioned(text, day.event)) {
+  if (day.occupancy?.status === 'booked' && day.event) {
+    push('stop', 'booked-event', 'На занятую дату нельзя вешать свой формат.', 'Снять мероприятие. Зал уже закрыт.')
+  }
+  if (day.event && day.occupancy?.status !== 'booked' && !eventMentioned(text, day.event)) {
     push('stop', 'event', `На ${day.event.title} нет строки в посте.`, 'Мероприятие должно идти плюсом к тексту дня.')
   }
   if (day.format === 'wide' && wordCount(text) > 500) {

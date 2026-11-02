@@ -26,6 +26,7 @@ import { copyText } from './lib/clipboard.js'
 import { EVENT_FORMATS, EVENT_GROUPS, THEME_SOURCES } from './data/eventFormats.js'
 import { packEvent } from './lib/eventDay.js'
 import { rebuildReel } from './lib/rebuild.js'
+import { applyOccupancy, occupancyForDay } from './data/november2026.js'
 import { REEL_BANK } from './data/reelBank.js'
 import { RELAY_TEST, announceDecision, announceRecovery, announceSignup, pollRelay, pollTeam, resendSignup, sendTeam } from './lib/relay.js'
 import TaskDesk, { taskStamp } from './components/TaskDesk.jsx'
@@ -47,6 +48,14 @@ const ThreeDaysDesk = lazy(() => import('./pages/ThreeDaysDesk.jsx'))
 const ReworkDesk = lazy(() => import('./pages/ReworkDesk.jsx'))
 
 const KEY = 'restprime-cabinet-v3'
+
+function seedNovember(days) {
+  return applyOccupancy(days).map((day) => {
+    if (day.occupancy?.status !== 'event' || !day.event) return day
+    if (day.reelHook && day.event.id && String(day.reelScript || '').includes(day.event.title)) return day
+    return { ...day, ...rebuildReel(day) }
+  })
+}
 
 function loadState() {
   try {
@@ -125,7 +134,7 @@ export default function App() {
   const todayNumber = planDayForDate(clock)
   const [tab, setTab] = useState('overview')
   const [navOpen, setNavOpen] = useState(false)
-  const [days, setDays] = useState(saved?.days || contentPlan)
+  const [days, setDays] = useState(() => seedNovember(loadState()?.days || contentPlan))
   const [focus, setFocus] = useState(() => planDayForDate(moscowToday()) || saved?.focus || 1)
   const [goalOpen, setGoalOpen] = useState(false)
   const [goalSource, setGoalSource] = useState(null)
@@ -579,6 +588,15 @@ export default function App() {
   function applyFormat(dayNumber, format) {
     const item = days.find((entry) => entry.day === dayNumber)
     if (!item) return
+    const hall = item.occupancy || occupancyForDay(dayNumber)
+    if (hall?.status === 'booked') {
+      notify(`${formatLong(dateForDay(dayNumber))} занят: ${hall.title}. Свой формат на эту дату не ставим.`)
+      return
+    }
+    if (hall?.status === 'event') {
+      notify(`${formatLong(dateForDay(dayNumber))} уже в сетке ноября: «${hall.title}».`)
+      return
+    }
     const event = packEvent(format)
     remember(item)
     const reel = rebuildReel({ ...item, event })
@@ -596,6 +614,10 @@ export default function App() {
   function removeEvent(dayNumber) {
     const item = days.find((entry) => entry.day === dayNumber)
     if (!item?.event) return
+    if (item.occupancy?.status === 'event') {
+      notify(`«${item.event.title}» из сетки ноября. Снять его можно, только сменив сетку.`)
+      return
+    }
     const source = contentPlan.find((entry) => entry.day === ((dayNumber - 1) % 30) + 1)
     remember(item)
     patchDay(dayNumber, { event: null, warmupTheme: source?.warmupTheme || item.warmupTheme })
@@ -1185,8 +1207,10 @@ export default function App() {
             onOpenThemes={() => setTab('themes-30')}
             onOpenPosts={() => setTab('posts-30')}
             onOpenPlan={() => setTab('plan-30')}
+            onOpenCalendar={() => setTab('calendar-year')}
             onRemove={removeEvent}
             onFocus={(dayNumber) => { setFocus(dayNumber); setTab('posts-30') }}
+            onCopy={async (text) => { await copyText(text); notify('Анонс скопирован.') }}
           />
         )}
         {tab === 'plan-30' && (
