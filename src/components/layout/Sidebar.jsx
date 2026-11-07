@@ -1,4 +1,5 @@
 import { CalendarRange, Clapperboard, Compass, FolderUp, Instagram, LayoutDashboard, Lightbulb, MessagesSquare, Newspaper, PartyPopper, PenLine, ScanText, Send, Settings2, ShieldCheck, Sparkles, X } from 'lucide-react'
+import RouletteText from '../RouletteText.jsx'
 
 export const NAV = [
   { id: 'overview', title: 'Сегодня', note: 'Пост этого дня', icon: LayoutDashboard },
@@ -44,12 +45,12 @@ export default function Sidebar({ tab, onTab, open, onClose, isDeveloper }) {
                 key={item.id}
                 type="button"
                 onClick={() => { onTab(item.id); onClose() }}
-                className={`flex w-full items-center gap-3 rounded-2xl px-3 py-2 text-left ${active ? 'bg-[#C9A96A]/15 text-[#C9A96A]' : 'text-[#F4F0E6]/80 hover:bg-white/5'}`}
+                className={`group flex w-full items-center gap-3 rounded-2xl px-3 py-2 text-left ${active ? 'bg-[#C9A96A]/15 text-[#C9A96A]' : 'text-[#F4F0E6]/80 hover:bg-white/5'}`}
               >
                 <Icon size={16} />
-                <span>
-                  <span className="block text-sm font-medium">{item.title}</span>
-                  <span className="block text-[10px] text-[#7A8580]">{item.note}</span>
+                <span className="min-w-0 flex-1">
+                  <RouletteText className="text-sm font-medium">{item.title}</RouletteText>
+                  <RouletteText className="text-[10px] text-[#7A8580]">{item.note}</RouletteText>
                 </span>
               </button>
             )

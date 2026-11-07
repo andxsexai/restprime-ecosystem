@@ -1,4 +1,4 @@
-import { CLOSERS, CONTACT_LINES, closerFor, composePost, composeWide, dishLine, hashSeed } from './writer.js'
+import { CLOSERS, CONTACT_LINES, RUBRICS, closerFor, composePost, composeWide, dishLine, hashSeed } from './writer.js'
 import { withEvent } from './eventDay.js'
 import { rebuildPost, rebuildReel } from './rebuild.js'
 
@@ -49,6 +49,15 @@ function capWords(text, limit = WIDE_LIMIT) {
 
 export function wideFromDay(day, angle) {
   return capWords(composeWide(day, { angle, variant: day?.variant || 0 }))
+}
+
+export function proposePosts(day, date, count = 3) {
+  const source = day || {}
+  return RUBRICS.slice(0, count).map((rubric, index) => ({
+    id: rubric.id,
+    rubric: rubric.title,
+    text: withEvent(composePost(source, { rubric: rubric.id, variant: index + 3, date }), source.event),
+  }))
 }
 
 export function improveReel(day) {

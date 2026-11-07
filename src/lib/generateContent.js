@@ -44,7 +44,7 @@ export function generateInfinitePlan(startDate = isoDate(PLAN_START), limit = 36
       dish: source.dish,
       margin: source.margin,
       pillar: source.pillar,
-      draft: `${composePost({ ...source, day: dayNumber }, { date, used })}\n\n${FOOTER}`,
+      draft: `${composePost({ ...source, day: dayNumber }, { date, used, variant: index % 8 })}\n\n${FOOTER}`,
       status: live ? 'plan' : 'draft',
       inCabinet: live,
     }

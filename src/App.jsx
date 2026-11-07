@@ -1288,7 +1288,7 @@ export default function App() {
           </div>
         )}
         <Suspense fallback={<p className="py-16 text-center text-sm text-[#7A8580]">Открываем раздел…</p>}>
-        <motion.div key={tab} initial={{ opacity: 0, filter: 'blur(8px)' }} animate={{ opacity: 1, filter: 'blur(0px)' }} transition={{ duration: 0.35 }}>
+        <motion.div key={tab} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.28 }}>
         {tab === 'overview' && (
           <Dashboard
             day={todayDay}

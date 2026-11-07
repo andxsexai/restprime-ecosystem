@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { RUBRICS, generateTelegramPost } from '../lib/generateContent.js'
+import { proposePosts } from '../lib/compose.js'
 import { dateForDay, formatLong } from '../lib/planDates.js'
 import GlassCard from '../components/ui/GlassCard.jsx'
 import PremiumButton from '../components/ui/PremiumButton.jsx'
@@ -21,6 +22,7 @@ export default function AIAgent({ days, day, canAct, onPick, onRebuild, onUndo, 
   const rubric = RUBRICS.find((item) => item.id === rubricId) || RUBRICS[0]
   const text = generateTelegramPost(rubricId, current)
   const when = formatLong(dateForDay(current.day))
+  const ideas = proposePosts(current, dateForDay(current.day), 3)
 
   function choose(dayNumber) {
     setPicked(dayNumber)
@@ -77,6 +79,16 @@ export default function AIAgent({ days, day, canAct, onPick, onRebuild, onUndo, 
           <PremiumButton tone="signal" disabled={!canAct} onClick={rebuild}>Пересобрать · {when}</PremiumButton>
           <PremiumButton tone="ghost" disabled={!canAct} onClick={onUndo}>Убрать действие</PremiumButton>
           <PremiumButton tone="ghost" onClick={() => onCopy(text)}>Скопировать</PremiumButton>
+        </div>
+        <div className="mt-6 space-y-3 border-t border-white/10 pt-4">
+          <p className="text-[11px] uppercase tracking-[0.16em] text-[#C6FF5E]">Ещё заходы на этот день</p>
+          {ideas.map((idea) => (
+            <article key={idea.id} className="rounded-2xl border border-white/10 p-3">
+              <p className="text-[11px] uppercase tracking-[0.14em] text-[#C9A96A]">{idea.rubric}</p>
+              <p className="mt-2 line-clamp-5 whitespace-pre-wrap text-sm leading-relaxed text-[#F4F0E6]/85">{idea.text}</p>
+              <button type="button" onClick={() => onCopy(idea.text)} className="mt-2 text-xs text-[#C9A96A] underline decoration-[#C9A96A]/30 underline-offset-2">Скопировать этот</button>
+            </article>
+          ))}
         </div>
       </GlassCard>
     </div>
