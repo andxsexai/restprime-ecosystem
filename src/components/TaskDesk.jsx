@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Check, RotateCcw, Trash2, X } from 'lucide-react'
+import { Check, Pencil, RotateCcw, Trash2, X } from 'lucide-react'
 import { ROLES, roleLabel } from '../lib/auth.js'
 import { dateForDay, formatLong } from '../lib/planDates.js'
 import { CompactNotes } from './NotesDesk.jsx'
@@ -30,10 +30,11 @@ function owners(task, members) {
   return person ? [task.assignee, `role:${person.role}`] : [task.assignee]
 }
 
-export default function TaskDesk({ tasks, log, members, days, todayIso, todayDay, canAct, session, notes, onClose, onAdd, onToggle, onRemove, onSeedDay, onUpsertNote, onRemoveNote, onOpenNotes }) {
+export default function TaskDesk({ tasks, log, members, days, todayIso, todayDay, canAct, session, notes, onClose, onAdd, onEdit, onToggle, onRemove, onSeedDay, onUpsertNote, onRemoveNote, onOpenNotes }) {
   const [pane, setPane] = useState('open')
   const [who, setWho] = useState('all')
   const [draft, setDraft] = useState({ title: '', assignee: `role:${session?.role && session.role !== 'developer' ? session.role : 'director'}`, due: todayIso, day: todayDay?.day || '' })
+  const [edit, setEdit] = useState(null)
 
   const lanes = useMemo(() => [
     ...ROLES.map((role) => ({ id: `role:${role.id}`, label: role.label })),
@@ -52,30 +53,82 @@ export default function TaskDesk({ tasks, log, members, days, todayIso, todayDay
     setDraft({ ...draft, title: '' })
   }
 
+  function startEdit(task) {
+    setEdit({
+      id: task.id,
+      title: task.title,
+      assignee: task.assignee,
+      due: task.due || todayIso,
+      day: task.day || '',
+    })
+  }
+
+  function saveEdit(event) {
+    event.preventDefault()
+    if (!edit?.title.trim()) return
+    const ok = onEdit?.(edit.id, { ...edit, title: edit.title.trim(), day: edit.day ? Number(edit.day) : null })
+    if (ok) setEdit(null)
+  }
+
+  function fields(value, onChange) {
+    return (
+      <>
+        <input value={value.title} onChange={(event) => onChange({ ...value, title: event.target.value })} disabled={!canAct} placeholder={canAct ? 'Что сделать' : 'Задачи ставит и правит подтверждённая команда'} className="w-full rounded-xl border border-white/15 bg-[#0A0F0B] px-3 py-3 text-base text-[#F4F0E6] outline-none focus:border-[#C9A96A] disabled:opacity-50" />
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <select value={value.assignee} onChange={(event) => onChange({ ...value, assignee: event.target.value })} disabled={!canAct} className="rounded-xl border border-white/15 bg-[#0A0F0B] px-3 py-3 text-sm text-[#F4F0E6] disabled:opacity-50">
+            {ROLES.map((role) => <option key={role.id} value={`role:${role.id}`}>Роль · {role.label}</option>)}
+            {members.map((member) => <option key={member.email} value={member.email}>{member.name} · {roleLabel(member.role)}</option>)}
+          </select>
+          <input type="date" value={value.due} onChange={(event) => onChange({ ...value, due: event.target.value })} disabled={!canAct} className="rounded-xl border border-white/15 bg-[#0A0F0B] px-3 py-3 text-sm text-[#F4F0E6] disabled:opacity-50" />
+        </div>
+        <select value={value.day} onChange={(event) => onChange({ ...value, day: event.target.value })} disabled={!canAct} className="w-full rounded-xl border border-white/15 bg-[#0A0F0B] px-3 py-3 text-sm text-[#F4F0E6] disabled:opacity-50">
+          <option value="">Без поста</option>
+          {days.map((item) => <option key={item.day} value={item.day}>Пост · {formatLong(dateForDay(item.day))} · {item.title}</option>)}
+        </select>
+      </>
+    )
+  }
+
   function card(task) {
     const late = !task.doneAt && task.due && task.due < todayIso
     const planDay = days.find((item) => item.day === task.day)
+    const editing = edit?.id === task.id
     return (
       <article key={task.id} className="rounded-2xl border border-white/10 bg-[#0A0F0B] p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className={`text-base leading-snug text-[#F4F0E6] ${task.doneAt ? 'line-through opacity-60' : ''}`}>{task.title}</p>
-            <p className="mt-1 text-xs text-[#C9A96A]">{ownerLabel(task, members)}</p>
-            <p className={`mt-1 text-xs ${late ? 'text-[#FF8A7A]' : 'text-[#7A8580]'}`}>
-              {late ? 'Просрочено · ' : 'Срок · '}{dueLabel(task.due)}
-              {planDay ? ` · пост ${formatLong(dateForDay(planDay.day))}` : ''}
-            </p>
-            {task.doneAt && <p className="mt-1 text-xs text-[#C6FF5E]">Выполнил {task.doneBy} · {task.doneAt}</p>}
+        {editing ? (
+          <form onSubmit={saveEdit} className="space-y-2">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-[#C9A96A]">Изменить задачу</p>
+            {fields(edit, setEdit)}
+            <div className="flex flex-wrap gap-2">
+              <button type="submit" disabled={!canAct || !edit.title.trim()} className="rounded-xl bg-[#C9A96A] px-4 py-2.5 text-sm font-semibold text-[#0A0F0B] disabled:opacity-40">Сохранить</button>
+              <button type="button" onClick={() => setEdit(null)} className="rounded-xl border border-white/15 px-4 py-2.5 text-sm text-[#F4F0E6]">Отмена</button>
+            </div>
+          </form>
+        ) : (
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className={`text-base leading-snug text-[#F4F0E6] ${task.doneAt ? 'line-through opacity-60' : ''}`}>{task.title}</p>
+              <p className="mt-1 text-xs text-[#C9A96A]">{ownerLabel(task, members)}</p>
+              <p className={`mt-1 text-xs ${late ? 'text-[#FF8A7A]' : 'text-[#7A8580]'}`}>
+                {late ? 'Просрочено · ' : 'Срок · '}{dueLabel(task.due)}
+                {planDay ? ` · пост ${formatLong(dateForDay(planDay.day))}` : ''}
+              </p>
+              {task.doneAt && <p className="mt-1 text-xs text-[#C6FF5E]">Выполнил {task.doneBy} · {task.doneAt}</p>}
+              {task.editedAt && <p className="mt-1 text-xs text-[#7A8580]">Правил {task.editedBy} · {task.editedAt}</p>}
+            </div>
+            <div className="flex shrink-0 flex-wrap justify-end gap-1">
+              <button type="button" onClick={() => startEdit(task)} aria-label={`Изменить ${task.title}`} className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-[#C9A96A]/40 px-3 text-xs text-[#C9A96A]">
+                <Pencil size={14} />Изменить
+              </button>
+              <button type="button" disabled={!canAct} onClick={() => onToggle(task.id)} aria-label={task.doneAt ? 'Вернуть в работу' : 'Отметить выполненной'} className={`grid h-10 w-10 place-items-center rounded-xl disabled:opacity-40 ${task.doneAt ? 'border border-white/15 text-[#F4F0E6]' : 'bg-[#C6FF5E] text-[#0A0F0B]'}`}>
+                {task.doneAt ? <RotateCcw size={16} /> : <Check size={16} />}
+              </button>
+              <button type="button" disabled={!canAct} onClick={() => onRemove(task.id)} aria-label="Удалить задачу" className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 text-[#7A8580] disabled:opacity-40">
+                <Trash2 size={15} />
+              </button>
+            </div>
           </div>
-          <div className="flex shrink-0 gap-1">
-            <button type="button" disabled={!canAct} onClick={() => onToggle(task.id)} aria-label={task.doneAt ? 'Вернуть в работу' : 'Отметить выполненной'} className={`grid h-10 w-10 place-items-center rounded-xl disabled:opacity-40 ${task.doneAt ? 'border border-white/15 text-[#F4F0E6]' : 'bg-[#C6FF5E] text-[#0A0F0B]'}`}>
-              {task.doneAt ? <RotateCcw size={16} /> : <Check size={16} />}
-            </button>
-            <button type="button" disabled={!canAct} onClick={() => onRemove(task.id)} aria-label="Удалить задачу" className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 text-[#7A8580] disabled:opacity-40">
-              <Trash2 size={15} />
-            </button>
-          </div>
-        </div>
+        )}
       </article>
     )
   }
@@ -114,18 +167,7 @@ export default function TaskDesk({ tasks, log, members, days, todayIso, todayDay
           {pane === 'open' && (
             <>
               <form onSubmit={submit} className="space-y-2 rounded-2xl border border-[#C9A96A]/25 p-3">
-                <input value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} disabled={!canAct} placeholder={canAct ? 'Что сделать' : 'Задачи ставит подтверждённая команда'} className="w-full rounded-xl border border-white/15 bg-[#0A0F0B] px-3 py-3 text-base text-[#F4F0E6] outline-none focus:border-[#C9A96A] disabled:opacity-50" />
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  <select value={draft.assignee} onChange={(event) => setDraft({ ...draft, assignee: event.target.value })} disabled={!canAct} className="rounded-xl border border-white/15 bg-[#0A0F0B] px-3 py-3 text-sm text-[#F4F0E6] disabled:opacity-50">
-                    {ROLES.map((role) => <option key={role.id} value={`role:${role.id}`}>Роль · {role.label}</option>)}
-                    {members.map((member) => <option key={member.email} value={member.email}>{member.name} · {roleLabel(member.role)}</option>)}
-                  </select>
-                  <input type="date" value={draft.due} onChange={(event) => setDraft({ ...draft, due: event.target.value })} disabled={!canAct} className="rounded-xl border border-white/15 bg-[#0A0F0B] px-3 py-3 text-sm text-[#F4F0E6] disabled:opacity-50" />
-                </div>
-                <select value={draft.day} onChange={(event) => setDraft({ ...draft, day: event.target.value })} disabled={!canAct} className="w-full rounded-xl border border-white/15 bg-[#0A0F0B] px-3 py-3 text-sm text-[#F4F0E6] disabled:opacity-50">
-                  <option value="">Без поста</option>
-                  {days.map((item) => <option key={item.day} value={item.day}>Пост · {formatLong(dateForDay(item.day))} · {item.title}</option>)}
-                </select>
+                {fields(draft, setDraft)}
                 <div className="flex flex-wrap gap-2">
                   <button type="submit" disabled={!canAct || !draft.title.trim()} className="rounded-xl bg-[#C9A96A] px-4 py-2.5 text-sm font-semibold text-[#0A0F0B] disabled:opacity-40">Поставить задачу</button>
                   {todayDay && <button type="button" disabled={!canAct} onClick={onSeedDay} className="rounded-xl border border-[#C6FF5E]/40 px-4 py-2.5 text-sm text-[#C6FF5E] disabled:opacity-40">Задачи на {formatLong(dateForDay(todayDay.day))}</button>}
@@ -146,7 +188,7 @@ export default function TaskDesk({ tasks, log, members, days, todayIso, todayDay
           )}
           {pane === 'log' && (
             <ol className="space-y-2">
-              {log.length === 0 && <p className="text-sm text-[#7A8580]">История пустая. Здесь будет видно, кто поставил, закрыл и вернул задачу.</p>}
+              {log.length === 0 && <p className="text-sm text-[#7A8580]">История пустая. Здесь будет видно, кто поставил, изменил, закрыл и вернул задачу.</p>}
               {log.map((entry) => (
                 <li key={entry.id} className="rounded-xl border border-white/10 px-3 py-2.5 text-sm text-[#F4F0E6]/85">
                   <span className="block text-[11px] text-[#7A8580]">{entry.at}</span>

@@ -846,6 +846,41 @@ export default function App() {
     notify(closing ? `Выполнено: «${task.title}».` : `Снова в работе: «${task.title}».`)
   }
 
+  function editTask(id, draft) {
+    if (!requireAct()) return false
+    const task = tasks.find((item) => item.id === id)
+    if (!task) return false
+    const title = String(draft.title || '').trim()
+    if (!title) {
+      notify('Напишите, что сделать.')
+      return false
+    }
+    const next = {
+      ...task,
+      title,
+      assignee: draft.assignee || task.assignee,
+      due: draft.due || task.due,
+      day: draft.day ? Number(draft.day) : null,
+      editedAt: taskStamp(),
+      editedBy: session.name,
+    }
+    const same = next.title === task.title && next.assignee === task.assignee && next.due === task.due && Number(next.day || 0) === Number(task.day || 0)
+    if (same) {
+      notify('Ничего не изменилось.')
+      return true
+    }
+    setTasks((current) => current.map((item) => (item.id === id ? next : item)))
+    const bits = [`${session.name} изменил «${task.title}»`]
+    if (next.title !== task.title) bits.push(`текст: «${next.title}»`)
+    if (next.assignee !== task.assignee) bits.push(`исполнитель: ${ownerName(next.assignee)}`)
+    if (next.due !== task.due) bits.push(`срок: ${next.due}`)
+    const line = bits.join(', ')
+    logTask(line)
+    shareTask('update', next, line)
+    notify(`Задача обновлена: «${next.title}».`)
+    return true
+  }
+
   function removeTask(id) {
     if (!requireAct()) return
     const task = tasks.find((item) => item.id === id)
@@ -1530,6 +1565,7 @@ export default function App() {
           notes={notes}
           onClose={() => setTasksOpen(false)}
           onAdd={addTask}
+          onEdit={editTask}
           onToggle={toggleTask}
           onRemove={removeTask}
           onSeedDay={seedDayTasks}
