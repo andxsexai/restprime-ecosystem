@@ -16,12 +16,12 @@ export function reworkFor(day, sourceText, { variant = 0, format = 'short' } = {
   return rebuildPost(day, { sourceText, variant, format })
 }
 
-export function buildReworkPack({ feed, news = [], days, fromDay }) {
+export function buildReworkPack({ feed, news = [], days, fromDay, channels = TELEGRAM_CHANNELS }) {
   const windowKeys = feed?.window?.length ? feed.window : recentMoscowKeys(3)
   const items = []
   const seen = new Set()
 
-  for (const channel of TELEGRAM_CHANNELS) {
+  for (const channel of channels) {
     if (channel.id === 'kedrrest' || channel.feed === false) continue
     for (const post of feed?.channels?.[channel.id]?.posts || []) {
       const key = `${channel.id}-${post.id}`

@@ -27,6 +27,7 @@ import { EVENT_FORMATS, EVENT_GROUPS, THEME_SOURCES } from './data/eventFormats.
 import { packEvent } from './lib/eventDay.js'
 import { rebuildReel } from './lib/rebuild.js'
 import { applyOccupancy, occupancyForDay } from './data/november2026.js'
+import { addChannel, hiddenDefaults, liveChannels, normalizePrefs, removeChannel, restoreAll, restoreChannel } from './lib/channelCatalog.js'
 import { REEL_BANK } from './data/reelBank.js'
 import { RELAY_TEST, announceDecision, announceRecovery, announceSignup, pollRelay, pollTeam, resendSignup, sendTeam } from './lib/relay.js'
 import TaskDesk, { taskStamp } from './components/TaskDesk.jsx'
@@ -43,7 +44,13 @@ import Modal from './components/ui/Modal.jsx'
 const YearCalendar = lazy(() => import('./pages/Calendar.jsx'))
 const CheckDesk = lazy(() => import('./pages/CheckDesk.jsx'))
 const EventsDesk = lazy(() => import('./pages/EventsDesk.jsx'))
-const ChannelDesk = lazy(() => import('./components/ChannelDesk.jsx'))
+const ChannelDesk = lazy(() => import('./components/ChannelDesk.jsx').catch((error) => ({
+  default: () => (
+    <p className="rounded-[28px] border border-white/10 bg-card p-6 text-sm text-[#C9A96A]">
+      Раздел каналов не загрузился: {String(error?.message || error)}
+    </p>
+  ),
+})))
 const TrendFeed = lazy(() => import('./components/TrendFeed.jsx'))
 const SiteDesk = lazy(() => import('./pages/SiteDesk.jsx'))
 const ThreeDaysDesk = lazy(() => import('./pages/ThreeDaysDesk.jsx'))
@@ -148,6 +155,7 @@ export default function App() {
   const [notes, setNotes] = useState(saved?.notes || [])
   const [notesOpen, setNotesOpen] = useState(false)
   const [noteFocus, setNoteFocus] = useState('')
+  const [channelPrefs, setChannelPrefs] = useState(() => normalizePrefs(saved?.channelPrefs))
   const [autoFeedAt, setAutoFeedAt] = useState(saved?.autoFeedAt || '')
   const [reworkPack, setReworkPack] = useState(saved?.reworkPack || null)
   const [reworkFocus, setReworkFocus] = useState('')
@@ -198,25 +206,29 @@ export default function App() {
   }, [news, clock])
   const todayDay = days.find((item) => item.day === todayNumber) || days[0]
   const todayLabel = formatLong(clock)
+  const channels = useMemo(() => liveChannels(channelPrefs), [channelPrefs])
+  const hiddenChannels = useMemo(() => hiddenDefaults(channelPrefs), [channelPrefs])
   const signals = useMemo(() => readSignals(telegramFeed, recentNews.slice(0, 20)), [recentNews])
   const repeats = useMemo(() => findRepeats(days), [days])
 
   useEffect(() => {
     try {
       const storedFiles = files.map((file) => (String(file.url || '').startsWith('blob:') ? { ...file, url: '' } : file))
-      localStorage.setItem(KEY, JSON.stringify({ edition: 'readable', days, focus, files: storedFiles, telegram, chat, siteNotes, extraReels, tasks, taskLog, notes, autoFeedAt, reworkPack }))
+      localStorage.setItem(KEY, JSON.stringify({ edition: 'readable', days, focus, files: storedFiles, telegram, chat, siteNotes, extraReels, tasks, taskLog, notes, channelPrefs, autoFeedAt, reworkPack }))
     } catch {
       /* браузер закрыл память: кабинет остаётся только на этот заход */
     }
-  }, [days, focus, files, telegram, chat, siteNotes, extraReels, tasks, taskLog, notes, autoFeedAt, reworkPack])
+  }, [days, focus, files, telegram, chat, siteNotes, extraReels, tasks, taskLog, notes, channelPrefs, autoFeedAt, reworkPack])
 
   useEffect(() => {
     if (!signals.fetchedAt) return
     setReworkPack((current) => {
-      if (current?.fetchedAt === signals.fetchedAt && current.items?.length) return current
-      return buildReworkPack({ feed: telegramFeed, news: recentNews.slice(0, 12), days, fromDay: (todayNumber || 0) + 1 })
+      const channelKey = channels.map((item) => item.id).join(',')
+      const pack = { ...buildReworkPack({ feed: telegramFeed, news: recentNews.slice(0, 12), days, fromDay: (todayNumber || 0) + 1, channels }), channelKey }
+      if (current?.fetchedAt === pack.fetchedAt && current.channelKey === channelKey) return current
+      return pack
     })
-  }, [signals.fetchedAt, todayNumber])
+  }, [signals.fetchedAt, todayNumber, channels])
 
   useEffect(() => {
     if (!signals.fetchedAt || autoFeedAt === signals.fetchedAt) return
@@ -736,6 +748,34 @@ export default function App() {
       warmupTheme: source.warmupTheme,
     })
     notify(`Вернул текст плана: ${formatLong(dateForDay(current.day))} · «${current.title}».`)
+  }
+
+  function addLiveChannel(draft) {
+    const result = addChannel(channelPrefs, draft)
+    if (result.error) {
+      notify(result.error)
+      return { ok: false }
+    }
+    setChannelPrefs(result.prefs)
+    notify(result.restored ? `Вернул «${result.channel.title}» в список.` : `Канал «${result.channel.title}» добавлен.`)
+    return { ok: true, id: result.channel?.id }
+  }
+
+  function hideLiveChannel(id) {
+    const result = removeChannel(channelPrefs, id)
+    setChannelPrefs(result.prefs)
+    const name = result.removed?.title || result.hidden?.title || id
+    notify(result.removed ? `Убрал свой канал «${name}».` : `Убрал «${name}». Вернуть можно в блоке «Убраны».`)
+  }
+
+  function restoreLiveChannel(id) {
+    setChannelPrefs(restoreChannel(channelPrefs, id))
+    notify('Канал снова в списке.')
+  }
+
+  function restoreLiveAll() {
+    setChannelPrefs(restoreAll(channelPrefs))
+    notify('Вернул убранные каналы.')
   }
 
   function writeChannel(channel, format) {
@@ -1371,7 +1411,20 @@ export default function App() {
           />
         )}
         {tab === 'news-feed' && <TrendFeed items={recentNews} days={days} day={day} canAct={canAct} onPick={setFocus} onWrite={writeNews} />}
-        {tab === 'tg-channels' && <ChannelDesk canAct={canAct} onWrite={writeChannel} onOpenRework={() => openRework()} onRework={(post) => openRework(`${post.channelId}-${post.id}`)} />}
+        {tab === 'tg-channels' && (
+          <ChannelDesk
+            channels={channels}
+            hidden={hiddenChannels}
+            canAct={canAct}
+            onWrite={writeChannel}
+            onOpenRework={() => openRework()}
+            onRework={(post) => openRework(`${post.channelId}-${post.id}`)}
+            onAdd={addLiveChannel}
+            onRemove={hideLiveChannel}
+            onRestore={restoreLiveChannel}
+            onRestoreAll={restoreLiveAll}
+          />
+        )}
         {tab === 'reels-30' && (
           <ReelsView
             days={days}
