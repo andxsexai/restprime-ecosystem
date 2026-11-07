@@ -1,7 +1,7 @@
-import { Bell, ListChecks, Menu, UserRound } from 'lucide-react'
+import { Bell, ListChecks, Menu, StickyNote, UserRound } from 'lucide-react'
 import { roleLabel } from '../../lib/auth.js'
 
-export default function TopBar({ title, dateLabel, onMenu, onAuth, onRegister, account, isDeveloper, pendingCount, onDesk, openTasks, onTasks }) {
+export default function TopBar({ title, dateLabel, onMenu, onAuth, onRegister, account, isDeveloper, pendingCount, onDesk, openTasks, onTasks, openNotes, onNotes }) {
   return (
     <header className="sticky top-0 z-[60] flex h-16 items-center justify-between gap-2 border-b border-[#C9A96A]/15 bg-[#0A0F0B]/80 px-3 backdrop-blur-md sm:gap-3 sm:px-6">
       <div className="flex min-w-0 items-center gap-2 sm:gap-3">
@@ -14,6 +14,11 @@ export default function TopBar({ title, dateLabel, onMenu, onAuth, onRegister, a
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+        <button type="button" onClick={onNotes} aria-label="Заметки" className="flex h-10 items-center gap-2 rounded-xl border border-[#C9A96A]/40 px-3 text-sm text-[#C9A96A]">
+          <StickyNote size={16} />
+          <span className="hidden sm:inline">Заметки</span>
+          {openNotes > 0 && <span className="rounded-full bg-[#C9A96A] px-1.5 text-[10px] font-bold text-[#0A0F0B]">{openNotes}</span>}
+        </button>
         <button type="button" onClick={onTasks} aria-label="Задачи команды" className="flex h-10 items-center gap-2 rounded-xl border border-[#C6FF5E]/40 px-3 text-sm text-[#C6FF5E]">
           <ListChecks size={16} />
           <span className="hidden sm:inline">Задачи</span>

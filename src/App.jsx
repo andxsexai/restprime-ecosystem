@@ -30,6 +30,8 @@ import { applyOccupancy, occupancyForDay } from './data/november2026.js'
 import { REEL_BANK } from './data/reelBank.js'
 import { RELAY_TEST, announceDecision, announceRecovery, announceSignup, pollRelay, pollTeam, resendSignup, sendTeam } from './lib/relay.js'
 import TaskDesk, { taskStamp } from './components/TaskDesk.jsx'
+import NotesDesk from './components/NotesDesk.jsx'
+import { GROUP_LIMIT, PERSONAL_LIMIT, authorName, canEditNote, ownerKey, upsertNote, visibleNotes } from './lib/notes.js'
 import { loadAccess, saveAccess } from './lib/access.js'
 import { ADMIN_EMAIL, ROLES, SIGNUP_ROLES, hashPassword, normalizePhrase, roleLabel } from './lib/auth.js'
 import {
@@ -143,6 +145,9 @@ export default function App() {
   const [tasks, setTasks] = useState(saved?.tasks || [])
   const [taskLog, setTaskLog] = useState(saved?.taskLog || [])
   const [tasksOpen, setTasksOpen] = useState(false)
+  const [notes, setNotes] = useState(saved?.notes || [])
+  const [notesOpen, setNotesOpen] = useState(false)
+  const [noteFocus, setNoteFocus] = useState('')
   const [autoFeedAt, setAutoFeedAt] = useState(saved?.autoFeedAt || '')
   const [reworkPack, setReworkPack] = useState(saved?.reworkPack || null)
   const [reworkFocus, setReworkFocus] = useState('')
@@ -199,11 +204,11 @@ export default function App() {
   useEffect(() => {
     try {
       const storedFiles = files.map((file) => (String(file.url || '').startsWith('blob:') ? { ...file, url: '' } : file))
-      localStorage.setItem(KEY, JSON.stringify({ edition: 'readable', days, focus, files: storedFiles, telegram, chat, siteNotes, extraReels, tasks, taskLog, autoFeedAt, reworkPack }))
+      localStorage.setItem(KEY, JSON.stringify({ edition: 'readable', days, focus, files: storedFiles, telegram, chat, siteNotes, extraReels, tasks, taskLog, notes, autoFeedAt, reworkPack }))
     } catch {
       /* браузер закрыл память: кабинет остаётся только на этот заход */
     }
-  }, [days, focus, files, telegram, chat, siteNotes, extraReels, tasks, taskLog, autoFeedAt, reworkPack])
+  }, [days, focus, files, telegram, chat, siteNotes, extraReels, tasks, taskLog, notes, autoFeedAt, reworkPack])
 
   useEffect(() => {
     if (!signals.fetchedAt) return
@@ -282,6 +287,7 @@ export default function App() {
         setAuthMode(null)
         setDeskOpen(false)
         setTasksOpen(false)
+        setNotesOpen(false)
       }
     }
     window.addEventListener('keydown', onKey)
@@ -354,6 +360,73 @@ export default function App() {
     sendTeam({ type: 'task', op, task, log: log ? { id: uid(), at: taskStamp(), text: log } : null }).catch(() => setTeamState('offline'))
   }
 
+  function shareNote(op, note) {
+    if (!canAct || note.scope !== 'group' || note.sync === false) return
+    sendTeam({ type: 'note', op, note }).then(() => setTeamState('online')).catch(() => setTeamState('offline'))
+  }
+
+  function saveNote(note) {
+    const owner = ownerKey(session)
+    if (note.scope === 'personal' && note.owner !== owner) {
+      notify('Чужую личную заметку не трогаем.')
+      return
+    }
+    if (note.scope === 'group' && !canAct) {
+      notify(session ? 'Общие заметки откроются после подтверждения.' : 'Общие заметки — после входа. Личные можно писать сразу.')
+      if (!session) {
+        setAuthError('')
+        setAuthMode('login')
+      }
+      return
+    }
+    const next = {
+      ...note,
+      title: String(note.title || '').trim().slice(0, 120),
+      body: String(note.body || '').slice(0, note.scope === 'group' ? GROUP_LIMIT : PERSONAL_LIMIT),
+      by: note.by || authorName(session),
+      from: note.scope === 'group' ? (session?.email || note.from) : owner,
+      owner: note.scope === 'personal' ? owner : (note.owner || 'team'),
+      sync: note.scope === 'group' && String(note.body || '').length <= GROUP_LIMIT,
+    }
+    setNotes((current) => upsertNote(current, next))
+    shareNote('upsert', next)
+    if (note.scope === 'group' && !next.sync) notify('Общая заметка длиннее канала команды — остаётся на этом устройстве.')
+  }
+
+  function removeNote(id) {
+    const note = notes.find((item) => item.id === id)
+    if (!note) return
+    if (!canEditNote(note, session, canAct)) {
+      notify(note.scope === 'group' ? 'Общую заметку меняет подтверждённая команда.' : 'Это не ваша личная заметка.')
+      return
+    }
+    setNotes((current) => current.filter((item) => item.id !== id))
+    shareNote('remove', note)
+    notify('Заметка удалена.')
+  }
+
+  function noteToTask(note) {
+    if (!requireAct()) return
+    addTask({
+      title: note.title || previewFromNote(note),
+      assignee: session.role && session.role !== 'developer' ? `role:${session.role}` : 'role:director',
+      due: isoDate(clock),
+      day: note.day || null,
+    })
+    notify(`Задача из заметки: «${note.title}».`)
+  }
+
+  function previewFromNote(note) {
+    return String(note.body || '').replace(/\s+/g, ' ').trim().slice(0, 80) || 'Заметка'
+  }
+
+  function openNotesWindow(id = '') {
+    setDeskOpen(false)
+    setTasksOpen(false)
+    setNoteFocus(id || '')
+    setNotesOpen(true)
+  }
+
   async function syncTeam() {
     const events = await pollTeam(teamLast.current || '12h')
     const fresh = events.filter((event) => !teamSeen.current.has(event.relayId))
@@ -384,6 +457,17 @@ export default function App() {
       }, current))
       const logs = taskEvents.map((event) => event.log).filter(Boolean)
       if (logs.length) setTaskLog((current) => [...logs.filter((log) => !current.some((item) => item.id === log.id)).reverse(), ...current].slice(0, 200))
+    }
+    const noteEvents = fresh.filter((event) => event.type === 'note' && event.note?.id && event.note.scope === 'group')
+    if (noteEvents.length) {
+      setNotes((current) => noteEvents.reduce((list, event) => {
+        if (event.op === 'remove') return list.filter((item) => item.id !== event.note.id)
+        return upsertNote(list, event.note)
+      }, current))
+      const last = noteEvents[noteEvents.length - 1]
+      if (last.note.from !== session?.email && !notesOpen) {
+        notify(`Общая заметка · ${last.note.by}: ${String(last.note.title || last.note.body).slice(0, 90)}`)
+      }
     }
   }
 
@@ -1106,7 +1190,9 @@ export default function App() {
         pendingCount={pending.length}
         onDesk={() => setDeskOpen((open) => !open)}
         openTasks={tasks.filter((task) => !task.doneAt).length}
-        onTasks={() => { setDeskOpen(false); setTasksOpen(true) }}
+        onTasks={() => { setDeskOpen(false); setNotesOpen(false); setTasksOpen(true) }}
+        openNotes={visibleNotes(notes, ownerKey(session)).filter((note) => !note.archived).length}
+        onNotes={() => openNotesWindow()}
         onMenu={() => setNavOpen(true)}
         onAuth={() => {
           if (session) setModal('session')
@@ -1388,11 +1474,30 @@ export default function App() {
           todayDay={todayNumber ? todayDay : null}
           canAct={canAct}
           session={session}
+          notes={notes}
           onClose={() => setTasksOpen(false)}
           onAdd={addTask}
           onToggle={toggleTask}
           onRemove={removeTask}
           onSeedDay={seedDayTasks}
+          onUpsertNote={saveNote}
+          onRemoveNote={removeNote}
+          onOpenNotes={openNotesWindow}
+        />
+      )}
+      {notesOpen && (
+        <NotesDesk
+          notes={notes}
+          members={members}
+          days={days}
+          session={session}
+          canAct={canAct}
+          focusId={noteFocus}
+          onClose={() => { setNotesOpen(false); setNoteFocus('') }}
+          onUpsert={saveNote}
+          onRemove={removeNote}
+          onToTask={noteToTask}
+          onCopy={notify}
         />
       )}
       {isDeveloper && deskOpen && (

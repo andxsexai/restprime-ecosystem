@@ -2,11 +2,14 @@ import { useMemo, useState } from 'react'
 import { Check, RotateCcw, Trash2, X } from 'lucide-react'
 import { ROLES, roleLabel } from '../lib/auth.js'
 import { dateForDay, formatLong } from '../lib/planDates.js'
+import { CompactNotes } from './NotesDesk.jsx'
+import { ownerKey, visibleNotes } from '../lib/notes.js'
 
 const PANES = [
   { id: 'open', label: 'В работе' },
   { id: 'done', label: 'Выполнено' },
   { id: 'log', label: 'История' },
+  { id: 'notes', label: 'Заметки' },
 ]
 
 function dueLabel(iso) {
@@ -27,7 +30,7 @@ function owners(task, members) {
   return person ? [task.assignee, `role:${person.role}`] : [task.assignee]
 }
 
-export default function TaskDesk({ tasks, log, members, days, todayIso, todayDay, canAct, session, onClose, onAdd, onToggle, onRemove, onSeedDay }) {
+export default function TaskDesk({ tasks, log, members, days, todayIso, todayDay, canAct, session, notes, onClose, onAdd, onToggle, onRemove, onSeedDay, onUpsertNote, onRemoveNote, onOpenNotes }) {
   const [pane, setPane] = useState('open')
   const [who, setWho] = useState('all')
   const [draft, setDraft] = useState({ title: '', assignee: `role:${session?.role && session.role !== 'developer' ? session.role : 'director'}`, due: todayIso, day: todayDay?.day || '' })
@@ -99,10 +102,10 @@ export default function TaskDesk({ tasks, log, members, days, todayIso, todayDay
           ))}
         </div>
 
-        <div className="grid grid-cols-3 gap-1 px-4 pt-3 sm:px-6">
+        <div className="grid grid-cols-2 gap-1 px-4 pt-3 sm:grid-cols-4 sm:px-6">
           {PANES.map((item) => (
             <button key={item.id} type="button" onClick={() => setPane(item.id)} className={`rounded-xl px-2 py-2.5 text-sm ${pane === item.id ? 'bg-[#C6FF5E] font-semibold text-[#0A0F0B]' : 'border border-white/10 text-[#F4F0E6]'}`}>
-              {item.label}{item.id === 'open' ? ` · ${open.length}` : item.id === 'done' ? ` · ${done.length}` : ''}
+              {item.label}{item.id === 'open' ? ` · ${open.length}` : item.id === 'done' ? ` · ${done.length}` : item.id === 'notes' ? ` · ${visibleNotes(notes || [], ownerKey(session)).filter((note) => !note.archived).length}` : ''}
             </button>
           ))}
         </div>
@@ -137,6 +140,9 @@ export default function TaskDesk({ tasks, log, members, days, todayIso, todayDay
               {done.length === 0 && <p className="text-sm text-[#7A8580]">Выполненных задач пока нет.</p>}
               {done.map(card)}
             </>
+          )}
+          {pane === 'notes' && (
+            <CompactNotes notes={notes || []} session={session} canAct={canAct} onUpsert={onUpsertNote} onRemove={onRemoveNote} onOpen={onOpenNotes} />
           )}
           {pane === 'log' && (
             <ol className="space-y-2">

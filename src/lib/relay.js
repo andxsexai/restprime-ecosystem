@@ -96,7 +96,7 @@ export async function pollTeam(since = '12h') {
       const item = JSON.parse(line)
       if (item.event !== 'message') return null
       const event = JSON.parse(item.message)
-      return event?.v === 1 && (event.type === 'chat' || event.type === 'task') ? { ...event, relayId: item.id, time: item.time } : null
+      return event?.v === 1 && (event.type === 'chat' || event.type === 'task' || event.type === 'note') ? { ...event, relayId: item.id, time: item.time } : null
     } catch {
       return null
     }
