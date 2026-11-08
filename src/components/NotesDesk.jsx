@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Archive, Check, Copy, ListChecks, Pin, PinOff, Plus, Search, StickyNote, Trash2, X } from 'lucide-react'
+import { Archive, Check, Copy, ListChecks, Pin, PinOff, Plus, RotateCcw, Search, StickyNote, Trash2, X } from 'lucide-react'
 import { copyText } from '../lib/clipboard.js'
 import { dateForDay, formatLong } from '../lib/planDates.js'
 import {
@@ -8,6 +8,8 @@ import {
   TITLE_LIMIT,
   authorName,
   canEditNote,
+  isTrashed,
+  livingNotes,
   makeNote,
   noteStamp,
   ownerKey,
@@ -23,9 +25,12 @@ const FILTERS = [
   { id: 'group', label: 'Общие' },
   { id: 'pinned', label: 'Закреплённые' },
   { id: 'archived', label: 'Архив' },
+  { id: 'trash', label: 'Корзина' },
 ]
 
 function matchesFilter(note, filter) {
+  if (filter === 'trash') return isTrashed(note)
+  if (isTrashed(note)) return false
   if (filter === 'archived') return note.archived
   if (note.archived) return false
   if (filter === 'personal') return note.scope === 'personal'
@@ -44,6 +49,8 @@ export default function NotesDesk({
   onClose,
   onUpsert,
   onRemove,
+  onRestore,
+  onPurge,
   onToTask,
   onCopy,
 }) {
@@ -61,13 +68,15 @@ export default function NotesDesk({
   )
   const selected = mine.find((note) => note.id === selectedId) || null
   const counts = {
-    all: mine.filter((note) => !note.archived).length,
-    personal: mine.filter((note) => !note.archived && note.scope === 'personal').length,
-    group: mine.filter((note) => !note.archived && note.scope === 'group').length,
-    pinned: mine.filter((note) => !note.archived && note.pinned).length,
-    archived: mine.filter((note) => note.archived).length,
+    all: mine.filter((note) => !note.archived && !isTrashed(note)).length,
+    personal: mine.filter((note) => !note.archived && !isTrashed(note) && note.scope === 'personal').length,
+    group: mine.filter((note) => !note.archived && !isTrashed(note) && note.scope === 'group').length,
+    pinned: mine.filter((note) => !note.archived && !isTrashed(note) && note.pinned).length,
+    archived: mine.filter((note) => note.archived && !isTrashed(note)).length,
+    trash: mine.filter(isTrashed).length,
   }
-  const editable = canEditNote(selected, session, canAct)
+  const inTrash = isTrashed(selected)
+  const editable = canEditNote(selected, session, canAct) && !inTrash
   const limit = selected?.scope === 'group' ? GROUP_LIMIT : PERSONAL_LIMIT
 
   useEffect(() => {
@@ -158,17 +167,18 @@ export default function NotesDesk({
               {!canAct && <p className="text-xs leading-relaxed text-[#7A8580]">Личные заметки пишутся сразу на этом устройстве. Общие видит команда — для них нужен вход.</p>}
             </div>
             <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-4 pb-5 sm:px-5">
-              {shown.length === 0 && <p className="text-sm text-[#7A8580]">Пока пусто. Личная заметка не уходит в общий чат.</p>}
+              {shown.length === 0 && <p className="text-sm text-[#7A8580]">{filter === 'trash' ? 'Корзина пустая.' : 'Пока пусто. Личная заметка не уходит в общий чат.'}</p>}
               {shown.map((note) => (
                 <button key={note.id} type="button" onClick={() => setSelectedId(note.id)} className={`w-full rounded-2xl border p-3 text-left ${note.id === selectedId ? 'border-[#C9A96A] bg-[#C9A96A]/10' : 'border-white/10 bg-[#0A0F0B]'}`}>
                   <span className="flex items-center gap-2 text-[10px] uppercase tracking-wider text-[#7A8580]">
                     {note.pinned && <Pin size={11} className="text-[#C9A96A]" />}
                     {note.scope === 'group' ? 'Общая' : 'Личная'}
                     {note.archived ? ' · архив' : ''}
+                    {isTrashed(note) ? ' · корзина' : ''}
                   </span>
                   <span className="mt-1 block text-sm font-medium text-[#F4F0E6]">{note.title || 'Без названия'}</span>
                   <span className="mt-1 block text-xs text-[#7A8580]">{previewNote(note.body)}</span>
-                  <span className="mt-1 block text-[11px] text-[#C9A96A]">{note.by} · {note.updatedAt}</span>
+                  <span className="mt-1 block text-[11px] text-[#C9A96A]">{isTrashed(note) ? `${note.trashedBy || note.by} · ${note.trashedAt}` : `${note.by} · ${note.updatedAt}`}</span>
                 </button>
               ))}
             </div>
@@ -178,7 +188,23 @@ export default function NotesDesk({
             {!selected && (
               <div className="flex flex-1 items-center justify-center p-8 text-sm text-[#7A8580]">Выберите заметку слева или создайте новую.</div>
             )}
-            {selected && draft && (
+            {selected && inTrash && (
+              <div className="flex min-h-0 flex-1 flex-col">
+                <div className="flex items-center justify-between gap-2 border-b border-white/10 px-4 py-3 sm:px-5">
+                  <button type="button" onClick={() => setSelectedId('')} className="rounded-xl border border-white/15 px-3 py-2 text-xs text-[#F4F0E6] lg:hidden">К списку</button>
+                  <p className="text-xs text-[#FF8A7A]">В корзине · {selected.trashedBy || selected.by} · {selected.trashedAt}</p>
+                </div>
+                <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4 sm:p-5">
+                  <h3 className="font-display text-3xl italic text-[#F4F0E6]">{selected.title || 'Без названия'}</h3>
+                  <p className="whitespace-pre-wrap text-base leading-relaxed text-[#F4F0E6]/80">{selected.body || 'Пустая заметка'}</p>
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" disabled={!canEditNote(selected, session, canAct)} onClick={() => { onRestore(selected.id); setFilter('all') }} className="inline-flex items-center gap-1.5 rounded-xl bg-[#C9A96A] px-4 py-2.5 text-sm font-semibold text-[#0A0F0B] disabled:opacity-40"><RotateCcw size={15} />Вернуть</button>
+                    <button type="button" disabled={!canEditNote(selected, session, canAct)} onClick={() => { onPurge(selected.id); setSelectedId('') }} className="inline-flex items-center gap-1.5 rounded-xl border border-white/15 px-4 py-2.5 text-sm text-[#FF8A7A] disabled:opacity-40"><Trash2 size={15} />Навсегда</button>
+                  </div>
+                </div>
+              </div>
+            )}
+            {selected && draft && !inTrash && (
               <>
                 <div className="flex items-center justify-between gap-2 border-b border-white/10 px-4 py-3 sm:px-5">
                   <button type="button" onClick={() => setSelectedId('')} className="rounded-xl border border-white/15 px-3 py-2 text-xs text-[#F4F0E6] lg:hidden">К списку</button>
@@ -187,7 +213,7 @@ export default function NotesDesk({
                     <button type="button" disabled={!editable} onClick={() => patch({ pinned: !selected.pinned })} aria-label={selected.pinned ? 'Открепить' : 'Закрепить'} className="grid h-10 w-10 place-items-center rounded-xl border border-white/15 text-[#C9A96A] disabled:opacity-40">{selected.pinned ? <PinOff size={15} /> : <Pin size={15} />}</button>
                     <button type="button" disabled={!editable} onClick={() => patch({ archived: !selected.archived })} aria-label={selected.archived ? 'Вернуть из архива' : 'В архив'} className="grid h-10 w-10 place-items-center rounded-xl border border-white/15 text-[#F4F0E6] disabled:opacity-40"><Archive size={15} /></button>
                     <button type="button" onClick={copy} aria-label="Скопировать" className="grid h-10 w-10 place-items-center rounded-xl border border-white/15 text-[#F4F0E6]"><Copy size={15} /></button>
-                    <button type="button" disabled={!editable} onClick={() => { onRemove(selected.id); setSelectedId('') }} aria-label="Удалить заметку" className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 text-[#7A8580] disabled:opacity-40"><Trash2 size={15} /></button>
+                    <button type="button" disabled={!editable} onClick={() => { onRemove(selected.id); setFilter('trash'); setSelectedId(selected.id) }} aria-label="Удалить заметку" className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 text-[#7A8580] disabled:opacity-40"><Trash2 size={15} /></button>
                   </div>
                 </div>
                 <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4 sm:p-5">
@@ -237,7 +263,7 @@ export function CompactNotes({ notes, session, canAct, onUpsert, onOpen, onRemov
   const [scope, setScope] = useState('personal')
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
-  const mine = visibleNotes(notes, owner)
+  const mine = livingNotes(notes, owner)
   const recent = sortNotes(mine.filter((note) => !note.archived)).slice(0, 6)
 
   function submit(event) {

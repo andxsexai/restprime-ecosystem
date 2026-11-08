@@ -32,7 +32,8 @@ import { REEL_BANK } from './data/reelBank.js'
 import { RELAY_TEST, announceDecision, announceRecovery, announceSignup, pollRelay, pollTeam, resendSignup, sendTeam } from './lib/relay.js'
 import TaskDesk, { taskStamp } from './components/TaskDesk.jsx'
 import NotesDesk from './components/NotesDesk.jsx'
-import { GROUP_LIMIT, PERSONAL_LIMIT, authorName, canEditNote, ownerKey, upsertNote, visibleNotes } from './lib/notes.js'
+import TrashDesk, { trashCount } from './components/TrashDesk.jsx'
+import { GROUP_LIMIT, PERSONAL_LIMIT, authorName, canEditNote, isTrashed, livingNotes, livingOf, moveToTrash, noteStamp, ownerKey, takeFromTrash, upsertNote } from './lib/notes.js'
 import { loadAccess, saveAccess } from './lib/access.js'
 import { ADMIN_EMAIL, ROLES, SIGNUP_ROLES, hashPassword, normalizePhrase, roleLabel } from './lib/auth.js'
 import {
@@ -155,6 +156,7 @@ export default function App() {
   const [notes, setNotes] = useState(saved?.notes || [])
   const [notesOpen, setNotesOpen] = useState(false)
   const [noteFocus, setNoteFocus] = useState('')
+  const [trashOpen, setTrashOpen] = useState(false)
   const [channelPrefs, setChannelPrefs] = useState(() => normalizePrefs(saved?.channelPrefs))
   const [autoFeedAt, setAutoFeedAt] = useState(saved?.autoFeedAt || '')
   const [reworkPack, setReworkPack] = useState(saved?.reworkPack || null)
@@ -300,6 +302,7 @@ export default function App() {
         setDeskOpen(false)
         setTasksOpen(false)
         setNotesOpen(false)
+        setTrashOpen(false)
       }
     }
     window.addEventListener('keydown', onKey)
@@ -378,6 +381,10 @@ export default function App() {
   }
 
   function saveNote(note) {
+    if (isTrashed(note)) {
+      notify('Сначала верните заметку из корзины.')
+      return
+    }
     const owner = ownerKey(session)
     if (note.scope === 'personal' && note.owner !== owner) {
       notify('Чужую личную заметку не трогаем.')
@@ -407,18 +414,50 @@ export default function App() {
 
   function removeNote(id) {
     const note = notes.find((item) => item.id === id)
+    if (!note || isTrashed(note)) return
+    if (!canEditNote(note, session, canAct)) {
+      notify(note.scope === 'group' ? 'Общую заметку меняет подтверждённая команда.' : 'Это не ваша личная заметка.')
+      return
+    }
+    const stamp = noteStamp()
+    const next = { ...moveToTrash(note, authorName(session), stamp), updatedAt: stamp, updatedMs: Date.now() }
+    setNotes((current) => current.map((item) => (item.id === id ? next : item)))
+    shareNote('upsert', next)
+    notify('Заметка в корзине. Можно вернуть.')
+  }
+
+  function restoreNote(id) {
+    const note = notes.find((item) => item.id === id)
+    if (!note || !isTrashed(note)) return
+    if (!canEditNote(note, session, canAct)) {
+      notify(note.scope === 'group' ? 'Общую заметку меняет подтверждённая команда.' : 'Это не ваша личная заметка.')
+      return
+    }
+    const next = { ...takeFromTrash(note), updatedAt: noteStamp(), updatedMs: Date.now() }
+    setNotes((current) => current.map((item) => (item.id === id ? next : item)))
+    shareNote('upsert', next)
+    notify('Заметка вернулась.')
+  }
+
+  function purgeNote(id) {
+    const note = notes.find((item) => item.id === id)
     if (!note) return
     if (!canEditNote(note, session, canAct)) {
       notify(note.scope === 'group' ? 'Общую заметку меняет подтверждённая команда.' : 'Это не ваша личная заметка.')
       return
     }
+    if (!window.confirm('Удалить заметку навсегда? Вернуть будет нельзя.')) return
     setNotes((current) => current.filter((item) => item.id !== id))
     shareNote('remove', note)
-    notify('Заметка удалена.')
+    notify('Заметка удалена навсегда.')
   }
 
   function noteToTask(note) {
     if (!requireAct()) return
+    if (isTrashed(note)) {
+      notify('Сначала верните заметку из корзины.')
+      return
+    }
     addTask({
       title: note.title || previewFromNote(note),
       assignee: session.role && session.role !== 'developer' ? `role:${session.role}` : 'role:director',
@@ -435,8 +474,16 @@ export default function App() {
   function openNotesWindow(id = '') {
     setDeskOpen(false)
     setTasksOpen(false)
+    setTrashOpen(false)
     setNoteFocus(id || '')
     setNotesOpen(true)
+  }
+
+  function openTrashWindow() {
+    setDeskOpen(false)
+    setTasksOpen(false)
+    setNotesOpen(false)
+    setTrashOpen(true)
   }
 
   async function syncTeam() {
@@ -477,7 +524,7 @@ export default function App() {
         return upsertNote(list, event.note)
       }, current))
       const last = noteEvents[noteEvents.length - 1]
-      if (last.note.from !== session?.email && !notesOpen) {
+      if (last.note.from !== session?.email && !notesOpen && !isTrashed(last.note)) {
         notify(`Общая заметка · ${last.note.by}: ${String(last.note.title || last.note.body).slice(0, 90)}`)
       }
     }
@@ -835,7 +882,7 @@ export default function App() {
   function toggleTask(id) {
     if (!requireAct()) return
     const task = tasks.find((item) => item.id === id)
-    if (!task) return
+    if (!task || isTrashed(task)) return
     const closing = !task.doneAt
     const next = { ...task, doneAt: closing ? taskStamp() : '', doneBy: closing ? session.name : '' }
     setTasks((current) => current.map((item) => (item.id === id ? next : item)))
@@ -849,7 +896,7 @@ export default function App() {
   function editTask(id, draft) {
     if (!requireAct()) return false
     const task = tasks.find((item) => item.id === id)
-    if (!task) return false
+    if (!task || isTrashed(task)) return false
     const title = String(draft.title || '').trim()
     if (!title) {
       notify('Напишите, что сделать.')
@@ -884,12 +931,62 @@ export default function App() {
   function removeTask(id) {
     if (!requireAct()) return
     const task = tasks.find((item) => item.id === id)
+    if (!task || isTrashed(task)) return
+    const next = moveToTrash(task, session.name, taskStamp())
+    setTasks((current) => current.map((item) => (item.id === id ? next : item)))
+    const line = `${session.name} отправил в корзину «${task.title}»`
+    logTask(line)
+    shareTask('update', next, line)
+    notify(`Задача в корзине: «${task.title}». Можно вернуть.`)
+  }
+
+  function restoreTask(id) {
+    if (!requireAct()) return
+    const task = tasks.find((item) => item.id === id)
+    if (!task || !isTrashed(task)) return
+    const next = takeFromTrash(task)
+    setTasks((current) => current.map((item) => (item.id === id ? next : item)))
+    const line = `${session.name} вернул из корзины «${task.title}»`
+    logTask(line)
+    shareTask('update', next, line)
+    notify(`Задача вернулась: «${task.title}».`)
+  }
+
+  function purgeTask(id) {
+    if (!requireAct()) return
+    const task = tasks.find((item) => item.id === id)
     if (!task) return
+    if (!window.confirm('Удалить задачу навсегда? Вернуть будет нельзя.')) return
     setTasks((current) => current.filter((item) => item.id !== id))
-    const line = `${session.name} удалил «${task.title}»`
+    const line = `${session.name} стёр навсегда «${task.title}»`
     logTask(line)
     shareTask('remove', task, line)
-    notify(`Задача удалена: «${task.title}».`)
+    notify(`Задача удалена навсегда: «${task.title}».`)
+  }
+
+  function emptyTrash() {
+    const notesToPurge = notes.filter((note) => isTrashed(note) && canEditNote(note, session, canAct))
+    const tasksToPurge = canAct ? tasks.filter(isTrashed) : []
+    if (!notesToPurge.length && !tasksToPurge.length) {
+      notify('В корзине нечего очищать.')
+      return
+    }
+    if (!window.confirm('Очистить корзину? Всё, что можно стереть, удалится навсегда.')) return
+    if (notesToPurge.length) {
+      const ids = new Set(notesToPurge.map((note) => note.id))
+      setNotes((current) => current.filter((note) => !ids.has(note.id)))
+      notesToPurge.forEach((note) => shareNote('remove', note))
+    }
+    if (tasksToPurge.length) {
+      const ids = new Set(tasksToPurge.map((task) => task.id))
+      setTasks((current) => current.filter((task) => !ids.has(task.id)))
+      tasksToPurge.forEach((task) => {
+        const line = `${session.name} стёр навсегда «${task.title}»`
+        logTask(line)
+        shareTask('remove', task, line)
+      })
+    }
+    notify('Корзина очищена.')
   }
 
   function seedDayTasks() {
@@ -900,7 +997,7 @@ export default function App() {
       { title: `Проверить и утвердить пост на ${when}`, assignee: 'role:director' },
       { title: `Подготовить кадр: ${todayDay.dish}`, assignee: 'role:chef' },
       { title: `Опубликовать пост ${when} в Telegram и Instagram`, assignee: 'role:admin' },
-    ].filter((item) => !tasks.some((task) => task.title === item.title && !task.doneAt))
+    ].filter((item) => !livingOf(tasks).some((task) => task.title === item.title && !task.doneAt))
     if (!plan.length) {
       notify('Задачи этого дня уже стоят.')
       return
@@ -1264,10 +1361,12 @@ export default function App() {
         isDeveloper={isDeveloper}
         pendingCount={pending.length}
         onDesk={() => setDeskOpen((open) => !open)}
-        openTasks={tasks.filter((task) => !task.doneAt).length}
-        onTasks={() => { setDeskOpen(false); setNotesOpen(false); setTasksOpen(true) }}
-        openNotes={visibleNotes(notes, ownerKey(session)).filter((note) => !note.archived).length}
+        openTasks={livingOf(tasks).filter((task) => !task.doneAt).length}
+        onTasks={() => { setDeskOpen(false); setNotesOpen(false); setTrashOpen(false); setTasksOpen(true) }}
+        openNotes={livingNotes(notes, ownerKey(session)).filter((note) => !note.archived).length}
         onNotes={() => openNotesWindow()}
+        trashCount={trashCount(tasks, notes, session)}
+        onTrash={openTrashWindow}
         onMenu={() => setNavOpen(true)}
         onAuth={() => {
           if (session) setModal('session')
@@ -1568,10 +1667,13 @@ export default function App() {
           onEdit={editTask}
           onToggle={toggleTask}
           onRemove={removeTask}
+          onRestore={restoreTask}
+          onPurge={purgeTask}
           onSeedDay={seedDayTasks}
           onUpsertNote={saveNote}
           onRemoveNote={removeNote}
           onOpenNotes={openNotesWindow}
+          onOpenTrash={openTrashWindow}
         />
       )}
       {notesOpen && (
@@ -1585,8 +1687,24 @@ export default function App() {
           onClose={() => { setNotesOpen(false); setNoteFocus('') }}
           onUpsert={saveNote}
           onRemove={removeNote}
+          onRestore={restoreNote}
+          onPurge={purgeNote}
           onToTask={noteToTask}
           onCopy={notify}
+        />
+      )}
+      {trashOpen && (
+        <TrashDesk
+          tasks={tasks}
+          notes={notes}
+          session={session}
+          canAct={canAct}
+          onClose={() => setTrashOpen(false)}
+          onRestoreTask={restoreTask}
+          onPurgeTask={purgeTask}
+          onRestoreNote={restoreNote}
+          onPurgeNote={purgeNote}
+          onEmpty={emptyTrash}
         />
       )}
       {isDeveloper && deskOpen && (

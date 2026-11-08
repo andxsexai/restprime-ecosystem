@@ -1,7 +1,7 @@
-import { Bell, ListChecks, Menu, StickyNote, UserRound } from 'lucide-react'
+import { Bell, ListChecks, Menu, StickyNote, Trash2, UserRound } from 'lucide-react'
 import { roleLabel } from '../../lib/auth.js'
 
-export default function TopBar({ title, dateLabel, onMenu, onAuth, onRegister, account, isDeveloper, pendingCount, onDesk, openTasks, onTasks, openNotes, onNotes }) {
+export default function TopBar({ title, dateLabel, onMenu, onAuth, onRegister, account, isDeveloper, pendingCount, onDesk, openTasks, onTasks, openNotes, onNotes, trashCount, onTrash }) {
   return (
     <header className="sticky top-0 z-[60] flex h-16 items-center justify-between gap-2 border-b border-[#C9A96A]/15 bg-[#0A0F0B]/80 px-3 backdrop-blur-md sm:gap-3 sm:px-6">
       <div className="flex min-w-0 items-center gap-2 sm:gap-3">
@@ -23,6 +23,11 @@ export default function TopBar({ title, dateLabel, onMenu, onAuth, onRegister, a
           <ListChecks size={16} />
           <span className="hidden sm:inline">Задачи</span>
           {openTasks > 0 && <span className="rounded-full bg-[#C6FF5E] px-1.5 text-[10px] font-bold text-[#0A0F0B]">{openTasks}</span>}
+        </button>
+        <button type="button" onClick={onTrash} aria-label="Корзина" className="flex h-10 items-center gap-2 rounded-xl border border-white/15 px-3 text-sm text-[#F4F0E6]">
+          <Trash2 size={16} />
+          <span className="hidden sm:inline">Корзина</span>
+          {trashCount > 0 && <span className="rounded-full bg-[#FF8A7A] px-1.5 text-[10px] font-bold text-[#0A0F0B]">{trashCount}</span>}
         </button>
         {isDeveloper && (
           <button type="button" onClick={onDesk} aria-label="Заявки" className="relative flex h-10 items-center gap-2 rounded-xl border border-[#C9A96A]/40 px-3 text-sm text-[#C9A96A]">

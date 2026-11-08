@@ -44,8 +44,42 @@ export function makeNote({ scope = 'personal', title = '', body = '', owner, by,
   }
 }
 
+export function isTrashed(item) {
+  return Boolean(item?.trashedAt)
+}
+
+export function livingOf(list) {
+  return (list || []).filter((item) => !isTrashed(item))
+}
+
+export function trashedOf(list) {
+  return (list || []).filter(isTrashed).sort((a, b) => (b.trashedMs || 0) - (a.trashedMs || 0))
+}
+
+export function moveToTrash(item, by, stamp) {
+  return {
+    ...item,
+    pinned: false,
+    trashedAt: stamp,
+    trashedBy: by || 'Гость',
+    trashedMs: Date.now(),
+  }
+}
+
+export function takeFromTrash(item) {
+  return { ...item, trashedAt: '', trashedBy: '', trashedMs: 0 }
+}
+
 export function visibleNotes(notes, owner) {
   return (notes || []).filter((note) => note.scope === 'group' || note.owner === owner)
+}
+
+export function livingNotes(notes, owner) {
+  return livingOf(visibleNotes(notes, owner))
+}
+
+export function trashedNotes(notes, owner) {
+  return trashedOf(visibleNotes(notes, owner))
 }
 
 export function previewNote(body, length = 90) {

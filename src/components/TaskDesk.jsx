@@ -3,13 +3,15 @@ import { Check, Pencil, RotateCcw, Trash2, X } from 'lucide-react'
 import { ROLES, roleLabel } from '../lib/auth.js'
 import { dateForDay, formatLong } from '../lib/planDates.js'
 import { CompactNotes } from './NotesDesk.jsx'
-import { ownerKey, visibleNotes } from '../lib/notes.js'
+import { TrashRow } from './TrashDesk.jsx'
+import { livingNotes, livingOf, ownerKey, trashedOf } from '../lib/notes.js'
 
 const PANES = [
   { id: 'open', label: 'В работе' },
   { id: 'done', label: 'Выполнено' },
   { id: 'log', label: 'История' },
   { id: 'notes', label: 'Заметки' },
+  { id: 'trash', label: 'Корзина' },
 ]
 
 function dueLabel(iso) {
@@ -30,7 +32,7 @@ function owners(task, members) {
   return person ? [task.assignee, `role:${person.role}`] : [task.assignee]
 }
 
-export default function TaskDesk({ tasks, log, members, days, todayIso, todayDay, canAct, session, notes, onClose, onAdd, onEdit, onToggle, onRemove, onSeedDay, onUpsertNote, onRemoveNote, onOpenNotes }) {
+export default function TaskDesk({ tasks, log, members, days, todayIso, todayDay, canAct, session, notes, onClose, onAdd, onEdit, onToggle, onRemove, onRestore, onPurge, onSeedDay, onUpsertNote, onRemoveNote, onOpenNotes, onOpenTrash }) {
   const [pane, setPane] = useState('open')
   const [who, setWho] = useState('all')
   const [draft, setDraft] = useState({ title: '', assignee: `role:${session?.role && session.role !== 'developer' ? session.role : 'director'}`, due: todayIso, day: todayDay?.day || '' })
@@ -41,10 +43,13 @@ export default function TaskDesk({ tasks, log, members, days, todayIso, todayDay
     ...members.map((member) => ({ id: member.email, label: `${member.name} лично` })),
   ], [members])
 
-  const filtered = tasks.filter((task) => who === 'all' || owners(task, members).includes(who))
+  const living = livingOf(tasks)
+  const filtered = living.filter((task) => who === 'all' || owners(task, members).includes(who))
   const open = filtered.filter((task) => !task.doneAt).sort((a, b) => String(a.due).localeCompare(String(b.due)))
   const done = filtered.filter((task) => task.doneAt).sort((a, b) => String(b.doneAt).localeCompare(String(a.doneAt)))
-  const counts = Object.fromEntries(lanes.map((lane) => [lane.id, tasks.filter((task) => !task.doneAt && owners(task, members).includes(lane.id)).length]))
+  const bin = trashedOf(who === 'all' ? tasks : tasks.filter((task) => owners(task, members).includes(who)))
+  const noteCount = livingNotes(notes || [], ownerKey(session)).filter((note) => !note.archived).length
+  const counts = Object.fromEntries(lanes.map((lane) => [lane.id, living.filter((task) => !task.doneAt && owners(task, members).includes(lane.id)).length]))
 
   function submit(event) {
     event.preventDefault()
@@ -146,7 +151,7 @@ export default function TaskDesk({ tasks, log, members, days, todayIso, todayDay
 
         <div className="flex gap-2 overflow-x-auto border-b border-white/10 px-4 py-3 sm:px-6">
           <button type="button" onClick={() => setWho('all')} className={`shrink-0 rounded-full px-3 py-2 text-xs ${who === 'all' ? 'bg-[#C9A96A] font-semibold text-[#0A0F0B]' : 'border border-white/15 text-[#F4F0E6]'}`}>
-            Все · {tasks.filter((task) => !task.doneAt).length}
+            Все · {living.filter((task) => !task.doneAt).length}
           </button>
           {lanes.map((lane) => (
             <button key={lane.id} type="button" onClick={() => setWho(lane.id)} className={`shrink-0 rounded-full px-3 py-2 text-xs ${who === lane.id ? 'bg-[#C9A96A] font-semibold text-[#0A0F0B]' : 'border border-white/15 text-[#F4F0E6]'}`}>
@@ -155,10 +160,10 @@ export default function TaskDesk({ tasks, log, members, days, todayIso, todayDay
           ))}
         </div>
 
-        <div className="grid grid-cols-2 gap-1 px-4 pt-3 sm:grid-cols-4 sm:px-6">
+        <div className="grid grid-cols-3 gap-1 px-4 pt-3 sm:grid-cols-5 sm:px-6">
           {PANES.map((item) => (
             <button key={item.id} type="button" onClick={() => setPane(item.id)} className={`rounded-xl px-2 py-2.5 text-sm ${pane === item.id ? 'bg-[#C6FF5E] font-semibold text-[#0A0F0B]' : 'border border-white/10 text-[#F4F0E6]'}`}>
-              {item.label}{item.id === 'open' ? ` · ${open.length}` : item.id === 'done' ? ` · ${done.length}` : item.id === 'notes' ? ` · ${visibleNotes(notes || [], ownerKey(session)).filter((note) => !note.archived).length}` : ''}
+              {item.label}{item.id === 'open' ? ` · ${open.length}` : item.id === 'done' ? ` · ${done.length}` : item.id === 'notes' ? ` · ${noteCount}` : item.id === 'trash' ? ` · ${bin.length}` : ''}
             </button>
           ))}
         </div>
@@ -185,6 +190,25 @@ export default function TaskDesk({ tasks, log, members, days, todayIso, todayDay
           )}
           {pane === 'notes' && (
             <CompactNotes notes={notes || []} session={session} canAct={canAct} onUpsert={onUpsertNote} onRemove={onRemoveNote} onOpen={onOpenNotes} />
+          )}
+          {pane === 'trash' && (
+            <>
+              <p className="text-sm leading-relaxed text-[#7A8580]">Удалённые задачи и заметки лежат здесь, пока их не вернуть или не стереть навсегда.</p>
+              {onOpenTrash && <button type="button" onClick={onOpenTrash} className="rounded-xl border border-white/15 px-4 py-2.5 text-sm text-[#F4F0E6]">Открыть всю корзину</button>}
+              {bin.length === 0 && <p className="text-sm text-[#7A8580]">Корзина пустая.</p>}
+              {bin.map((task) => (
+                <TrashRow
+                  key={task.id}
+                  kind="Задача"
+                  title={task.title}
+                  meta={`${task.trashedBy || ''} · ${task.trashedAt}`}
+                  restoreDisabled={!canAct}
+                  purgeDisabled={!canAct}
+                  onRestore={() => onRestore(task.id)}
+                  onPurge={() => onPurge(task.id)}
+                />
+              ))}
+            </>
           )}
           {pane === 'log' && (
             <ol className="space-y-2">
