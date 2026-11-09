@@ -59,6 +59,7 @@ const ThreeDaysDesk = lazy(() => import('./pages/ThreeDaysDesk.jsx'))
 const ReworkDesk = lazy(() => import('./pages/ReworkDesk.jsx'))
 
 const KEY = 'restprime-cabinet-v3'
+const PLAN_EDITION = 'moscow-days'
 
 function seedNovember(days) {
   return applyOccupancy(days).map((day) => {
@@ -68,13 +69,36 @@ function seedNovember(days) {
   })
 }
 
+function hydrateDays(savedDays) {
+  const byId = new Map((savedDays || []).map((day) => [day.day, day]))
+  return contentPlan.map((fresh) => {
+    const prev = byId.get(fresh.day)
+    if (!prev) return { ...fresh }
+    if (prev.manual) {
+      return { ...fresh, ...prev, occupancy: undefined, event: undefined }
+    }
+    return {
+      ...fresh,
+      status: prev.status || fresh.status,
+      decidedBy: prev.decidedBy,
+      decidedRole: prev.decidedRole,
+      decidedAt: prev.decidedAt,
+      extensions: prev.extensions,
+      format: prev.format || fresh.format,
+      variant: prev.variant,
+      auto: prev.auto,
+    }
+  })
+}
+
 function loadState() {
   try {
     const saved = JSON.parse(localStorage.getItem(KEY) || 'null')
     if (!saved?.days?.length || saved.days[0]?.day !== 1) return null
-    if (saved.edition === 'readable' || saved.edition === 'bento') return saved
-    if (!String(saved.days[0]?.postText || '').startsWith('До Зайцево')) return null
-    return saved
+    const okEdition = saved.edition === 'readable' || saved.edition === 'bento' || saved.edition === PLAN_EDITION
+    const opening = String(saved.days[0]?.postText || '')
+    if (!okEdition && !opening.startsWith('До Зайцево') && !opening.startsWith('После МКАД')) return null
+    return { ...saved, days: hydrateDays(saved.days), edition: PLAN_EDITION }
   } catch {
     return null
   }
@@ -231,7 +255,7 @@ export default function App() {
   useEffect(() => {
     try {
       const storedFiles = files.map((file) => (String(file.url || '').startsWith('blob:') ? { ...file, url: '' } : file))
-      localStorage.setItem(KEY, JSON.stringify({ edition: 'readable', days, focus, files: storedFiles, telegram, chat, siteNotes, extraReels, tasks, taskLog, notes, purged, channelPrefs, autoFeedAt, reworkPack }))
+      localStorage.setItem(KEY, JSON.stringify({ edition: PLAN_EDITION, days, focus, files: storedFiles, telegram, chat, siteNotes, extraReels, tasks, taskLog, notes, purged, channelPrefs, autoFeedAt, reworkPack }))
     } catch {
       /* браузер закрыл память: кабинет остаётся только на этот заход */
     }
@@ -1556,6 +1580,7 @@ export default function App() {
         {tab === 'plan-30' && (
           <PlanView
             days={days}
+            todayNumber={todayNumber}
             status={status}
             pillar={pillar}
             canAct={canAct}
@@ -1587,7 +1612,7 @@ export default function App() {
             onImproveReel={refineReel}
           />
         )}
-        {tab === 'posts-30' && <PostsView days={days} canAct={canAct} onToggleExtension={toggleExtension} onSetStatus={setDayStatus} onReview={openReview} onCopy={async (text) => { await copyText(text); notify('Текст поста скопирован.') }} onExport={exportCsv} />}
+        {tab === 'posts-30' && <PostsView days={days} todayNumber={todayNumber} canAct={canAct} onToggleExtension={toggleExtension} onSetStatus={setDayStatus} onReview={openReview} onCopy={async (text) => { await copyText(text); notify('Текст поста скопирован.') }} onExport={exportCsv} />}
         {tab === 'posts-edit' && (
           <PostWorkshop
             days={days}

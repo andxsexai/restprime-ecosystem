@@ -1,4 +1,4 @@
-export const PLAN_START = new Date(2026, 9, 31)
+export const PLAN_START = new Date(2026, 9, 31, 12, 0, 0)
 export const PLAN_LIMIT = 365
 
 export function moscowToday() {
@@ -36,8 +36,22 @@ export function formatLong(date) {
   return `${date.getDate()} ${MONTHS[date.getMonth()]}`
 }
 
+export function weekdayIndex(date) {
+  const stamp = date instanceof Date ? date : new Date(date)
+  if (Number.isNaN(stamp.getTime())) return 0
+  return new Date(stamp.getFullYear(), stamp.getMonth(), stamp.getDate(), 12, 0, 0).getDay()
+}
+
+export function weekdayName(date) {
+  return WEEK[weekdayIndex(date)]
+}
+
+export function weekdayFromYmd(year, month, day) {
+  return WEEK[new Date(year, month - 1, day, 12, 0, 0).getDay()]
+}
+
 export function formatWeekday(date) {
-  return WEEK[date.getDay()]
+  return weekdayName(date)
 }
 
 export function monthTitle(date) {
@@ -77,7 +91,7 @@ export function sameDay(a, b) {
 export function calendarCells() {
   const end = dateForDay(30)
   const cursor = new Date(PLAN_START)
-  cursor.setDate(cursor.getDate() - ((cursor.getDay() + 6) % 7))
+  cursor.setDate(cursor.getDate() - ((weekdayIndex(cursor) + 6) % 7))
   const cells = []
   while (cursor <= end || cells.length % 7 !== 0) {
     cells.push(new Date(cursor))

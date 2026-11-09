@@ -6,6 +6,8 @@ import { NOVEMBER_2026, NOVEMBER_ANNOUNCEMENT, occupancyByIso } from '../data/no
 import { StatusMark, statusTone, teamNote } from '../components/StatusButtons.jsx'
 import RouletteText from '../components/RouletteText.jsx'
 import PremiumButton from '../components/ui/PremiumButton.jsx'
+import { PastDaysFold, splitIsoDays } from '../components/PastDays.jsx'
+import { weekdayFromYmd } from '../lib/planDates.js'
 
 const FILTERS = [
   { id: 'all', label: 'Все' },
@@ -39,6 +41,7 @@ export default function Calendar({ days, todayIso, onOpenDay, onCopy }) {
   const draft = live ? shownPost(live) : selected?.draft || ''
   const slot = occupancyByIso(pickedDate)
   const hallDays = NOVEMBER_2026.filter((item) => hall === 'all' || item.status === hall)
+  const hallSplit = splitIsoDays(hallDays, todayIso)
   const ideas = useMemo(() => {
     if (!selected) return []
     const source = live || {
@@ -84,20 +87,14 @@ export default function Calendar({ days, todayIso, onOpenDay, onCopy }) {
             </button>
           ))}
         </div>
+        <PastDaysFold
+          past={hallSplit.past}
+          title="Прошедшие даты зала"
+          empty="Даты до сегодня"
+          renderItem={(item) => hallCell(item, chooseHall, pickedDate, todayIso)}
+        />
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
-          {hallDays.map((item) => {
-            const active = item.date === pickedDate
-            return (
-              <button key={item.date} type="button" onClick={() => chooseHall(item)} className={`group rounded-2xl border p-3 text-left ${hallClass(item.status, active)}`}>
-                <span className="flex items-center gap-1 text-[10px] uppercase tracking-wider">
-                  {item.status === 'booked' && <Lock size={11} />}
-                  {item.date === todayIso ? 'Сегодня · ' : ''}{item.dayOfWeek}
-                </span>
-                <RouletteText className="mt-1 text-sm font-medium">{item.date.slice(8)}. {item.status === 'free' ? 'Свободно' : item.title}</RouletteText>
-                <span className="mt-1 block text-[11px] opacity-70">{item.status === 'booked' ? 'Занято' : item.status === 'event' ? 'Событие' : 'Можно поставить формат'}</span>
-              </button>
-            )
-          })}
+          {hallSplit.live.map((item) => hallCell(item, chooseHall, pickedDate, todayIso))}
         </div>
 
         <p className="font-display pt-4 text-4xl italic text-[#F4F0E6]">Сегодня {plan.find((item) => item.date === todayIso)?.label || 'вне плана'}</p>
@@ -111,25 +108,24 @@ export default function Calendar({ days, todayIso, onOpenDay, onCopy }) {
             </button>
           ))}
         </div>
-        {shown.map((month) => (
-          <section key={month.key}>
-            <h2 className="font-display mb-3 text-3xl italic text-[#F4F0E6]">{monthTitle(month.key)}</h2>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
-              {month.items.map((item) => {
-                const active = item.id === selectedId
-                const liveDay = item.inCabinet ? days.find((day) => day.day === item.dayNumber) : null
-                const hallSlot = occupancyByIso(item.date)
-                return (
-                  <button key={item.id} type="button" onClick={() => { setSelectedId(item.id); setPickedDate(item.date) }} className={`group block-hover rounded-2xl border p-3 text-left ${item.date === todayIso ? 'border-[#C6FF5E]' : ''} ${liveDay ? statusTone(liveDay.status).ring : ''} ${hallSlot?.status === 'booked' ? 'bg-[#0A0F0B]/80' : hallSlot?.status === 'event' ? 'border-[#C9A96A] bg-[#C9A96A]/10' : ''} ${active ? 'bg-[#C6FF5E]/10' : 'border-[#C9A96A]/20 bg-[#121A14]/60'}`}>
-                    <span className="text-[10px] uppercase tracking-wider text-[#7A8580]">{item.date === todayIso ? 'Сегодня · ' : ''}{item.type === 'reel' ? 'Рилс' : 'Пост'} · {item.label}</span>
-                    <RouletteText className="mt-1 text-sm font-medium text-[#F4F0E6]">{hallSlot?.status === 'booked' ? hallSlot.title : liveDay?.event?.title || liveDay?.title || item.title}</RouletteText>
-                    {hallSlot?.status === 'booked' ? <span className="mt-1 inline-flex items-center gap-1 text-xs text-[#7A8580]"><Lock size={11} />Занято</span> : liveDay ? <span className="mt-1 block"><StatusMark status={liveDay.status} decidedBy={liveDay.decidedBy} /></span> : <span className="mt-1 block text-xs text-[#C9A96A]">{item.rubric}</span>}
-                  </button>
-                )
-              })}
-            </div>
-          </section>
-        ))}
+        {shown.map((month) => {
+          const monthSplit = splitIsoDays(month.items, todayIso, (item) => item.date)
+          return (
+            <section key={month.key}>
+              <h2 className="font-display mb-3 text-3xl italic text-[#F4F0E6]">{monthTitle(month.key)}</h2>
+              <PastDaysFold
+                past={monthSplit.past}
+                title={`Прошедшие посты · ${monthTitle(month.key)}`}
+                empty="Дни до сегодня"
+                pastGrid="grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4"
+                renderItem={(item) => monthCell(item, days, selectedId, todayIso, setSelectedId, setPickedDate)}
+              />
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
+                {monthSplit.live.map((item) => monthCell(item, days, selectedId, todayIso, setSelectedId, setPickedDate))}
+              </div>
+            </section>
+          )
+        })}
       </div>
       <aside className="group order-1 sticky top-20 z-20 mb-2 self-start max-h-[calc(100vh-5.5rem)] lg:order-2 lg:col-span-4 lg:mb-0">
         <div className="flex max-h-[inherit] flex-col overflow-hidden rounded-3xl border border-[#C9A96A]/25 bg-[#121A14]/90 shadow-[0_16px_48px_rgba(0,0,0,0.45)] backdrop-blur-md transition-[border-color,box-shadow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-[#C9A96A]/60 hover:shadow-[0_24px_60px_rgba(0,0,0,0.55)]">
@@ -187,6 +183,39 @@ export default function Calendar({ days, todayIso, onOpenDay, onCopy }) {
         </div>
       </aside>
     </div>
+  )
+}
+
+function weekdayLabel(iso) {
+  const [year, month, day] = String(iso || '').split('-').map(Number)
+  if (!year || !month || !day) return ''
+  return weekdayFromYmd(year, month, day)
+}
+
+function monthCell(item, days, selectedId, todayIso, setSelectedId, setPickedDate) {
+  const active = item.id === selectedId
+  const liveDay = item.inCabinet ? days.find((day) => day.day === item.dayNumber) : null
+  const hallSlot = occupancyByIso(item.date)
+  return (
+    <button key={item.id} type="button" onClick={() => { setSelectedId(item.id); setPickedDate(item.date) }} className={`group block-hover rounded-2xl border p-3 text-left ${item.date === todayIso ? 'border-[#C6FF5E]' : ''} ${liveDay ? statusTone(liveDay.status).ring : ''} ${hallSlot?.status === 'booked' ? 'bg-[#0A0F0B]/80' : hallSlot?.status === 'event' ? 'border-[#C9A96A] bg-[#C9A96A]/10' : ''} ${active ? 'bg-[#C6FF5E]/10' : 'border-[#C9A96A]/20 bg-[#121A14]/60'}`}>
+      <span className="text-[10px] uppercase tracking-wider text-[#7A8580]">{item.date === todayIso ? 'Сегодня · ' : ''}{item.type === 'reel' ? 'Рилс' : 'Пост'} · {item.label} · {weekdayLabel(item.date)}</span>
+      <RouletteText className="mt-1 text-sm font-medium text-[#F4F0E6]">{hallSlot?.status === 'booked' ? hallSlot.title : liveDay?.event?.title || liveDay?.title || item.title}</RouletteText>
+      {hallSlot?.status === 'booked' ? <span className="mt-1 inline-flex items-center gap-1 text-xs text-[#7A8580]"><Lock size={11} />Занято</span> : liveDay ? <span className="mt-1 block"><StatusMark status={liveDay.status} decidedBy={liveDay.decidedBy} /></span> : <span className="mt-1 block text-xs text-[#C9A96A]">{item.rubric}</span>}
+    </button>
+  )
+}
+
+function hallCell(item, chooseHall, pickedDate, todayIso) {
+  const active = item.date === pickedDate
+  return (
+    <button key={item.date} type="button" onClick={() => chooseHall(item)} className={`group rounded-2xl border p-3 text-left ${hallClass(item.status, active)}`}>
+      <span className="flex items-center gap-1 text-[10px] uppercase tracking-wider">
+        {item.status === 'booked' && <Lock size={11} />}
+        {item.date === todayIso ? 'Сегодня · ' : ''}{item.dayOfWeek}
+      </span>
+      <RouletteText className="mt-1 text-sm font-medium">{item.date.slice(8)}. {item.status === 'free' ? 'Свободно' : item.title}</RouletteText>
+      <span className="mt-1 block text-[11px] opacity-70">{item.status === 'booked' ? 'Занято' : item.status === 'event' ? 'Событие' : 'Можно поставить формат'}</span>
+    </button>
   )
 }
 

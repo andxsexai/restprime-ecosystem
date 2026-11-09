@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { AnimatePresence } from 'framer-motion'
 import { Check, Copy, Download, ExternalLink, RefreshCw, Send, Upload } from 'lucide-react'
 import { FLAGSHIP } from '../data/place.js'
 import { TELEGRAM_CHANNELS } from '../data/telegramChannels.js'
@@ -13,13 +14,66 @@ import DayPhoto from './DayPhoto.jsx'
 import { roleLabel } from '../lib/auth.js'
 import Button3D from './ui/Button3D.jsx'
 import GlassCard from './ui/GlassCard.jsx'
+import { LiveDayWrap, PastDaysFold, splitPlanDays } from './PastDays.jsx'
 
 const TASKS = ['all', 'Быт', 'Гости', 'Зал', 'Меню', 'Напиток', 'Повод']
 const TASK_LABEL = { all: 'Все задания', Быт: 'Быт', Гости: 'Гости', Зал: 'Зал', Меню: 'Из меню', Напиток: 'Напиток', Повод: 'Повод' }
 
-export function PlanView({ days, status, pillar, onStatus, onPillar, onApproveAll, onAutoPlan, onFixRepeats, repeats = {}, signals, onOpen, onSetStatus, onReview, onMatch, onReplace, onForward, onImprove, onImproveReel, trends, boards, canAct }) {
+function PlanDayCard({ day, canAct, repeats, onOpen, onSetStatus, onReview, onImprove, onImproveReel, onReplace, onForward }) {
+  return (
+    <GlassCard className={`relative rounded-2xl p-4 ${statusTone(day.status).ring}`}>
+      <DayPhoto day={day.day} className="mb-3 h-36 w-full rounded-2xl object-cover" />
+      <button type="button" className="w-full text-left" onClick={() => onOpen(day)}>
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          <span className="font-fraunces text-2xl text-gold">{formatLong(dateForDay(day.day))}</span>
+          <StatusMark status={day.status} decidedBy={day.decidedBy} />
+          <span className="text-[11px] text-ink/45">{formatWeekday(dateForDay(day.day))}</span>
+        </div>
+        {day.hook && <p className="mb-1 text-sm text-gold">{day.hook}</p>}
+        <h3 className="text-base font-semibold leading-snug text-ink">{day.title}</h3>
+        {day.occupancy?.status === 'booked' && <p className="mt-2 rounded-full bg-white/10 px-2 py-1 text-[11px] text-[#7A8580]">Занято: {day.occupancy.title}</p>}
+        {day.event?.title && <p className="mt-2 rounded-full bg-[#C6FF5E]/15 px-2 py-1 text-[11px] font-semibold text-[#C6FF5E]">Плюсом: {day.event.title}</p>}
+        <p className="mt-3 line-clamp-4 whitespace-pre-wrap text-sm leading-relaxed text-ink/75">{shownPost(day)}</p>
+        <p className="mt-2 text-xs text-ink/50">{day.pillar} · {day.scene}</p>
+        <p className="mt-1 text-xs text-gold">{day.dish} · {day.margin}</p>
+        {teamNote(day) && <p className={`mt-1 text-xs font-semibold ${statusTone(day.status).text}`}>{teamNote(day)}</p>}
+        {day.manual && <p className="mt-1 text-xs text-[#7A8580]">Ручная правка — автоплан не трогает</p>}
+        {!day.manual && day.auto?.why?.length > 0 && <p className="mt-1 text-xs text-[#C6FF5E]/80">Почему так: {day.auto.why.join(' · ')}</p>}
+        {repeats[day.day] && <p className="mt-1 text-xs font-semibold text-red-300">{repeatNote(repeats[day.day])}</p>}
+        <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-ink/70">Reels: {day.reelHook} {day.reelScript}</p>
+      </button>
+      <div className="mt-3 border-t border-gold/25 pt-3">
+        <StatusButtons value={day.status} disabled={!canAct} onChange={(next) => onSetStatus(day.day, next)} onReview={() => onReview(day)} />
+      </div>
+      <div className="mt-2 flex flex-wrap gap-2">
+        <button type="button" disabled={!canAct} onClick={() => onImprove(day.day)} className="press rounded-full border border-ink/10 px-3 py-1.5 text-xs text-ink disabled:opacity-40">Улучшить пост</button>
+        <button type="button" disabled={!canAct} onClick={() => onImproveReel(day.day)} className="press rounded-full border border-ink/10 px-3 py-1.5 text-xs text-ink disabled:opacity-40">Улучшить рилс</button>
+        <button type="button" disabled={!canAct} onClick={() => onReplace(day.day)} className="press rounded-full border border-ink/10 px-3 py-1.5 text-xs text-ink disabled:opacity-40">Переделать</button>
+        <button type="button" disabled={!canAct} onClick={() => onForward(day, 'post')} className="press rounded-full border border-ink/10 px-3 py-1.5 text-xs text-ink disabled:opacity-40">В чат</button>
+      </div>
+    </GlassCard>
+  )
+}
+
+export function PlanView({ days, todayNumber, status, pillar, onStatus, onPillar, onApproveAll, onAutoPlan, onFixRepeats, repeats = {}, signals, onOpen, onSetStatus, onReview, onMatch, onReplace, onForward, onImprove, onImproveReel, trends, boards, canAct }) {
   const visible = days.filter((day) => (status === 'all' || day.status === status) && (pillar === 'all' || day.pillar === pillar))
+  const { live, missed, passed } = splitPlanDays(visible, todayNumber)
   const repeatCount = Object.keys(repeats).length
+  const card = (day) => (
+    <PlanDayCard
+      key={day.day}
+      day={day}
+      canAct={canAct}
+      repeats={repeats}
+      onOpen={onOpen}
+      onSetStatus={onSetStatus}
+      onReview={onReview}
+      onImprove={onImprove}
+      onImproveReel={onImproveReel}
+      onReplace={onReplace}
+      onForward={onForward}
+    />
+  )
   return (
     <section className="space-y-5">
       <AutoPlanCard signals={signals} repeatCount={repeatCount} canAct={canAct} onAutoPlan={onAutoPlan} onFixRepeats={onFixRepeats} />
@@ -65,47 +119,47 @@ export function PlanView({ days, status, pillar, onStatus, onPillar, onApproveAl
           </div>
         )}
       </GlassCard>
+      <PastDaysFold missed={missed} passed={passed} renderItem={(day) => card(day)} />
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {visible.map((day) => (
-          <GlassCard key={day.day} className={`relative rounded-2xl p-4 ${statusTone(day.status).ring}`}>
-            <DayPhoto day={day.day} className="mb-3 h-36 w-full rounded-2xl object-cover" />
-            <button type="button" className="w-full text-left" onClick={() => onOpen(day)}>
-              <div className="mb-2 flex flex-wrap items-center gap-2">
-                <span className="font-fraunces text-2xl text-gold">{formatLong(dateForDay(day.day))}</span>
-                <StatusMark status={day.status} decidedBy={day.decidedBy} />
-                <span className="text-[11px] text-ink/45">{formatWeekday(dateForDay(day.day))}</span>
-              </div>
-              <h3 className="text-base font-semibold leading-snug text-ink">{day.title}</h3>
-              {day.occupancy?.status === 'booked' && <p className="mt-2 rounded-full bg-white/10 px-2 py-1 text-[11px] text-[#7A8580]">Занято: {day.occupancy.title}</p>}
-              {day.event?.title && <p className="mt-2 rounded-full bg-[#C6FF5E]/15 px-2 py-1 text-[11px] font-semibold text-[#C6FF5E]">Плюсом: {day.event.title}</p>}
-              <p className="mt-3 line-clamp-4 whitespace-pre-wrap text-sm leading-relaxed text-ink/75">{shownPost(day)}</p>
-              <p className="mt-2 text-xs text-ink/50">{day.pillar} · {day.scene}</p>
-              <p className="mt-1 text-xs text-gold">{day.dish} · {day.margin}</p>
-              {teamNote(day) && <p className={`mt-1 text-xs font-semibold ${statusTone(day.status).text}`}>{teamNote(day)}</p>}
-              {day.manual && <p className="mt-1 text-xs text-[#7A8580]">Ручная правка — автоплан не трогает</p>}
-              {!day.manual && day.auto?.why?.length > 0 && <p className="mt-1 text-xs text-[#C6FF5E]/80">Почему так: {day.auto.why.join(' · ')}</p>}
-              {repeats[day.day] && <p className="mt-1 text-xs font-semibold text-red-300">{repeatNote(repeats[day.day])}</p>}
-              <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-ink/70">Reels: {day.reelHook} {day.reelScript}</p>
-            </button>
-            <div className="mt-3 border-t border-gold/25 pt-3">
-              <StatusButtons value={day.status} disabled={!canAct} onChange={(next) => onSetStatus(day.day, next)} onReview={() => onReview(day)} />
-            </div>
-            <div className="mt-2 flex flex-wrap gap-2">
-              <button type="button" disabled={!canAct} onClick={() => onImprove(day.day)} className="press rounded-full border border-ink/10 px-3 py-1.5 text-xs text-ink disabled:opacity-40">Улучшить пост</button>
-              <button type="button" disabled={!canAct} onClick={() => onImproveReel(day.day)} className="press rounded-full border border-ink/10 px-3 py-1.5 text-xs text-ink disabled:opacity-40">Улучшить рилс</button>
-              <button type="button" disabled={!canAct} onClick={() => onReplace(day.day)} className="press rounded-full border border-ink/10 px-3 py-1.5 text-xs text-ink disabled:opacity-40">Переделать</button>
-              <button type="button" disabled={!canAct} onClick={() => onForward(day, 'post')} className="press rounded-full border border-ink/10 px-3 py-1.5 text-xs text-ink disabled:opacity-40">В чат</button>
-            </div>
-          </GlassCard>
-        ))}
+        <AnimatePresence initial={false}>
+          {live.map((day) => (
+            <LiveDayWrap key={day.day} id={day.day}>
+              {card(day)}
+            </LiveDayWrap>
+          ))}
+        </AnimatePresence>
       </div>
     </section>
   )
 }
 
-export function PostsView({ days, onCopy, onExport, canAct, onToggleExtension, onSetStatus, onReview }) {
+function PostCard({ day, canAct, onCopy, onToggleExtension, onSetStatus, onReview }) {
+  return (
+    <GlassCard className={`rounded-2xl p-5 ${statusTone(day.status).ring}`}>
+      <div className="mb-2 flex items-center justify-between gap-2 text-xs text-ink/50">
+        <span className="flex flex-wrap items-center gap-2">{formatLong(dateForDay(day.day))} · {formatWeekday(dateForDay(day.day))} · {day.pillar} <StatusMark status={day.status} decidedBy={day.decidedBy} /></span>
+        <button type="button" onClick={() => onCopy(shownPost(day))} className="press inline-flex items-center gap-1 text-gold"><Copy size={13} />Копировать</button>
+      </div>
+      <DayPhoto day={day.day} className="mb-3 h-44 w-full rounded-2xl object-cover" />
+      {day.hook && <p className="text-sm text-gold">{day.hook}</p>}
+      <h3 className="font-fraunces text-3xl text-ink">{day.title}</h3>
+      {day.occupancy?.status === 'booked' && <p className="mt-2 text-sm text-[#7A8580]">Занято: {day.occupancy.title}. В пост гостю это не пишем.</p>}
+      {day.event?.title && <p className="mt-2 text-sm text-[#C6FF5E]">Плюсом к посту: {day.event.title}. {day.event.hook}</p>}
+      <p className="mt-1 text-xs text-gold">{(day.format === 'wide' ? 'Широкий' : 'Короткий')} · {wordCount(shownPost(day))} слов</p>
+      <p className="mt-4 whitespace-pre-wrap text-base leading-relaxed text-ink/75">{shownPost(day)}</p>
+      {onToggleExtension && <ExtensionBar day={day} canAct={canAct} onToggle={(id) => onToggleExtension(day.day, id)} />}
+      <div className="mt-3">
+        <StatusButtons value={day.status} disabled={!canAct} onChange={(next) => onSetStatus(day.day, next)} onReview={() => onReview(day)} />
+      </div>
+      <p className="mt-3 text-base text-gold">{day.reelHook}</p>
+    </GlassCard>
+  )
+}
+
+export function PostsView({ days, todayNumber, onCopy, onExport, canAct, onToggleExtension, onSetStatus, onReview }) {
   const [query, setQuery] = useState('')
-  const visible = days.filter((day) => `${day.title} ${day.dish} ${shownPost(day)}`.toLowerCase().includes(query.toLowerCase()))
+  const visible = days.filter((day) => `${day.title} ${day.hook || ''} ${day.dish} ${shownPost(day)}`.toLowerCase().includes(query.toLowerCase()))
+  const { live, missed, passed } = splitPlanDays(visible, todayNumber)
   return (
     <section className="space-y-5">
       <GlassCard className="flex flex-wrap items-center justify-between gap-4 rounded-2xl p-5">
@@ -118,26 +172,17 @@ export function PostsView({ days, onCopy, onExport, canAct, onToggleExtension, o
           <Button3D tone="ghost" className="border-[#C9A96A]/30 px-3.5 py-2 text-xs text-gold" onClick={onExport}><Download size={14} />Скачать CSV</Button3D>
         </div>
       </GlassCard>
+      <PastDaysFold missed={missed} passed={passed} renderItem={(day) => (
+        <PostCard key={day.day} day={day} canAct={canAct} onCopy={onCopy} onToggleExtension={onToggleExtension} onSetStatus={onSetStatus} onReview={onReview} />
+      )} />
       <div className="grid gap-4 lg:grid-cols-2">
-        {visible.map((day) => (
-          <GlassCard key={day.day} className={`rounded-2xl p-5 ${statusTone(day.status).ring}`}>
-            <div className="mb-2 flex items-center justify-between gap-2 text-xs text-ink/50">
-              <span className="flex flex-wrap items-center gap-2">{formatLong(dateForDay(day.day))} · {formatWeekday(dateForDay(day.day))} · {day.pillar} <StatusMark status={day.status} decidedBy={day.decidedBy} /></span>
-              <button type="button" onClick={() => onCopy(shownPost(day))} className="press inline-flex items-center gap-1 text-gold"><Copy size={13} />Копировать</button>
-            </div>
-            <DayPhoto day={day.day} className="mb-3 h-44 w-full rounded-2xl object-cover" />
-            <h3 className="font-fraunces text-3xl text-ink">{day.title}</h3>
-            {day.occupancy?.status === 'booked' && <p className="mt-2 text-sm text-[#7A8580]">Занято: {day.occupancy.title}. В пост гостю это не пишем.</p>}
-            {day.event?.title && <p className="mt-2 text-sm text-[#C6FF5E]">Плюсом к посту: {day.event.title}. {day.event.hook}</p>}
-            <p className="mt-1 text-xs text-gold">{(day.format === 'wide' ? 'Широкий' : 'Короткий')} · {wordCount(shownPost(day))} слов</p>
-            <p className="mt-4 whitespace-pre-wrap text-base leading-relaxed text-ink/75">{shownPost(day)}</p>
-            {onToggleExtension && <ExtensionBar day={day} canAct={canAct} onToggle={(id) => onToggleExtension(day.day, id)} />}
-            <div className="mt-3">
-              <StatusButtons value={day.status} disabled={!canAct} onChange={(next) => onSetStatus(day.day, next)} onReview={() => onReview(day)} />
-            </div>
-            <p className="mt-3 text-base text-gold">{day.reelHook}</p>
-          </GlassCard>
-        ))}
+        <AnimatePresence initial={false}>
+          {live.map((day) => (
+            <LiveDayWrap key={day.day} id={day.day}>
+              <PostCard day={day} canAct={canAct} onCopy={onCopy} onToggleExtension={onToggleExtension} onSetStatus={onSetStatus} onReview={onReview} />
+            </LiveDayWrap>
+          ))}
+        </AnimatePresence>
       </div>
     </section>
   )

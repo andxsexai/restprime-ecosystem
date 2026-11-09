@@ -1,5 +1,5 @@
 import { contentPlan } from '../data/contentPlan.js'
-import { dateForDay, formatLong } from './planDates.js'
+import { dateForDay, formatLong, weekdayIndex } from './planDates.js'
 
 export const CONTACT_LINES = {
   address: 'д. Зайцево, ул. Сосновая, 3.',
@@ -138,14 +138,30 @@ const HALL_LINES = [
   'Тарелки здесь не будет. Пусть сначала запомнится место.',
 ]
 
-const CTA = [
-  'Стол на этот вечер: kedr-res.ru',
-  'Забронировать: kedr-res.ru',
-  'Бронь на сайте — kedr-res.ru',
-  'Если вечер ваш — kedr-res.ru',
-  'Занять стол заранее: kedr-res.ru',
-  'Ждём по брони: kedr-res.ru',
-]
+const CTA = {
+  attract: [
+    'Посмотреть место: kedr-res.ru',
+    'Если захотите увидеть это вживую: kedr-res.ru',
+    'Адрес и часы на сайте: kedr-res.ru',
+  ],
+  trust: [
+    'Зал каждый день с 12:00 до 24:00. kedr-res.ru',
+    'KEDR, д. Зайцево. kedr-res.ru',
+    'Состав как в карте. Стол: kedr-res.ru',
+  ],
+  offer: [
+    'Стол на этот вечер: kedr-res.ru',
+    'Если вечер ваш — kedr-res.ru',
+    'Можно приехать сегодня: kedr-res.ru',
+  ],
+  book: [
+    'Занять стол: kedr-res.ru',
+    'Забронировать: kedr-res.ru',
+    'Дата лучше не откладывать: kedr-res.ru',
+  ],
+}
+
+const CTA_FLAT = Object.values(CTA).flat()
 
 export const CLOSERS = [
   'Возвращайтесь, когда снова захочется тишины.',
@@ -167,43 +183,57 @@ export const RUBRICS = [
   { id: 'service', title: 'Сервис' },
 ]
 
-const RUBRIC_ANGLES = {
-  sense: [
-    'Этот пост не про блюдо. Он про то, как здесь сидится.',
-    'Сначала атмосфера, потом меню.',
-    'Запомните свет и тишину. Тарелка подождёт.',
-    'Вечер начинается ещё на дороге между сосен.',
-  ],
-  kitchen: [
-    'Кухня не выходит в зал с речью. Она просто приносит тарелку.',
-    'Про кухню лучше всего говорит то, что остаётся на тарелке. То есть ничего.',
-    'Состав честный: что в карте, то и на столе.',
-    'Горячее не для кадра. Для голода после дороги.',
-  ],
-  events: [
-    'Свой праздник проще собрать за ужином, чем в переписке.',
-    'Зал можно закрыть под своих, без чужих столов рядом.',
-    'Повод может быть тихим. Зал это умеет.',
-    'Дату на конец года лучше занять, пока она ещё не стала авралом.',
-  ],
-  people: [
-    'Вечер держат люди за столом, не афиша.',
-    'Здесь важнее, с кем вы приехали, чем что заказали.',
-    'Двое, семья или компания — стол один, разговор свой.',
-    'Соседние столы не участвуют в вашем вечере. Так и задумано.',
-  ],
-  engage: [
-    'Как вам такой вечер: остаться за столом или ехать дальше? Напишите в комментариях.',
-    'Что вы заказываете первым, когда приезжаете голодными? Расскажите.',
-    'Остаётесь до полуночи или уезжаете после десерта?',
-    'Стол у окна или дальше от двери — что выбираете?',
-  ],
-  service: [
-    'Стол можно занять заранее, и он будет ждать.',
-    'Если дата уже есть, напишите нам, остальное подготовим.',
-    'Зал каждый день с 12:00 до 24:00. Бронь — на kedr-res.ru.',
-    'Телефон не обязателен: проще занять стол на сайте.',
-  ],
+export const HOOK_TYPES = ['contradiction', 'question', 'fact', 'emotion', 'curiosity', 'rule']
+
+const RUBRIC_HOOKS = {
+  sense: {
+    contradiction: 'Этот пост не про блюдо. Он про то, как здесь сидится.',
+    question: 'Когда вы в последний раз входили в зал раньше, чем открывали меню?',
+    fact: 'Свет в зале зажигают раньше, чем темнеет за МКАД.',
+    emotion: 'Вечер начинается ещё на дороге между сосен.',
+    curiosity: 'Есть минута, после которой уже не хочется ехать дальше.',
+    rule: 'Сначала атмосфера. Тарелка подождёт.',
+  },
+  kitchen: {
+    contradiction: 'Горячее не для кадра. Для голода после дороги.',
+    question: 'Что вы заказываете, когда правда голодны — не когда снимаете?',
+    fact: 'Состав честный: что в карте от 23 октября, то и на столе.',
+    emotion: 'Вилка замирает на секунду — и за столом становится тише.',
+    curiosity: 'Про кухню лучше всего говорит пустая тарелка.',
+    rule: 'Кухня не выходит в зал с речью. Она приносит тарелку.',
+  },
+  events: {
+    contradiction: 'Повод может быть тихим. Зал это умеет.',
+    question: 'Свой праздник вы собираете в переписке или за ужином?',
+    fact: 'Дату на конец года разбирают, пока она ещё просто разговор.',
+    emotion: 'Самые важные слова говорят не в тосте, а между блюдами.',
+    curiosity: 'Банкет часто начинается за обычным столом, без микрофона.',
+    rule: 'Зал можно закрыть под своих. Чужие столы рядом не ставим.',
+  },
+  people: {
+    contradiction: 'Здесь важнее, с кем вы приехали, чем что заказали.',
+    question: 'Кто за вашим столом решает, когда уходить?',
+    fact: 'Соседние столы не участвуют в вашем вечере. Так и задумано.',
+    emotion: 'Вечер держат люди за столом, не афиша.',
+    curiosity: 'Двое занимают больше пространства, чем кажется.',
+    rule: 'Семья, двое или компания — стол один, разговор свой.',
+  },
+  engage: {
+    contradiction: 'Не каждый вечер нужно досматривать до десерта. А этот?',
+    question: 'Остаётесь до полуночи или уезжаете после первой тарелки?',
+    fact: 'В комментарии достаточно одного слова: остаёмся или едем.',
+    emotion: 'Напишите, с чего у вас начинается ужин за городом.',
+    curiosity: 'Стол у окна или дальше от двери — что выбираете?',
+    rule: 'Вопрос не для охвата. Чтобы понять, кого ждать за столом.',
+  },
+  service: {
+    contradiction: 'Телефон не обязателен. Стол занимают на сайте.',
+    question: 'Дата уже есть — или всё ещё «как-нибудь на выходных»?',
+    fact: 'Зал каждый день с 12:00 до 24:00. Бронь — kedr-res.ru.',
+    emotion: 'Стол можно занять заранее, и он будет ждать.',
+    curiosity: 'Если дата уже стоит в календаре, остальное подготовим.',
+    rule: 'Свадьбу гостю в пост не пишем. Свой стол — отдельно.',
+  },
 }
 
 export const BIRTHDAY_LINE = 'В день рождения, а также три дня до и три дня после, скидка 10% по меню.'
@@ -247,7 +277,8 @@ const WEEKEND = {
 }
 
 function md(date) {
-  return `${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+  const stamp = date instanceof Date ? date : new Date(date)
+  return `${String(stamp.getMonth() + 1).padStart(2, '0')}-${String(stamp.getDate()).padStart(2, '0')}`
 }
 
 export function occasionFor(date) {
@@ -260,11 +291,11 @@ export function occasionFor(date) {
 }
 
 export function weekendLine(date, seed, used) {
-  return pick(WEEKEND[date.getDay()], seed, used)
+  return pick(WEEKEND[weekdayIndex(date)], seed, used)
 }
 
 export function weekdayName(date) {
-  return WEEKDAY[date.getDay()]
+  return WEEKDAY[weekdayIndex(date)]
 }
 
 function priceOf(day) {
@@ -284,9 +315,22 @@ export function dishLine(day, seed, used) {
 }
 
 export function scenePara(day) {
+  if (day?.problem) return day.problem
   const source = day.day <= contentPlan.length ? contentPlan.find((item) => item.day === day.day) : null
-  if (source && day.scene === source.scene) return source.postText.split('\n\n')[0]
+  if (source?.problem && day.scene === source.scene) return source.problem
+  if (source?.hook && day.scene === source.scene) return source.hook
   return `${capital(day.scene)}.`
+}
+
+export function hookLine(day, options = {}) {
+  const { rubric, hookType, angle, seed = 0 } = options
+  if (angle) return angle
+  if (day?.hook && !rubric) return day.hook
+  const type = hookType || day?.hookType || HOOK_TYPES[seed % HOOK_TYPES.length]
+  const bank = rubric ? RUBRIC_HOOKS[rubric] : null
+  if (bank?.[type]) return bank[type]
+  if (bank) return Object.values(bank)[seed % Object.values(bank).length]
+  return day?.hook || ''
 }
 
 export function senseLine(day, seed, used) {
@@ -298,32 +342,44 @@ export function closerFor(day, variant = 0) {
   return CLOSERS[hashSeed(day?.day ?? 0, variant, 'close') % CLOSERS.length]
 }
 
+function ctaFor(day, seed) {
+  const funnel = day?.funnel && CTA[day.funnel] ? day.funnel : 'offer'
+  return pick(CTA[funnel], seed) || pick(CTA_FLAT, seed)
+}
+
 export function composePost(day, options = {}) {
-  const { topic, rubric, angle, used = new Set(), variant = 0 } = options
+  const { topic, rubric, angle, used = new Set(), variant = 0, hookType } = options
   const date = options.date || dateForDay(day.day)
-  const seed = (slot) => hashSeed(day.day, variant, slot, day.scene)
+  const seed = (slot) => hashSeed(day.day, variant, slot, day.scene, rubric || '', hookType || '')
   const occasion = options.occasion === undefined ? occasionFor(date) : options.occasion
   const take = (line) => {
     lineKeys(line).forEach((key) => used.add(key))
     return line
   }
 
-  const timely = angle
-    || (rubric ? pick(RUBRIC_ANGLES[rubric] || [], seed('rubric')) : '')
-    || (occasion ? pick([occasion.line], 0, occasion.kind === 'date' ? null : used) : '')
+  const type = hookType || HOOK_TYPES[(day.day + variant) % HOOK_TYPES.length]
+  const hook = hookLine(day, { rubric, hookType: type, angle, seed: seed('hook') })
+    || (occasion ? occasion.line : '')
     || (topic ? pick(topic.angles, seed('topic'), used) : '')
     || weekendLine(date, seed('weekend'), used)
+    || senseLine(day, seed('open'), used)
+
   const lines = []
-  if (timely) lines.push(take(timely))
-  else lines.push(take(senseLine(day, seed('hook'), used)))
-  lines.push(take(scenePara(day)))
-  if (timely) {
+  if (hook) lines.push(take(hook))
+  const problem = day.problem || scenePara(day)
+  if (problem && sentenceKey(problem) !== sentenceKey(hook)) lines.push(take(problem))
+  if (occasion?.kind === 'date' && occasion.line && sentenceKey(occasion.line) !== sentenceKey(hook)) {
+    lines.push(take(occasion.line))
+  } else if (topic && !angle && !rubric) {
+    const topicLine = pick(topic.angles, seed('topic2'), used)
+    if (topicLine) lines.push(take(topicLine))
+  } else {
     const sense = senseLine(day, seed('sense'), used)
-    if (sense) lines.push(take(sense))
+    if (sense && sentenceKey(sense) !== sentenceKey(hook)) lines.push(take(sense))
   }
   lines.push(take(dishLine(day, seed('dish'), used)))
-  if ((/рожд/i.test(`${day.scene} ${day.title}`) || topic?.id === 'birthday') && !lines.some((line) => /10%/.test(line))) lines.push(BIRTHDAY_LINE)
-  lines.push(pick(CTA, seed('cta')))
+  if ((/рожд/i.test(`${day.scene} ${day.title} ${day.hook || ''}`) || topic?.id === 'birthday') && !lines.some((line) => /10%/.test(line))) lines.push(BIRTHDAY_LINE)
+  lines.push(ctaFor(day, seed('cta')))
   return lines.filter(Boolean).join('\n\n')
 }
 
@@ -344,7 +400,7 @@ export function composeWide(day, options = {}) {
     bridge,
     `Зал стоит в соснах: ${CONTACT_LINES.address} ${CONTACT_LINES.hours}`,
     closerFor(day, variant),
-    `📩 ${pick(CTA, seed('cta'))}`,
+    `📩 ${ctaFor(day, seed('cta'))}`,
   ]
   return text.filter(Boolean).join('\n\n')
 }

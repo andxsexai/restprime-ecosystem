@@ -1,8 +1,6 @@
 import { EVENT_FORMATS } from './eventFormats.js'
 import { packEvent } from '../lib/eventDay.js'
-import { dateForDay, isoDate } from '../lib/planDates.js'
-
-const WEEK = ['воскресенье', 'понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота']
+import { dateForDay, isoDate, weekdayFromYmd } from '../lib/planDates.js'
 
 function eventFrom(id, patch = {}) {
   const format = EVENT_FORMATS.find((item) => item.id === id)
@@ -16,10 +14,9 @@ function eventFrom(id, patch = {}) {
 }
 
 function slot(day, status, title = '', type = '', extra = {}) {
-  const date = new Date(2026, 10, day)
   return {
     date: `2026-11-${String(day).padStart(2, '0')}`,
-    dayOfWeek: WEEK[date.getDay()],
+    dayOfWeek: weekdayFromYmd(2026, 11, day),
     status,
     title: title || (status === 'free' ? 'Свободно' : ''),
     type,

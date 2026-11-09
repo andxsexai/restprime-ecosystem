@@ -153,6 +153,10 @@ button:disabled { cursor: not-allowed; }
   100% { transform: translateX(var(--roulette-shift, 0px)); opacity: 1; }
 }
 
+.past-fold {
+  transition: border-color 0.4s var(--ease), box-shadow 0.4s var(--ease);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .metal-slide { animation: none; }
   .spatial-card, .nav-3d-btn, .press, .hidden-3d-dock, .block-hover { transition: none; }

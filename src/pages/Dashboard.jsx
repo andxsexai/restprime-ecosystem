@@ -23,6 +23,7 @@ export default function Dashboard({
           Обзор нужен для одного: прочитать текст на сегодняшнюю дату, поставить его на проверку и открыть Telegram. Календарь, агент и каналы живут в своих вкладках.
         </p>
         <p className="mt-4 text-sm text-[#C9A96A]">{formatLong(date)} · {formatWeekday(date)}</p>
+        {day.hook && <p className="mt-2 text-sm text-[#C6FF5E]">{day.hook}</p>}
         <h3 className="font-display mt-1 text-3xl italic text-[#F4F0E6]"><RouletteText>{day.title}</RouletteText></h3>
         {day.event?.title && <p className="mt-2 text-sm text-[#C6FF5E]">Плюсом сегодня: {day.event.title}. {day.event.hook}</p>}
         <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-[#F4F0E6]/90">{shownPost(day)}</p>

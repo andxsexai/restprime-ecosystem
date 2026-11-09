@@ -1,4 +1,4 @@
-import { CLOSERS, CONTACT_LINES, RUBRICS, closerFor, composePost, composeWide, dishLine, hashSeed } from './writer.js'
+import { CLOSERS, CONTACT_LINES, HOOK_TYPES, RUBRICS, closerFor, composePost, composeWide, dishLine, hashSeed } from './writer.js'
 import { withEvent } from './eventDay.js'
 import { rebuildPost, rebuildReel } from './rebuild.js'
 
@@ -53,11 +53,16 @@ export function wideFromDay(day, angle) {
 
 export function proposePosts(day, date, count = 3) {
   const source = day || {}
-  return RUBRICS.slice(0, count).map((rubric, index) => ({
-    id: rubric.id,
-    rubric: rubric.title,
-    text: withEvent(composePost(source, { rubric: rubric.id, variant: index + 3, date }), source.event),
-  }))
+  const start = (source.day || 1) % RUBRICS.length
+  return Array.from({ length: count }, (_, index) => {
+    const rubric = RUBRICS[(start + index * 2) % RUBRICS.length]
+    const hookType = HOOK_TYPES[(source.day + index) % HOOK_TYPES.length]
+    return {
+      id: `${rubric.id}-${hookType}`,
+      rubric: rubric.title,
+      text: withEvent(composePost(source, { rubric: rubric.id, hookType, variant: index + 3, date, angle: '' }), source.event),
+    }
+  })
 }
 
 export function improveReel(day) {

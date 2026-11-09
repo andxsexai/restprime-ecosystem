@@ -5,7 +5,8 @@ import ExtensionBar from '../components/ExtensionBar.jsx'
 import StatusButtons, { StatusMark, statusTone, teamNote } from '../components/StatusButtons.jsx'
 import { repeatNote } from '../lib/autoPlan.js'
 import { shownPost, wideFromDay, wordCount } from '../lib/compose.js'
-import { dateForDay, formatLong, formatWeekday } from '../lib/planDates.js'
+import { dateForDay, formatLong, formatWeekday, moscowToday, planDayForDate, weekdayIndex } from '../lib/planDates.js'
+import { PastDaysFold, splitPlanDays } from '../components/PastDays.jsx'
 
 const SHORT_WEEK = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб']
 const FIELD = 'w-full rounded-2xl border border-[#C9A96A]/25 bg-[#0A0F0B] px-3 py-3 text-base text-[#F4F0E6] focus:border-[#C9A96A] focus:outline-none sm:text-sm'
@@ -49,6 +50,8 @@ export default function PostWorkshop({ days, day, canAct, repeats = {}, onPick, 
   const dirty = title !== day.title || body !== saved || reelHook !== day.reelHook || reelScript !== (day.reelScript || '')
   const draftDay = { ...day, title, [wide ? 'wideText' : 'postText']: body }
   const preview = shownPost(draftDay)
+  const todayNumber = planDayForDate(moscowToday()) || 1
+  const { live, missed, passed } = splitPlanDays(days, todayNumber)
 
   function patch() {
     return { title: title.trim() || day.title, [wide ? 'wideText' : 'postText']: body, reelHook, reelScript }
@@ -80,23 +83,17 @@ export default function PostWorkshop({ days, day, canAct, repeats = {}, onPick, 
   return (
     <section className="grid grid-cols-1 gap-4 lg:grid-cols-12">
       <div ref={stripRef} className="relative -mx-4 flex min-w-0 snap-x gap-2 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:px-6 lg:col-span-4 lg:mx-0 lg:max-h-[78vh] lg:flex-col lg:overflow-y-auto lg:overflow-x-visible lg:px-0 lg:pr-1">
-        {days.map((item) => {
-          const date = dateForDay(item.day)
-          const active = item.day === day.day
-          return (
-            <button
-              key={item.day}
-              data-day={item.day}
-              type="button"
-              onClick={() => choose(item.day)}
-              className={`w-[132px] shrink-0 snap-start rounded-2xl border px-3 py-2 text-left lg:w-full ${active ? 'border-[#C9A96A] bg-[#C9A96A]/15' : 'border-[#C9A96A]/20 bg-[#121A14]/60'} ${statusTone(item.status).ring}`}
-            >
-              <span className="block text-xs text-[#C9A96A]">{formatLong(date)} · {SHORT_WEEK[date.getDay()]}</span>
-              <span className="mt-0.5 block truncate text-sm text-[#F4F0E6]">{item.title}</span>
-              <span className="mt-1 block"><StatusMark status={item.status} decidedBy={item.decidedBy} /></span>
-            </button>
-          )
-        })}
+        <div className="w-[min(280px,80vw)] shrink-0 lg:w-full">
+          <PastDaysFold
+            missed={missed}
+            passed={passed}
+            title="Прошедшие дни"
+            itemGrid="grid grid-cols-1 gap-2"
+            pastGrid="grid-cols-1 gap-2"
+            renderItem={(item) => dayChip(item, day.day, choose)}
+          />
+        </div>
+        {live.map((item) => dayChip(item, day.day, choose))}
       </div>
       <form
         className="min-w-0 space-y-4 rounded-3xl border border-[#C9A96A]/20 bg-[#121A14]/60 p-4 pb-0 sm:p-5 sm:pb-0 lg:col-span-8"
@@ -154,5 +151,23 @@ export default function PostWorkshop({ days, day, canAct, repeats = {}, onPick, 
         </div>
       </form>
     </section>
+  )
+}
+
+function dayChip(item, activeDay, choose) {
+  const date = dateForDay(item.day)
+  const active = item.day === activeDay
+  return (
+    <button
+      key={item.day}
+      data-day={item.day}
+      type="button"
+      onClick={() => choose(item.day)}
+      className={`w-[132px] shrink-0 snap-start rounded-2xl border px-3 py-2 text-left lg:w-full ${active ? 'border-[#C9A96A] bg-[#C9A96A]/15' : 'border-[#C9A96A]/20 bg-[#121A14]/60'} ${statusTone(item.status).ring}`}
+    >
+      <span className="block text-xs text-[#C9A96A]">{formatLong(date)} · {SHORT_WEEK[weekdayIndex(date)]}</span>
+      <span className="mt-0.5 block truncate text-sm text-[#F4F0E6]">{item.hook || item.title}</span>
+      <span className="mt-1 block"><StatusMark status={item.status} decidedBy={item.decidedBy} /></span>
+    </button>
   )
 }
