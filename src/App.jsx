@@ -462,14 +462,14 @@ export default function App() {
     deskPushTimer.current = window.setTimeout(() => { flushDesk().catch(() => setTeamState('offline')) }, 1200)
   }
 
-  async function flushDesk() {
+  async function flushDesk(force = false) {
     const person = sessionRef.current
     if (!person || !deskReady.current) return
     const snap = packDesk({ ...deskLocal.current, email: person.email })
     const hasItems = (snap.tasks || []).length + (snap.notes || []).length
     if (!hasItems && !deskLastSent.current) return
     const bodyKey = JSON.stringify({ tasks: snap.tasks, notes: snap.notes, log: snap.taskLog, purged: snap.purged })
-    if (bodyKey === deskLastSent.current) return
+    if (!force && bodyKey === deskLastSent.current) return
     await pushDeskSnapshot(publishTeam, snap)
     deskLastSent.current = bodyKey
     setTeamState('online')
@@ -659,9 +659,11 @@ export default function App() {
 
   async function pullDeskNow() {
     try {
+      deskLastSent.current = ''
       await syncTeam()
+      await flushDesk(true)
       setTeamState('online')
-      notify('Подтянул задачи и заметки с другого устройства.')
+      notify('Подтянул задачи и заметки с другого устройства. Если вы на компьютере — список ушёл на телефон.')
     } catch {
       setTeamState('offline')
       notify('Сейчас нет сети — список с этого устройства. Когда сеть вернётся, подтянется общее.')

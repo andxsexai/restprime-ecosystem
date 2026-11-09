@@ -218,7 +218,7 @@ export default function NotesDesk({
               <>
                 <div className="flex items-center justify-between gap-2 border-b border-white/10 px-4 py-3 sm:px-5">
                   <button type="button" onClick={() => setSelectedId('')} className="rounded-xl border border-white/15 px-3 py-2 text-xs text-[#F4F0E6] lg:hidden">К списку</button>
-                  <p className="text-xs text-[#7A8580]">{selected.scope === 'group' ? `Общая · ${members.length} в команде` : 'Только на этом устройстве'}{saved ? ' · сохранено' : ''}</p>
+                  <p className="text-xs text-[#7A8580]">{selected.scope === 'group' ? `Общая · ${members.length} в команде` : (session?.email ? 'Личная · едет с вами после входа' : 'Только на этом устройстве, пока не войдёте')}{saved ? ' · сохранено' : ''}</p>
                   <div className="flex gap-1">
                     <button type="button" disabled={!editable} onClick={() => patch({ pinned: !selected.pinned })} aria-label={selected.pinned ? 'Открепить' : 'Закрепить'} className="grid h-10 w-10 place-items-center rounded-xl border border-white/15 text-[#C9A96A] disabled:opacity-40">{selected.pinned ? <PinOff size={15} /> : <Pin size={15} />}</button>
                     <button type="button" disabled={!editable} onClick={() => patch({ archived: !selected.archived })} aria-label={selected.archived ? 'Вернуть из архива' : 'В архив'} className="grid h-10 w-10 place-items-center rounded-xl border border-white/15 text-[#F4F0E6] disabled:opacity-40"><Archive size={15} /></button>

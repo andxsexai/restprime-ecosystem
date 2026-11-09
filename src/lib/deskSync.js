@@ -1,10 +1,12 @@
 import { NOTES_CAP } from './notes.js'
 
-const PART_SIZE = 2800
 const PURGE_CAP = 400
 const LOG_CAP = 200
 const TASK_CAP = 400
 const PART_LIMIT = 24
+const MESSAGE_LIMIT = 3000
+const NOTE_SYNC_BODY = 2400
+const TITLE_SYNC = 400
 
 const partBuf = new Map()
 
@@ -58,12 +60,65 @@ export function mergeLog(local = [], remote = []) {
   return [...map.values()].slice(0, LOG_CAP)
 }
 
+function utf8Size(value) {
+  return new TextEncoder().encode(JSON.stringify(value)).length
+}
+
+function compactTask(task) {
+  if (!task?.id) return null
+  return {
+    id: task.id,
+    title: String(task.title || '').slice(0, TITLE_SYNC),
+    assignee: task.assignee || '',
+    due: task.due || '',
+    day: task.day || null,
+    by: task.by || '',
+    createdAt: task.createdAt || '',
+    doneAt: task.doneAt || '',
+    doneBy: task.doneBy || '',
+    trashedAt: task.trashedAt || '',
+    trashedBy: task.trashedBy || '',
+    editedAt: task.editedAt || '',
+    editedBy: task.editedBy || '',
+    touchMs: Number(task.touchMs) || 0,
+    updatedMs: Number(task.updatedMs) || 0,
+    editedMs: Number(task.editedMs) || 0,
+    trashedMs: Number(task.trashedMs) || 0,
+  }
+}
+
+function compactNote(note) {
+  if (!note?.id) return null
+  return {
+    id: note.id,
+    scope: note.scope === 'group' ? 'group' : 'personal',
+    title: String(note.title || '').slice(0, 120),
+    body: String(note.body || '').slice(0, NOTE_SYNC_BODY),
+    owner: note.owner || 'guest',
+    by: note.by || '',
+    from: note.from || note.owner || '',
+    day: note.day || null,
+    pinned: Boolean(note.pinned),
+    archived: Boolean(note.archived),
+    createdAt: note.createdAt || '',
+    updatedAt: note.updatedAt || '',
+    updatedMs: Number(note.updatedMs) || 0,
+    trashedAt: note.trashedAt || '',
+    trashedBy: note.trashedBy || '',
+    trashedMs: Number(note.trashedMs) || 0,
+    sync: note.sync !== false,
+  }
+}
+
 export function packDesk({ tasks = [], taskLog = [], notes = [], purged = emptyPurged(), email = '' }) {
-  const syncNotes = (notes || []).filter((note) => note.scope === 'group' || (email && note.owner === email))
+  const syncNotes = (notes || [])
+    .filter((note) => note.scope === 'group' || (email && note.owner === email))
+    .map(compactNote)
+    .filter(Boolean)
   return {
     at: Date.now(),
-    tasks: (tasks || []).slice(0, TASK_CAP),
-    taskLog: (taskLog || []).slice(0, LOG_CAP),
+    tasks: (tasks || []).map(compactTask).filter(Boolean).slice(0, TASK_CAP),
+    taskLog: (taskLog || []).slice(0, 40),
     notes: syncNotes.slice(0, NOTES_CAP),
     purged: {
       tasks: (purged.tasks || []).slice(-PURGE_CAP),
@@ -122,27 +177,52 @@ export function collectDesk(events) {
   return snaps
 }
 
+function deskFits(slice) {
+  return utf8Size({ v: 1, ...slice }) <= MESSAGE_LIMIT
+}
+
 export async function pushDeskSnapshot(publishTeam, snap) {
-  const body = {
+  const at = snap.at || Date.now()
+  const tasks = (snap.tasks || []).map(compactTask).filter(Boolean)
+  const notes = (snap.notes || []).map(compactNote).filter(Boolean)
+  const taskLog = (snap.taskLog || []).slice(0, 40)
+  const purged = snap.purged || emptyPurged()
+  const slices = []
+  let bag = { tasks: [], notes: [], taskLog: [] }
+
+  const trial = (next, withPurged) => ({
     type: 'desk',
-    at: snap.at,
-    tasks: snap.tasks || [],
-    notes: snap.notes || [],
-    taskLog: snap.taskLog || [],
-    purged: snap.purged || emptyPurged(),
-  }
-  const encoded = JSON.stringify({ v: 1, ...body })
-  if (encoded.length <= 3600) return publishTeam(body)
-  const raw = JSON.stringify({
-    at: body.at,
-    tasks: body.tasks,
-    notes: body.notes,
-    taskLog: body.taskLog,
-    purged: body.purged,
+    at,
+    tasks: next.tasks,
+    notes: next.notes,
+    taskLog: next.taskLog,
+    purged: withPurged ? purged : emptyPurged(),
   })
-  const gen = `${body.at}-${Math.random().toString(36).slice(2, 7)}`
-  const total = Math.ceil(raw.length / PART_SIZE) || 1
-  for (let index = 0; index < total; index += 1) {
-    await publishTeam({ type: 'desk-part', gen, i: index, n: total, data: raw.slice(index * PART_SIZE, (index + 1) * PART_SIZE) })
+
+  const commit = (withPurged = false) => {
+    if (bag.tasks.length || bag.notes.length || bag.taskLog.length || !slices.length) {
+      slices.push(trial(bag, withPurged))
+    }
+    bag = { tasks: [], notes: [], taskLog: [] }
+  }
+
+  const add = (key, item) => {
+    const next = { ...bag, [key]: [...bag[key], item] }
+    if (!deskFits(trial(next, false)) && (bag.tasks.length || bag.notes.length || bag.taskLog.length)) {
+      commit(false)
+      bag = { tasks: [], notes: [], taskLog: [], [key]: [item] }
+      return
+    }
+    bag = next
+  }
+
+  tasks.forEach((item) => add('tasks', item))
+  notes.forEach((item) => add('notes', item))
+  taskLog.forEach((item) => add('taskLog', item))
+  commit(true)
+  if (slices.length) slices[slices.length - 1] = { ...slices[slices.length - 1], purged }
+
+  for (const slice of slices) {
+    await publishTeam(slice)
   }
 }
