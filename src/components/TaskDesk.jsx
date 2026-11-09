@@ -32,7 +32,7 @@ function owners(task, members) {
   return person ? [task.assignee, `role:${person.role}`] : [task.assignee]
 }
 
-export default function TaskDesk({ tasks, log, members, days, todayIso, todayDay, canAct, session, notes, onClose, onAdd, onEdit, onToggle, onRemove, onRestore, onPurge, onSeedDay, onUpsertNote, onRemoveNote, onOpenNotes, onOpenTrash }) {
+export default function TaskDesk({ tasks, log, members, days, todayIso, todayDay, canAct, session, notes, onClose, onAdd, onEdit, onToggle, onRemove, onRestore, onPurge, onSeedDay, onUpsertNote, onRemoveNote, onOpenNotes, onOpenTrash, syncHint }) {
   const [pane, setPane] = useState('open')
   const [who, setWho] = useState('all')
   const [draft, setDraft] = useState({ title: '', assignee: `role:${session?.role && session.role !== 'developer' ? session.role : 'director'}`, due: todayIso, day: todayDay?.day || '' })
@@ -145,6 +145,7 @@ export default function TaskDesk({ tasks, log, members, days, todayIso, todayDay
           <div>
             <p className="text-[11px] uppercase tracking-[0.18em] text-[#C9A96A]">Команда</p>
             <h2 className="font-display text-4xl italic leading-none text-[#F4F0E6]">Задачи</h2>
+            <p className="mt-1 max-w-[18rem] text-xs leading-relaxed text-[#7A8580]">{syncHint || 'Одни на компьютере и телефоне. Обновляются сами, когда есть сеть.'}</p>
           </div>
           <button type="button" onClick={onClose} aria-label="Закрыть задачи" className="grid h-11 w-11 place-items-center rounded-xl border border-white/15 text-[#F4F0E6]"><X size={18} /></button>
         </div>

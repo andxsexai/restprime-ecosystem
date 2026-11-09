@@ -142,6 +142,7 @@ export default function NotesDesk({
           <div className="min-w-0">
             <p className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-[#C9A96A]"><StickyNote size={13} />Заметки</p>
             <h2 className="font-display text-4xl italic leading-none text-[#F4F0E6]">Личные и общие</h2>
+            <p className="mt-2 text-xs leading-relaxed text-[#7A8580]">Общие заметки одни на компьютере и телефоне. Личные без входа остаются только здесь; после входа едут с вами.</p>
           </div>
           <button type="button" onClick={onClose} aria-label="Закрыть заметки" className="grid h-11 w-11 place-items-center rounded-xl border border-white/15 text-[#F4F0E6]"><X size={18} /></button>
         </header>
@@ -178,7 +179,7 @@ export default function NotesDesk({
                   </span>
                   <span className="mt-1 block text-sm font-medium text-[#F4F0E6]">{note.title || 'Без названия'}</span>
                   <span className="mt-1 block text-xs text-[#7A8580]">{previewNote(note.body)}</span>
-                  <span className="mt-1 block text-[11px] text-[#C9A96A]">{isTrashed(note) ? `${note.trashedBy || note.by} · ${note.trashedAt}` : `${note.by} · ${note.updatedAt}`}</span>
+                  <span className="mt-1 block text-[11px] text-[#C9A96A]">{isTrashed(note) ? `${note.trashedBy || note.by} · ${note.trashedAt}` : `${note.by} · ${note.updatedAt || note.createdAt}`}</span>
                 </button>
               ))}
             </div>
@@ -290,7 +291,7 @@ export function CompactNotes({ notes, session, canAct, onUpsert, onOpen, onRemov
           <button type="button" onClick={() => onOpen('')} className="rounded-xl border border-[#C6FF5E]/40 px-4 py-2.5 text-sm text-[#C6FF5E]">Большое окно</button>
         </div>
       </form>
-      {recent.length === 0 && <p className="text-sm leading-relaxed text-[#7A8580]">Заметок ещё нет. Личные остаются на этом устройстве. Общие видит команда.</p>}
+      {recent.length === 0 && <p className="text-sm leading-relaxed text-[#7A8580]">Заметок ещё нет. Общие одни на компьютере и телефоне. Личные без входа остаются здесь; после входа открываются и на другом устройстве.</p>}
       {recent.map((note) => (
         <article key={note.id} className="rounded-2xl border border-white/10 bg-[#0A0F0B] p-4">
           <div className="flex items-start justify-between gap-3">

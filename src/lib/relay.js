@@ -84,10 +84,16 @@ export async function pollRelay(since = '12h') {
 }
 
 export function sendTeam(event) {
+  return publishTeam(event)
+}
+
+export function publishTeam(event) {
   return publish({ topic: TEAM_TOPIC, message: JSON.stringify({ v: 1, ...event }) })
 }
 
-export async function pollTeam(since = '12h') {
+const TEAM_TYPES = new Set(['chat', 'task', 'note', 'desk', 'desk-part'])
+
+export async function pollTeam(since = 'all') {
   const response = await fetch(`${HOST}/${TEAM_TOPIC}/json?poll=1&since=${encodeURIComponent(since)}`)
   if (!response.ok) throw new Error(`ntfy ${response.status}`)
   const text = await response.text()
@@ -96,7 +102,7 @@ export async function pollTeam(since = '12h') {
       const item = JSON.parse(line)
       if (item.event !== 'message') return null
       const event = JSON.parse(item.message)
-      return event?.v === 1 && (event.type === 'chat' || event.type === 'task' || event.type === 'note') ? { ...event, relayId: item.id, time: item.time } : null
+      return event?.v === 1 && TEAM_TYPES.has(event.type) ? { ...event, relayId: item.id, time: item.time } : null
     } catch {
       return null
     }

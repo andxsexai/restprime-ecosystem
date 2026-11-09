@@ -29,11 +29,12 @@ import { rebuildReel } from './lib/rebuild.js'
 import { applyOccupancy, occupancyForDay } from './data/november2026.js'
 import { addChannel, hiddenDefaults, liveChannels, normalizePrefs, removeChannel, restoreAll, restoreChannel } from './lib/channelCatalog.js'
 import { REEL_BANK } from './data/reelBank.js'
-import { RELAY_TEST, announceDecision, announceRecovery, announceSignup, pollRelay, pollTeam, resendSignup, sendTeam } from './lib/relay.js'
+import { RELAY_TEST, announceDecision, announceRecovery, announceSignup, pollRelay, pollTeam, publishTeam, resendSignup, sendTeam } from './lib/relay.js'
 import TaskDesk, { taskStamp } from './components/TaskDesk.jsx'
 import NotesDesk from './components/NotesDesk.jsx'
 import TrashDesk, { trashCount } from './components/TrashDesk.jsx'
 import { GROUP_LIMIT, PERSONAL_LIMIT, authorName, canEditNote, isTrashed, livingNotes, livingOf, moveToTrash, noteStamp, ownerKey, takeFromTrash, upsertNote } from './lib/notes.js'
+import { absorbDesk, collectDesk, emptyPurged, packDesk, pushDeskSnapshot, rememberPurged, sameList } from './lib/deskSync.js'
 import { loadAccess, saveAccess } from './lib/access.js'
 import { ADMIN_EMAIL, ROLES, SIGNUP_ROLES, hashPassword, normalizePhrase, roleLabel } from './lib/auth.js'
 import {
@@ -113,6 +114,10 @@ function uid() {
   return Math.random().toString(36).slice(2, 10)
 }
 
+function touch(task) {
+  return { ...task, touchMs: Date.now() }
+}
+
 function ProfileEditor({ session, onSave }) {
   const [name, setName] = useState(session.name || '')
   const [role, setRole] = useState(session.role || 'director')
@@ -154,6 +159,10 @@ export default function App() {
   const [taskLog, setTaskLog] = useState(saved?.taskLog || [])
   const [tasksOpen, setTasksOpen] = useState(false)
   const [notes, setNotes] = useState(saved?.notes || [])
+  const [purged, setPurged] = useState(() => ({
+    tasks: Array.isArray(saved?.purged?.tasks) ? saved.purged.tasks : [],
+    notes: Array.isArray(saved?.purged?.notes) ? saved.purged.notes : [],
+  }))
   const [notesOpen, setNotesOpen] = useState(false)
   const [noteFocus, setNoteFocus] = useState('')
   const [trashOpen, setTrashOpen] = useState(false)
@@ -169,6 +178,11 @@ export default function App() {
   const [teamState, setTeamState] = useState('')
   const teamLast = useRef('')
   const teamSeen = useRef(new Set())
+  const deskReady = useRef(false)
+  const deskPushTimer = useRef(0)
+  const deskLastSent = useRef('')
+  const deskNotice = useRef(false)
+  const deskLocal = useRef({ tasks: [], taskLog: [], notes: [], purged: emptyPurged() })
   const tabRef = useRef('overview')
   const undoRef = useRef([])
   const [undoCount, setUndoCount] = useState(0)
@@ -198,6 +212,7 @@ export default function App() {
   const day = days.find((item) => item.day === focus) || days[0]
   const session = access.users.find((user) => user.email === access.sessionEmail) || null
   const canAct = session?.status === 'active'
+  deskLocal.current = { tasks, taskLog, notes, purged }
   const isDeveloper = canAct && (session?.role === 'developer' || session?.email === ADMIN_EMAIL)
   const pending = access.users.filter((user) => user.status === 'pending')
   const members = access.users.filter((user) => user.status === 'active')
@@ -216,11 +231,11 @@ export default function App() {
   useEffect(() => {
     try {
       const storedFiles = files.map((file) => (String(file.url || '').startsWith('blob:') ? { ...file, url: '' } : file))
-      localStorage.setItem(KEY, JSON.stringify({ edition: 'readable', days, focus, files: storedFiles, telegram, chat, siteNotes, extraReels, tasks, taskLog, notes, channelPrefs, autoFeedAt, reworkPack }))
+      localStorage.setItem(KEY, JSON.stringify({ edition: 'readable', days, focus, files: storedFiles, telegram, chat, siteNotes, extraReels, tasks, taskLog, notes, purged, channelPrefs, autoFeedAt, reworkPack }))
     } catch {
       /* браузер закрыл память: кабинет остаётся только на этот заход */
     }
-  }, [days, focus, files, telegram, chat, siteNotes, extraReels, tasks, taskLog, notes, channelPrefs, autoFeedAt, reworkPack])
+  }, [days, focus, files, telegram, chat, siteNotes, extraReels, tasks, taskLog, notes, purged, channelPrefs, autoFeedAt, reworkPack])
 
   useEffect(() => {
     if (!signals.fetchedAt) return
@@ -265,7 +280,6 @@ export default function App() {
   useEffect(() => { tabRef.current = tab }, [tab])
 
   useEffect(() => {
-    if (!canAct && !RELAY_TEST) return undefined
     let alive = true
     const run = () => {
       if (document.visibilityState === 'hidden') return
@@ -280,6 +294,15 @@ export default function App() {
       document.removeEventListener('visibilitychange', run)
     }
   }, [canAct, session?.email])
+
+  useEffect(() => {
+    if (!session) return undefined
+    const beat = () => {
+      if (document.visibilityState === 'visible') flushDesk().catch(() => setTeamState('offline'))
+    }
+    const timer = setInterval(beat, 8 * 60 * 1000)
+    return () => clearInterval(timer)
+  }, [session?.email])
 
   useEffect(() => {
     const timer = setInterval(() => setClock(moscowToday()), 30000)
@@ -373,11 +396,33 @@ export default function App() {
   function shareTask(op, task, log) {
     if (!canAct) return
     sendTeam({ type: 'task', op, task, log: log ? { id: uid(), at: taskStamp(), text: log } : null }).catch(() => setTeamState('offline'))
+    queueDeskPush()
   }
 
   function shareNote(op, note) {
-    if (!canAct || note.scope !== 'group' || note.sync === false) return
+    if (note.scope === 'group') {
+      if (!canAct || note.sync === false) return
+    } else if (!session?.email || note.owner !== session.email) {
+      return
+    }
     sendTeam({ type: 'note', op, note }).then(() => setTeamState('online')).catch(() => setTeamState('offline'))
+    queueDeskPush()
+  }
+
+  function queueDeskPush() {
+    if (!session) return
+    window.clearTimeout(deskPushTimer.current)
+    deskPushTimer.current = window.setTimeout(() => { flushDesk().catch(() => setTeamState('offline')) }, 1200)
+  }
+
+  async function flushDesk() {
+    if (!session) return
+    const snap = packDesk({ ...deskLocal.current, email: session.email })
+    const bodyKey = JSON.stringify({ tasks: snap.tasks, notes: snap.notes, log: snap.taskLog, purged: snap.purged })
+    if (bodyKey === deskLastSent.current) return
+    await pushDeskSnapshot(publishTeam, snap)
+    deskLastSent.current = bodyKey
+    setTeamState('online')
   }
 
   function saveNote(note) {
@@ -447,6 +492,7 @@ export default function App() {
       return
     }
     if (!window.confirm('Удалить заметку навсегда? Вернуть будет нельзя.')) return
+    setPurged((current) => rememberPurged(current, 'notes', [id]))
     setNotes((current) => current.filter((item) => item.id !== id))
     shareNote('remove', note)
     notify('Заметка удалена навсегда.')
@@ -487,45 +533,72 @@ export default function App() {
   }
 
   async function syncTeam() {
-    const events = await pollTeam(teamLast.current || '12h')
-    const fresh = events.filter((event) => !teamSeen.current.has(event.relayId))
-    if (events.length) teamLast.current = events[events.length - 1].relayId
-    fresh.forEach((event) => teamSeen.current.add(event.relayId))
-    if (!fresh.length) return
-    const messages = fresh.filter((event) => event.type === 'chat' && event.message?.id).map((event) => event.message)
-    if (messages.length) {
-      let added = []
-      setChat((current) => {
-        const ids = new Set(current.map((item) => item.id))
-        added = messages.filter((item) => !ids.has(item.id))
-        return added.length ? [...current, ...added] : current
-      })
-      const foreign = messages.filter((item) => item.from !== session?.email)
-      if (foreign.length && tabRef.current !== 'github-tz') {
-        const last = foreign[foreign.length - 1]
-        notify(`Чат · ${last.sender}: ${String(last.text).slice(0, 90)}`)
-        showSystemNotice(`RESTPRIME · ${last.sender}`, String(last.text).slice(0, 140))
+    try {
+      const events = await pollTeam(teamLast.current || 'all')
+      const fresh = events.filter((event) => !teamSeen.current.has(event.relayId))
+      if (events.length) teamLast.current = events[events.length - 1].relayId
+      fresh.forEach((event) => teamSeen.current.add(event.relayId))
+      if (fresh.length) {
+        const messages = fresh.filter((event) => event.type === 'chat' && event.message?.id).map((event) => event.message)
+        if (messages.length && canAct) {
+          let added = []
+          setChat((current) => {
+            const ids = new Set(current.map((item) => item.id))
+            added = messages.filter((item) => !ids.has(item.id))
+            return added.length ? [...current, ...added] : current
+          })
+          const foreign = messages.filter((item) => item.from !== session?.email)
+          if (foreign.length && tabRef.current !== 'github-tz') {
+            const last = foreign[foreign.length - 1]
+            notify(`Чат · ${last.sender}: ${String(last.text).slice(0, 90)}`)
+            showSystemNotice(`RESTPRIME · ${last.sender}`, String(last.text).slice(0, 140))
+          }
+        }
+        const owner = ownerKey(session)
+        const had = deskLocal.current.tasks.length + deskLocal.current.notes.filter((note) => note.scope === 'group' || note.owner === owner).length
+        let next = { ...deskLocal.current, tasks: [...deskLocal.current.tasks], taskLog: [...deskLocal.current.taskLog], notes: [...deskLocal.current.notes], purged: { ...deskLocal.current.purged, tasks: [...(deskLocal.current.purged.tasks || [])], notes: [...(deskLocal.current.purged.notes || [])] } }
+        const taskEvents = fresh.filter((event) => event.type === 'task' && event.task?.id)
+        if (taskEvents.length) {
+          const removed = taskEvents.filter((event) => event.op === 'remove').map((event) => event.task.id)
+          if (removed.length) next.purged = rememberPurged(next.purged, 'tasks', removed)
+          const deadTasks = new Set(next.purged.tasks || [])
+          next.tasks = taskEvents.reduce((list, event) => {
+            if (event.op === 'remove' || deadTasks.has(event.task.id)) return list.filter((item) => item.id !== event.task.id)
+            if (list.some((item) => item.id === event.task.id)) return list.map((item) => (item.id === event.task.id ? event.task : item))
+            return [event.task, ...list]
+          }, next.tasks)
+          const logs = taskEvents.map((event) => event.log).filter(Boolean)
+          if (logs.length) next.taskLog = [...logs.filter((log) => !next.taskLog.some((item) => item.id === log.id)).reverse(), ...next.taskLog].slice(0, 200)
+        }
+        const noteEvents = fresh.filter((event) => event.type === 'note' && event.note?.id && (event.note.scope === 'group' || event.note.owner === owner))
+        if (noteEvents.length) {
+          const removed = noteEvents.filter((event) => event.op === 'remove').map((event) => event.note.id)
+          if (removed.length) next.purged = rememberPurged(next.purged, 'notes', removed)
+          next.notes = noteEvents.reduce((list, event) => {
+            if (event.op === 'remove') return list.filter((item) => item.id !== event.note.id)
+            return upsertNote(list, event.note)
+          }, next.notes)
+          const last = noteEvents[noteEvents.length - 1]
+          if (last.note.scope === 'group' && last.note.from !== session?.email && !notesOpen && !isTrashed(last.note)) {
+            notify(`Общая заметка · ${last.note.by}: ${String(last.note.title || last.note.body).slice(0, 90)}`)
+          }
+        }
+        collectDesk(fresh).forEach((snap) => { next = absorbDesk(next, snap, owner) })
+        deskLocal.current = next
+        if (!sameList(tasks, next.tasks)) setTasks(next.tasks)
+        if (!sameList(taskLog, next.taskLog)) setTaskLog(next.taskLog)
+        if (!sameList(notes, next.notes)) setNotes(next.notes)
+        if (JSON.stringify(purged) !== JSON.stringify(next.purged)) setPurged(next.purged)
+        const got = next.tasks.length + next.notes.filter((note) => note.scope === 'group' || note.owner === owner).length
+        if (!deskNotice.current && got > had) {
+          deskNotice.current = true
+          notify('Задачи и заметки подтянулись с другого устройства.')
+        }
       }
-    }
-    const taskEvents = fresh.filter((event) => event.type === 'task' && event.task?.id)
-    if (taskEvents.length) {
-      setTasks((current) => taskEvents.reduce((list, event) => {
-        if (event.op === 'remove') return list.filter((item) => item.id !== event.task.id)
-        if (list.some((item) => item.id === event.task.id)) return list.map((item) => (item.id === event.task.id ? event.task : item))
-        return [event.task, ...list]
-      }, current))
-      const logs = taskEvents.map((event) => event.log).filter(Boolean)
-      if (logs.length) setTaskLog((current) => [...logs.filter((log) => !current.some((item) => item.id === log.id)).reverse(), ...current].slice(0, 200))
-    }
-    const noteEvents = fresh.filter((event) => event.type === 'note' && event.note?.id && event.note.scope === 'group')
-    if (noteEvents.length) {
-      setNotes((current) => noteEvents.reduce((list, event) => {
-        if (event.op === 'remove') return list.filter((item) => item.id !== event.note.id)
-        return upsertNote(list, event.note)
-      }, current))
-      const last = noteEvents[noteEvents.length - 1]
-      if (last.note.from !== session?.email && !notesOpen && !isTrashed(last.note)) {
-        notify(`Общая заметка · ${last.note.by}: ${String(last.note.title || last.note.body).slice(0, 90)}`)
+    } finally {
+      if (!deskReady.current) {
+        deskReady.current = true
+        if (session) queueDeskPush()
       }
     }
   }
@@ -870,7 +943,7 @@ export default function App() {
 
   function addTask(draft) {
     if (!requireAct()) return
-    const task = { id: uid(), title: draft.title, assignee: draft.assignee, due: draft.due || isoDate(clock), day: draft.day || null, by: session.name, createdAt: taskStamp(), doneAt: '', doneBy: '' }
+    const task = touch({ id: uid(), title: draft.title, assignee: draft.assignee, due: draft.due || isoDate(clock), day: draft.day || null, by: session.name, createdAt: taskStamp(), doneAt: '', doneBy: '' })
     setTasks((current) => [task, ...current])
     const line = `${session.name} поставил «${task.title}» → ${ownerName(task.assignee)}`
     logTask(line)
@@ -884,7 +957,7 @@ export default function App() {
     const task = tasks.find((item) => item.id === id)
     if (!task || isTrashed(task)) return
     const closing = !task.doneAt
-    const next = { ...task, doneAt: closing ? taskStamp() : '', doneBy: closing ? session.name : '' }
+    const next = touch({ ...task, doneAt: closing ? taskStamp() : '', doneBy: closing ? session.name : '' })
     setTasks((current) => current.map((item) => (item.id === id ? next : item)))
     const line = closing ? `${session.name} выполнил «${task.title}»` : `${session.name} вернул в работу «${task.title}»`
     logTask(line)
@@ -910,21 +983,23 @@ export default function App() {
       day: draft.day ? Number(draft.day) : null,
       editedAt: taskStamp(),
       editedBy: session.name,
+      editedMs: Date.now(),
     }
-    const same = next.title === task.title && next.assignee === task.assignee && next.due === task.due && Number(next.day || 0) === Number(task.day || 0)
+    const stamped = touch(next)
+    const same = stamped.title === task.title && stamped.assignee === task.assignee && stamped.due === task.due && Number(stamped.day || 0) === Number(task.day || 0)
     if (same) {
       notify('Ничего не изменилось.')
       return true
     }
-    setTasks((current) => current.map((item) => (item.id === id ? next : item)))
+    setTasks((current) => current.map((item) => (item.id === id ? stamped : item)))
     const bits = [`${session.name} изменил «${task.title}»`]
-    if (next.title !== task.title) bits.push(`текст: «${next.title}»`)
-    if (next.assignee !== task.assignee) bits.push(`исполнитель: ${ownerName(next.assignee)}`)
-    if (next.due !== task.due) bits.push(`срок: ${next.due}`)
+    if (stamped.title !== task.title) bits.push(`текст: «${stamped.title}»`)
+    if (stamped.assignee !== task.assignee) bits.push(`исполнитель: ${ownerName(stamped.assignee)}`)
+    if (stamped.due !== task.due) bits.push(`срок: ${stamped.due}`)
     const line = bits.join(', ')
     logTask(line)
-    shareTask('update', next, line)
-    notify(`Задача обновлена: «${next.title}».`)
+    shareTask('update', stamped, line)
+    notify(`Задача обновлена: «${stamped.title}».`)
     return true
   }
 
@@ -932,7 +1007,7 @@ export default function App() {
     if (!requireAct()) return
     const task = tasks.find((item) => item.id === id)
     if (!task || isTrashed(task)) return
-    const next = moveToTrash(task, session.name, taskStamp())
+    const next = touch(moveToTrash(task, session.name, taskStamp()))
     setTasks((current) => current.map((item) => (item.id === id ? next : item)))
     const line = `${session.name} отправил в корзину «${task.title}»`
     logTask(line)
@@ -944,7 +1019,7 @@ export default function App() {
     if (!requireAct()) return
     const task = tasks.find((item) => item.id === id)
     if (!task || !isTrashed(task)) return
-    const next = takeFromTrash(task)
+    const next = touch(takeFromTrash(task))
     setTasks((current) => current.map((item) => (item.id === id ? next : item)))
     const line = `${session.name} вернул из корзины «${task.title}»`
     logTask(line)
@@ -957,6 +1032,7 @@ export default function App() {
     const task = tasks.find((item) => item.id === id)
     if (!task) return
     if (!window.confirm('Удалить задачу навсегда? Вернуть будет нельзя.')) return
+    setPurged((current) => rememberPurged(current, 'tasks', [id]))
     setTasks((current) => current.filter((item) => item.id !== id))
     const line = `${session.name} стёр навсегда «${task.title}»`
     logTask(line)
@@ -973,13 +1049,17 @@ export default function App() {
     }
     if (!window.confirm('Очистить корзину? Всё, что можно стереть, удалится навсегда.')) return
     if (notesToPurge.length) {
-      const ids = new Set(notesToPurge.map((note) => note.id))
-      setNotes((current) => current.filter((note) => !ids.has(note.id)))
+      const ids = notesToPurge.map((note) => note.id)
+      setPurged((current) => rememberPurged(current, 'notes', ids))
+      const gone = new Set(ids)
+      setNotes((current) => current.filter((note) => !gone.has(note.id)))
       notesToPurge.forEach((note) => shareNote('remove', note))
     }
     if (tasksToPurge.length) {
-      const ids = new Set(tasksToPurge.map((task) => task.id))
-      setTasks((current) => current.filter((task) => !ids.has(task.id)))
+      const ids = tasksToPurge.map((task) => task.id)
+      setPurged((current) => rememberPurged(current, 'tasks', ids))
+      const gone = new Set(ids)
+      setTasks((current) => current.filter((task) => !gone.has(task.id)))
       tasksToPurge.forEach((task) => {
         const line = `${session.name} стёр навсегда «${task.title}»`
         logTask(line)
@@ -1002,7 +1082,7 @@ export default function App() {
       notify('Задачи этого дня уже стоят.')
       return
     }
-    const fresh = plan.map((item) => ({ id: uid(), ...item, due, day: todayDay.day, by: session.name, createdAt: taskStamp(), doneAt: '', doneBy: '' }))
+    const fresh = plan.map((item) => touch({ id: uid(), ...item, due, day: todayDay.day, by: session.name, createdAt: taskStamp(), doneAt: '', doneBy: '' }))
     setTasks((current) => [...fresh, ...current])
     const line = `${session.name} раздал задачи на ${when}: ${fresh.length}`
     logTask(line)
@@ -1674,6 +1754,7 @@ export default function App() {
           onRemoveNote={removeNote}
           onOpenNotes={openNotesWindow}
           onOpenTrash={openTrashWindow}
+          syncHint={teamState === 'offline' ? 'Сейчас нет сети — виден список с этого устройства. Когда сеть вернётся, подтянется общее.' : 'Одни на компьютере и телефоне. Обновляются сами, когда есть сеть.'}
         />
       )}
       {notesOpen && (
