@@ -93,8 +93,8 @@ export function publishTeam(event) {
 
 const TEAM_TYPES = new Set(['chat', 'task', 'note', 'desk', 'desk-part'])
 
-export async function pollTeam(since = 'all') {
-  const response = await fetch(`${HOST}/${TEAM_TOPIC}/json?poll=1&since=${encodeURIComponent(since)}`)
+async function readTeam(since) {
+  const response = await fetch(`${HOST}/${TEAM_TOPIC}/json?poll=1&since=${encodeURIComponent(since)}`, { cache: 'no-store' })
   if (!response.ok) throw new Error(`ntfy ${response.status}`)
   const text = await response.text()
   return text.split('\n').filter(Boolean).map((line) => {
@@ -107,4 +107,10 @@ export async function pollTeam(since = 'all') {
       return null
     }
   }).filter(Boolean)
+}
+
+export async function pollTeam() {
+  const full = await readTeam('all')
+  if (full.length) return full
+  return readTeam('24h')
 }

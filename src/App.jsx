@@ -29,11 +29,11 @@ import { rebuildReel } from './lib/rebuild.js'
 import { applyOccupancy, occupancyForDay } from './data/november2026.js'
 import { addChannel, hiddenDefaults, liveChannels, normalizePrefs, removeChannel, restoreAll, restoreChannel } from './lib/channelCatalog.js'
 import { REEL_BANK } from './data/reelBank.js'
-import { RELAY_TEST, announceDecision, announceRecovery, announceSignup, pollRelay, pollTeam, publishTeam, resendSignup, sendTeam } from './lib/relay.js'
+import { announceDecision, announceRecovery, announceSignup, pollRelay, pollTeam, publishTeam, resendSignup, sendTeam } from './lib/relay.js'
 import TaskDesk, { taskStamp } from './components/TaskDesk.jsx'
 import NotesDesk from './components/NotesDesk.jsx'
 import TrashDesk, { trashCount } from './components/TrashDesk.jsx'
-import { GROUP_LIMIT, PERSONAL_LIMIT, authorName, canEditNote, isTrashed, livingNotes, livingOf, moveToTrash, noteStamp, ownerKey, takeFromTrash, upsertNote } from './lib/notes.js'
+import { GROUP_LIMIT, PERSONAL_LIMIT, authorName, canEditNote, claimGuestNotes, isTrashed, livingNotes, livingOf, moveToTrash, noteStamp, ownerKey, takeFromTrash, upsertNote } from './lib/notes.js'
 import { absorbDesk, collectDesk, emptyPurged, packDesk, pushDeskSnapshot, rememberPurged, sameList } from './lib/deskSync.js'
 import { applyStaff, loadAccess, saveAccess } from './lib/access.js'
 import { ADMIN_EMAIL, ROLES, SIGNUP_ROLES, hashPassword, normalizePhrase, roleLabel } from './lib/auth.js'
@@ -200,13 +200,15 @@ export default function App() {
   const [relayState, setRelayState] = useState('')
   const relaySeen = useRef(new Set())
   const [teamState, setTeamState] = useState('')
-  const teamLast = useRef('')
   const teamSeen = useRef(new Set())
   const deskReady = useRef(false)
   const deskPushTimer = useRef(0)
   const deskLastSent = useRef('')
   const deskNotice = useRef(false)
   const deskLocal = useRef({ tasks: [], taskLog: [], notes: [], purged: emptyPurged() })
+  const sessionRef = useRef(null)
+  const canActRef = useRef(false)
+  const syncTeamRef = useRef(async () => {})
   const tabRef = useRef('overview')
   const undoRef = useRef([])
   const [undoCount, setUndoCount] = useState(0)
@@ -236,6 +238,8 @@ export default function App() {
   const day = days.find((item) => item.day === focus) || days[0]
   const session = access.users.find((user) => user.email === access.sessionEmail) || null
   const canAct = session?.status === 'active'
+  sessionRef.current = session
+  canActRef.current = canAct
   deskLocal.current = { tasks, taskLog, notes, purged }
   const isDeveloper = canAct && (session?.role === 'developer' || session?.email === ADMIN_EMAIL)
   const pending = access.users.filter((user) => user.status === 'pending')
@@ -306,26 +310,41 @@ export default function App() {
   useEffect(() => {
     let alive = true
     const run = () => {
-      if (document.visibilityState === 'hidden') return
-      syncTeam().then(() => alive && setTeamState('online')).catch(() => alive && setTeamState('offline'))
+      syncTeamRef.current().then(() => alive && setTeamState('online')).catch(() => alive && setTeamState('offline'))
     }
     run()
-    const timer = setInterval(run, 20000)
+    const timer = setInterval(run, 8000)
+    window.addEventListener('focus', run)
+    window.addEventListener('online', run)
+    window.addEventListener('pageshow', run)
     document.addEventListener('visibilitychange', run)
     return () => {
       alive = false
       clearInterval(timer)
+      window.removeEventListener('focus', run)
+      window.removeEventListener('online', run)
+      window.removeEventListener('pageshow', run)
       document.removeEventListener('visibilitychange', run)
     }
-  }, [canAct, session?.email])
+  }, [session?.email])
 
   useEffect(() => {
-    if (!session) return undefined
-    const beat = () => {
-      if (document.visibilityState === 'visible') flushDesk().catch(() => setTeamState('offline'))
+    if (!session?.email) return undefined
+    setNotes((current) => {
+      const next = claimGuestNotes(current, session.email)
+      return sameList(current, next) ? current : next
+    })
+    deskLastSent.current = ''
+    const beat = () => { flushDesk().catch(() => setTeamState('offline')) }
+    const timer = setInterval(beat, 2 * 60 * 1000)
+    const kick = () => beat()
+    window.addEventListener('focus', kick)
+    document.addEventListener('visibilitychange', kick)
+    return () => {
+      clearInterval(timer)
+      window.removeEventListener('focus', kick)
+      document.removeEventListener('visibilitychange', kick)
     }
-    const timer = setInterval(beat, 8 * 60 * 1000)
-    return () => clearInterval(timer)
   }, [session?.email])
 
   useEffect(() => {
@@ -438,14 +457,17 @@ export default function App() {
   }
 
   function queueDeskPush() {
-    if (!session) return
+    if (!sessionRef.current) return
     window.clearTimeout(deskPushTimer.current)
     deskPushTimer.current = window.setTimeout(() => { flushDesk().catch(() => setTeamState('offline')) }, 1200)
   }
 
   async function flushDesk() {
-    if (!session) return
-    const snap = packDesk({ ...deskLocal.current, email: session.email })
+    const person = sessionRef.current
+    if (!person || !deskReady.current) return
+    const snap = packDesk({ ...deskLocal.current, email: person.email })
+    const hasItems = (snap.tasks || []).length + (snap.notes || []).length
+    if (!hasItems && !deskLastSent.current) return
     const bodyKey = JSON.stringify({ tasks: snap.tasks, notes: snap.notes, log: snap.taskLog, purged: snap.purged })
     if (bodyKey === deskLastSent.current) return
     await pushDeskSnapshot(publishTeam, snap)
@@ -561,73 +583,88 @@ export default function App() {
   }
 
   async function syncTeam() {
+    const person = sessionRef.current
+    const acting = canActRef.current
+    const events = await pollTeam()
+    const fresh = events.filter((event) => !teamSeen.current.has(event.relayId))
+    fresh.forEach((event) => teamSeen.current.add(event.relayId))
+    const owner = ownerKey(person)
+    const had = deskLocal.current.tasks.length + deskLocal.current.notes.filter((note) => note.scope === 'group' || note.owner === owner).length
+    let next = {
+      ...deskLocal.current,
+      tasks: [...deskLocal.current.tasks],
+      taskLog: [...deskLocal.current.taskLog],
+      notes: [...deskLocal.current.notes],
+      purged: { ...deskLocal.current.purged, tasks: [...(deskLocal.current.purged.tasks || [])], notes: [...(deskLocal.current.purged.notes || [])] },
+    }
+    if (fresh.length) {
+      const messages = fresh.filter((event) => event.type === 'chat' && event.message?.id).map((event) => event.message)
+      if (messages.length && acting) {
+        setChat((current) => {
+          const ids = new Set(current.map((item) => item.id))
+          const added = messages.filter((item) => !ids.has(item.id))
+          return added.length ? [...current, ...added] : current
+        })
+        const foreign = messages.filter((item) => item.from !== person?.email)
+        if (foreign.length && tabRef.current !== 'github-tz') {
+          const last = foreign[foreign.length - 1]
+          notify(`Чат · ${last.sender}: ${String(last.text).slice(0, 90)}`)
+          showSystemNotice(`RESTPRIME · ${last.sender}`, String(last.text).slice(0, 140))
+        }
+      }
+      const taskEvents = fresh.filter((event) => event.type === 'task' && event.task?.id)
+      if (taskEvents.length) {
+        const removed = taskEvents.filter((event) => event.op === 'remove').map((event) => event.task.id)
+        if (removed.length) next.purged = rememberPurged(next.purged, 'tasks', removed)
+        const deadTasks = new Set(next.purged.tasks || [])
+        next.tasks = taskEvents.reduce((list, event) => {
+          if (event.op === 'remove' || deadTasks.has(event.task.id)) return list.filter((item) => item.id !== event.task.id)
+          if (list.some((item) => item.id === event.task.id)) return list.map((item) => (item.id === event.task.id ? event.task : item))
+          return [event.task, ...list]
+        }, next.tasks)
+        const logs = taskEvents.map((event) => event.log).filter(Boolean)
+        if (logs.length) next.taskLog = [...logs.filter((log) => !next.taskLog.some((item) => item.id === log.id)).reverse(), ...next.taskLog].slice(0, 200)
+      }
+      const noteEvents = fresh.filter((event) => event.type === 'note' && event.note?.id && (event.note.scope === 'group' || event.note.owner === owner))
+      if (noteEvents.length) {
+        const removed = noteEvents.filter((event) => event.op === 'remove').map((event) => event.note.id)
+        if (removed.length) next.purged = rememberPurged(next.purged, 'notes', removed)
+        next.notes = noteEvents.reduce((list, event) => {
+          if (event.op === 'remove') return list.filter((item) => item.id !== event.note.id)
+          return upsertNote(list, event.note)
+        }, next.notes)
+        const last = noteEvents[noteEvents.length - 1]
+        if (last.note.scope === 'group' && last.note.from !== person?.email && !notesOpen && !isTrashed(last.note)) {
+          notify(`Общая заметка · ${last.note.by}: ${String(last.note.title || last.note.body).slice(0, 90)}`)
+        }
+      }
+    }
+    collectDesk(events).forEach((snap) => { next = absorbDesk(next, snap, owner) })
+    if (person?.email) next = { ...next, notes: claimGuestNotes(next.notes, person.email) }
+    deskLocal.current = next
+    setTasks((current) => (sameList(current, next.tasks) ? current : next.tasks))
+    setTaskLog((current) => (sameList(current, next.taskLog) ? current : next.taskLog))
+    setNotes((current) => (sameList(current, next.notes) ? current : next.notes))
+    setPurged((current) => (JSON.stringify(current) === JSON.stringify(next.purged) ? current : next.purged))
+    const got = next.tasks.length + next.notes.filter((note) => note.scope === 'group' || note.owner === owner).length
+    if (!deskNotice.current && got > had) {
+      deskNotice.current = true
+      notify('Задачи и заметки подтянулись с другого устройства.')
+    }
+    deskReady.current = true
+    if (person) queueDeskPush()
+  }
+
+  syncTeamRef.current = syncTeam
+
+  async function pullDeskNow() {
     try {
-      const events = await pollTeam(teamLast.current || 'all')
-      const fresh = events.filter((event) => !teamSeen.current.has(event.relayId))
-      if (events.length) teamLast.current = events[events.length - 1].relayId
-      fresh.forEach((event) => teamSeen.current.add(event.relayId))
-      if (fresh.length) {
-        const messages = fresh.filter((event) => event.type === 'chat' && event.message?.id).map((event) => event.message)
-        if (messages.length && canAct) {
-          let added = []
-          setChat((current) => {
-            const ids = new Set(current.map((item) => item.id))
-            added = messages.filter((item) => !ids.has(item.id))
-            return added.length ? [...current, ...added] : current
-          })
-          const foreign = messages.filter((item) => item.from !== session?.email)
-          if (foreign.length && tabRef.current !== 'github-tz') {
-            const last = foreign[foreign.length - 1]
-            notify(`Чат · ${last.sender}: ${String(last.text).slice(0, 90)}`)
-            showSystemNotice(`RESTPRIME · ${last.sender}`, String(last.text).slice(0, 140))
-          }
-        }
-        const owner = ownerKey(session)
-        const had = deskLocal.current.tasks.length + deskLocal.current.notes.filter((note) => note.scope === 'group' || note.owner === owner).length
-        let next = { ...deskLocal.current, tasks: [...deskLocal.current.tasks], taskLog: [...deskLocal.current.taskLog], notes: [...deskLocal.current.notes], purged: { ...deskLocal.current.purged, tasks: [...(deskLocal.current.purged.tasks || [])], notes: [...(deskLocal.current.purged.notes || [])] } }
-        const taskEvents = fresh.filter((event) => event.type === 'task' && event.task?.id)
-        if (taskEvents.length) {
-          const removed = taskEvents.filter((event) => event.op === 'remove').map((event) => event.task.id)
-          if (removed.length) next.purged = rememberPurged(next.purged, 'tasks', removed)
-          const deadTasks = new Set(next.purged.tasks || [])
-          next.tasks = taskEvents.reduce((list, event) => {
-            if (event.op === 'remove' || deadTasks.has(event.task.id)) return list.filter((item) => item.id !== event.task.id)
-            if (list.some((item) => item.id === event.task.id)) return list.map((item) => (item.id === event.task.id ? event.task : item))
-            return [event.task, ...list]
-          }, next.tasks)
-          const logs = taskEvents.map((event) => event.log).filter(Boolean)
-          if (logs.length) next.taskLog = [...logs.filter((log) => !next.taskLog.some((item) => item.id === log.id)).reverse(), ...next.taskLog].slice(0, 200)
-        }
-        const noteEvents = fresh.filter((event) => event.type === 'note' && event.note?.id && (event.note.scope === 'group' || event.note.owner === owner))
-        if (noteEvents.length) {
-          const removed = noteEvents.filter((event) => event.op === 'remove').map((event) => event.note.id)
-          if (removed.length) next.purged = rememberPurged(next.purged, 'notes', removed)
-          next.notes = noteEvents.reduce((list, event) => {
-            if (event.op === 'remove') return list.filter((item) => item.id !== event.note.id)
-            return upsertNote(list, event.note)
-          }, next.notes)
-          const last = noteEvents[noteEvents.length - 1]
-          if (last.note.scope === 'group' && last.note.from !== session?.email && !notesOpen && !isTrashed(last.note)) {
-            notify(`Общая заметка · ${last.note.by}: ${String(last.note.title || last.note.body).slice(0, 90)}`)
-          }
-        }
-        collectDesk(fresh).forEach((snap) => { next = absorbDesk(next, snap, owner) })
-        deskLocal.current = next
-        if (!sameList(tasks, next.tasks)) setTasks(next.tasks)
-        if (!sameList(taskLog, next.taskLog)) setTaskLog(next.taskLog)
-        if (!sameList(notes, next.notes)) setNotes(next.notes)
-        if (JSON.stringify(purged) !== JSON.stringify(next.purged)) setPurged(next.purged)
-        const got = next.tasks.length + next.notes.filter((note) => note.scope === 'group' || note.owner === owner).length
-        if (!deskNotice.current && got > had) {
-          deskNotice.current = true
-          notify('Задачи и заметки подтянулись с другого устройства.')
-        }
-      }
-    } finally {
-      if (!deskReady.current) {
-        deskReady.current = true
-        if (session) queueDeskPush()
-      }
+      await syncTeam()
+      setTeamState('online')
+      notify('Подтянул задачи и заметки с другого устройства.')
+    } catch {
+      setTeamState('offline')
+      notify('Сейчас нет сети — список с этого устройства. Когда сеть вернётся, подтянется общее.')
     }
   }
 
@@ -1736,7 +1773,7 @@ export default function App() {
           <TeamView
             messages={chat}
             members={members}
-            teamState={canAct || RELAY_TEST ? teamState || 'connecting' : ''}
+            teamState={teamState || 'connecting'}
             approved={approved}
             canAct={canAct}
             onSend={(text) => { if (!requireAct() || !text.trim()) return; pushMessage(text.trim()) }}
@@ -1790,7 +1827,8 @@ export default function App() {
           onRemoveNote={removeNote}
           onOpenNotes={openNotesWindow}
           onOpenTrash={openTrashWindow}
-          syncHint={teamState === 'offline' ? 'Сейчас нет сети — виден список с этого устройства. Когда сеть вернётся, подтянется общее.' : 'Одни на компьютере и телефоне. Обновляются сами, когда есть сеть.'}
+          onSync={pullDeskNow}
+          syncHint={teamState === 'offline' ? 'Сейчас нет сети — виден список с этого устройства. Когда сеть вернётся, подтянется общее.' : teamState === 'online' ? 'Подтянуто с компьютера и телефона. Можно нажать «Подтянуть», если список ещё старый.' : 'Подключаюсь к общему списку задач и заметок…'}
         />
       )}
       {notesOpen && (
@@ -1808,6 +1846,8 @@ export default function App() {
           onPurge={purgeNote}
           onToTask={noteToTask}
           onCopy={notify}
+          onSync={pullDeskNow}
+          syncHint={teamState === 'offline' ? 'Сейчас нет сети — заметки с этого устройства. Когда сеть вернётся, подтянутся общие.' : teamState === 'online' ? 'Общие уже с другого устройства. Личные без входа живут только здесь; после входа едут с вами.' : 'Подключаюсь к общим заметкам…'}
         />
       )}
       {trashOpen && (

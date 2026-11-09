@@ -7,6 +7,15 @@ export function ownerKey(session) {
   return session?.email || 'guest'
 }
 
+export function claimGuestNotes(notes, email) {
+  if (!email) return notes || []
+  return (notes || []).map((note) => {
+    if (note.scope !== 'personal') return note
+    if (note.owner && note.owner !== 'guest') return note
+    return { ...note, owner: email, from: email, updatedMs: Date.now() }
+  })
+}
+
 export function authorName(session) {
   return session?.name || 'Гость'
 }

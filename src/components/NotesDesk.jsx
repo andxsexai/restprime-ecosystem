@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Archive, Check, Copy, ListChecks, Pin, PinOff, Plus, RotateCcw, Search, StickyNote, Trash2, X } from 'lucide-react'
+import { Archive, Check, Copy, ListChecks, Pin, PinOff, Plus, RefreshCw, RotateCcw, Search, StickyNote, Trash2, X } from 'lucide-react'
 import { copyText } from '../lib/clipboard.js'
 import { dateForDay, formatLong } from '../lib/planDates.js'
 import {
@@ -53,6 +53,8 @@ export default function NotesDesk({
   onPurge,
   onToTask,
   onCopy,
+  onSync,
+  syncHint,
 }) {
   const owner = ownerKey(session)
   const [filter, setFilter] = useState('all')
@@ -142,9 +144,16 @@ export default function NotesDesk({
           <div className="min-w-0">
             <p className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-[#C9A96A]"><StickyNote size={13} />Заметки</p>
             <h2 className="font-display text-4xl italic leading-none text-[#F4F0E6]">Личные и общие</h2>
-            <p className="mt-2 text-xs leading-relaxed text-[#7A8580]">Общие заметки одни на компьютере и телефоне. Личные без входа остаются только здесь; после входа едут с вами.</p>
+            <p className="mt-2 text-xs leading-relaxed text-[#7A8580]">{syncHint || 'Общие заметки одни на компьютере и телефоне. Личные без входа остаются только здесь; после входа едут с вами.'}</p>
           </div>
-          <button type="button" onClick={onClose} aria-label="Закрыть заметки" className="grid h-11 w-11 place-items-center rounded-xl border border-white/15 text-[#F4F0E6]"><X size={18} /></button>
+          <div className="flex items-center gap-2">
+            {onSync && (
+              <button type="button" onClick={onSync} aria-label="Подтянуть заметки с другого устройства" className="grid h-11 w-11 place-items-center rounded-xl border border-[#C6FF5E]/40 text-[#C6FF5E]">
+                <RefreshCw size={16} />
+              </button>
+            )}
+            <button type="button" onClick={onClose} aria-label="Закрыть заметки" className="grid h-11 w-11 place-items-center rounded-xl border border-white/15 text-[#F4F0E6]"><X size={18} /></button>
+          </div>
         </header>
 
         <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-12">
@@ -168,7 +177,7 @@ export default function NotesDesk({
               {!canAct && <p className="text-xs leading-relaxed text-[#7A8580]">Личные заметки пишутся сразу на этом устройстве. Общие видит команда — для них нужен вход.</p>}
             </div>
             <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-4 pb-5 sm:px-5">
-              {shown.length === 0 && <p className="text-sm text-[#7A8580]">{filter === 'trash' ? 'Корзина пустая.' : 'Пока пусто. Личная заметка не уходит в общий чат.'}</p>}
+              {shown.length === 0 && <p className="text-sm text-[#7A8580]">{filter === 'trash' ? 'Корзина пустая.' : 'Пока пусто. Если писали на другом устройстве — нажмите «Подтянуть». Личные без входа остаются только там, где их написали.'}</p>}
               {shown.map((note) => (
                 <button key={note.id} type="button" onClick={() => setSelectedId(note.id)} className={`w-full rounded-2xl border p-3 text-left ${note.id === selectedId ? 'border-[#C9A96A] bg-[#C9A96A]/10' : 'border-white/10 bg-[#0A0F0B]'}`}>
                   <span className="flex items-center gap-2 text-[10px] uppercase tracking-wider text-[#7A8580]">

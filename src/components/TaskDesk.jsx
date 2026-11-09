@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Check, Pencil, RotateCcw, Trash2, X } from 'lucide-react'
+import { Check, Pencil, RefreshCw, RotateCcw, Trash2, X } from 'lucide-react'
 import { ROLES, roleLabel } from '../lib/auth.js'
 import { dateForDay, formatLong } from '../lib/planDates.js'
 import { CompactNotes } from './NotesDesk.jsx'
@@ -32,7 +32,7 @@ function owners(task, members) {
   return person ? [task.assignee, `role:${person.role}`] : [task.assignee]
 }
 
-export default function TaskDesk({ tasks, log, members, days, todayIso, todayDay, canAct, session, notes, onClose, onAdd, onEdit, onToggle, onRemove, onRestore, onPurge, onSeedDay, onUpsertNote, onRemoveNote, onOpenNotes, onOpenTrash, syncHint }) {
+export default function TaskDesk({ tasks, log, members, days, todayIso, todayDay, canAct, session, notes, onClose, onAdd, onEdit, onToggle, onRemove, onRestore, onPurge, onSeedDay, onUpsertNote, onRemoveNote, onOpenNotes, onOpenTrash, onSync, syncHint }) {
   const [pane, setPane] = useState('open')
   const [who, setWho] = useState('all')
   const [draft, setDraft] = useState({ title: '', assignee: `role:${session?.role && session.role !== 'developer' ? session.role : 'director'}`, due: todayIso, day: todayDay?.day || '' })
@@ -147,7 +147,14 @@ export default function TaskDesk({ tasks, log, members, days, todayIso, todayDay
             <h2 className="font-display text-4xl italic leading-none text-[#F4F0E6]">Задачи</h2>
             <p className="mt-1 max-w-[18rem] text-xs leading-relaxed text-[#7A8580]">{syncHint || 'Одни на компьютере и телефоне. Обновляются сами, когда есть сеть.'}</p>
           </div>
-          <button type="button" onClick={onClose} aria-label="Закрыть задачи" className="grid h-11 w-11 place-items-center rounded-xl border border-white/15 text-[#F4F0E6]"><X size={18} /></button>
+          <div className="flex items-center gap-2">
+            {onSync && (
+              <button type="button" onClick={onSync} aria-label="Подтянуть задачи с другого устройства" className="grid h-11 w-11 place-items-center rounded-xl border border-[#C6FF5E]/40 text-[#C6FF5E]">
+                <RefreshCw size={16} />
+              </button>
+            )}
+            <button type="button" onClick={onClose} aria-label="Закрыть задачи" className="grid h-11 w-11 place-items-center rounded-xl border border-white/15 text-[#F4F0E6]"><X size={18} /></button>
+          </div>
         </div>
 
         <div className="flex gap-2 overflow-x-auto border-b border-white/10 px-4 py-3 sm:px-6">
