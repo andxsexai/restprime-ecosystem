@@ -1,6 +1,11 @@
 export const ADMIN_EMAIL = 'andxstars@gmail.com'
 
-const ADMIN_HASH = '9a63af9bbed43be5e9a6332ea21380f96192ded15112d643bee6cb491c2dfae5'
+export const STAFF_EMAILS = {
+  developer: 'andxstars@gmail.com',
+  admin: 'andxsex@gmail.com',
+}
+
+const STAFF_HASH = 'ef7c0e4343d362d378d170357254172c534f10b9d2234184dd0d1a4cc8ae956d'
 
 export const ROLES = [
   { id: 'admin', label: 'Админ' },
@@ -25,14 +30,33 @@ export async function hashPassword(password) {
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('')
 }
 
+export function staffRecords() {
+  return [
+    {
+      id: 'developer',
+      name: 'Разработчик',
+      email: STAFF_EMAILS.developer,
+      passwordHash: STAFF_HASH,
+      role: 'developer',
+      status: 'active',
+      at: '31 окт 2026',
+    },
+    {
+      id: 'admin-owner',
+      name: 'Админ',
+      email: STAFF_EMAILS.admin,
+      passwordHash: STAFF_HASH,
+      role: 'admin',
+      status: 'active',
+      at: '9 ноя 2026',
+    },
+  ]
+}
+
 export function developerRecord() {
-  return {
-    id: 'developer',
-    name: 'Разработчик',
-    email: ADMIN_EMAIL,
-    passwordHash: ADMIN_HASH,
-    role: 'developer',
-    status: 'active',
-    at: '31 окт 2026',
-  }
+  return staffRecords()[0]
+}
+
+export function isStaffEmail(email) {
+  return Object.values(STAFF_EMAILS).includes(String(email || '').trim().toLowerCase())
 }

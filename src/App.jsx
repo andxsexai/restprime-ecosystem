@@ -35,7 +35,7 @@ import NotesDesk from './components/NotesDesk.jsx'
 import TrashDesk, { trashCount } from './components/TrashDesk.jsx'
 import { GROUP_LIMIT, PERSONAL_LIMIT, authorName, canEditNote, isTrashed, livingNotes, livingOf, moveToTrash, noteStamp, ownerKey, takeFromTrash, upsertNote } from './lib/notes.js'
 import { absorbDesk, collectDesk, emptyPurged, packDesk, pushDeskSnapshot, rememberPurged, sameList } from './lib/deskSync.js'
-import { loadAccess, saveAccess } from './lib/access.js'
+import { applyStaff, loadAccess, saveAccess } from './lib/access.js'
 import { ADMIN_EMAIL, ROLES, SIGNUP_ROLES, hashPassword, normalizePhrase, roleLabel } from './lib/auth.js'
 import {
   DayModalBody, FilesView, InstaView, PlanView, PostsView, ReelsView, TeamView, ThemesView,
@@ -331,6 +331,10 @@ export default function App() {
   useEffect(() => {
     const timer = setInterval(() => setClock(moscowToday()), 30000)
     return () => clearInterval(timer)
+  }, [])
+
+  useEffect(() => {
+    setAccess((current) => applyStaff(current))
   }, [])
 
   useEffect(() => { saveAccess(access) }, [access])
@@ -1192,13 +1196,21 @@ export default function App() {
 
   async function login({ email, password }) {
     const clean = email.trim().toLowerCase()
-    const person = access.users.find((user) => user.email === clean)
+    const fresh = applyStaff(access)
+    const person = fresh.users.find((user) => user.email === clean)
     if (!person) {
       setAuthError('Такой почты нет. Зарегистрируйтесь.')
       return
     }
     setAuthBusy(true)
-    const passwordHash = await hashPassword(password)
+    let passwordHash = ''
+    try {
+      passwordHash = await hashPassword(password)
+    } catch {
+      setAuthBusy(false)
+      setAuthError('Не удалось проверить пароль. Обновите страницу.')
+      return
+    }
     setAuthBusy(false)
     if (passwordHash !== person.passwordHash) {
       setAuthError('Пароль не подошёл.')
@@ -1208,11 +1220,10 @@ export default function App() {
       setAuthError('Заявку отклонили.')
       return
     }
-    setAccess((current) => ({ ...current, sessionEmail: clean }))
+    setAccess({ ...fresh, sessionEmail: clean })
     setAuthMode(null)
     setAuthError('')
     notify(person.status === 'active' ? `Вход выполнен: ${roleLabel(person.role)}.` : 'Вход есть. Кнопки откроются после подтверждения.')
-    if (person.role === 'developer') setDeskOpen(true)
   }
 
   async function register({ name, email, password, role, phrase }) {

@@ -1,16 +1,37 @@
-import { ADMIN_EMAIL, developerRecord } from './auth.js'
+import { ADMIN_EMAIL, staffRecords } from './auth.js'
 
 const KEY = 'restprime-access-v1'
+
+function withStaff(saved) {
+  const staff = staffRecords()
+  const known = new Map((saved?.users || []).map((user) => [user.email, user]))
+  for (const person of staff) {
+    const prev = known.get(person.email)
+    known.set(person.email, prev
+      ? { ...prev, ...person, id: prev.id || person.id, secretHash: prev.secretHash }
+      : person)
+  }
+  const users = staff.map((person) => known.get(person.email))
+  for (const user of saved?.users || []) {
+    if (!staff.some((person) => person.email === user.email)) users.push(user)
+  }
+  return {
+    sessionEmail: saved?.sessionEmail || null,
+    users,
+    notices: saved?.notices || [],
+  }
+}
+
+export function applyStaff(access) {
+  return withStaff(access)
+}
 
 export function loadAccess() {
   try {
     const saved = JSON.parse(localStorage.getItem(KEY) || 'null')
-    if (!saved?.users?.some((user) => user.email === ADMIN_EMAIL && user.role === 'developer')) return seed()
-    return {
-      sessionEmail: saved.sessionEmail || null,
-      users: saved.users,
-      notices: saved.notices || [],
-    }
+    const next = withStaff(saved)
+    if (!next.users.some((user) => user.email === ADMIN_EMAIL && user.role === 'developer')) return seed()
+    return next
   } catch {
     return seed()
   }
@@ -25,5 +46,5 @@ export function saveAccess(access) {
 }
 
 function seed() {
-  return { sessionEmail: null, users: [developerRecord()], notices: [] }
+  return { sessionEmail: null, users: staffRecords(), notices: [] }
 }
