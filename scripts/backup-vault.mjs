@@ -32,6 +32,19 @@ async function pollTeam() {
   }).filter(Boolean)
 }
 
+function compactSignup(item) {
+  const email = String(item?.email || '').trim().toLowerCase()
+  if (!email) return null
+  return {
+    id: item.id || '',
+    name: String(item.name || 'Сотрудник').slice(0, 80),
+    email,
+    role: item.role || 'director',
+    at: item.at || '',
+    status: item.status === 'rejected' ? 'rejected' : item.status === 'active' ? 'active' : 'pending',
+  }
+}
+
 const vault = await readVault()
 let next = {
   tasks: vault.tasks || [],
@@ -40,12 +53,27 @@ let next = {
   days: vault.days || [],
   purged: vault.purged || emptyPurged(),
 }
+const signups = new Map((vault.signups || []).map((item) => {
+  const packed = compactSignup(item)
+  return packed ? [packed.email, packed] : null
+}).filter(Boolean))
 
 try {
   const events = await pollTeam()
   collectDesk(events).forEach((snap) => {
     next = absorbDesk(next, snap, '')
   })
+  for (const event of events) {
+    if (event.type === 'signup') {
+      const packed = compactSignup(event)
+      if (packed && !signups.has(packed.email)) signups.set(packed.email, packed)
+    }
+    if (event.type === 'decision' && event.email) {
+      const email = String(event.email).trim().toLowerCase()
+      const prev = signups.get(email)
+      if (prev) signups.set(email, { ...prev, status: event.status === 'active' ? 'active' : 'rejected' })
+    }
+  }
 } catch (error) {
   console.warn('ntfy недоступен, сейф остаётся как в git:', error.message)
 }
@@ -62,9 +90,10 @@ const saved = {
   taskLog: next.taskLog || [],
   days: next.days || vault.days || [],
   purged: next.purged || emptyPurged(),
+  signups: [...signups.values()],
 }
 
 const json = `${JSON.stringify(saved, null, 2)}\n`
 await writeFile(VAULT_PATH, json)
 await writeFile(PUBLIC_PATH, json)
-console.log(`Сейф: ${saved.tasks.length} задач, ${saved.notes.length} заметок, ${saved.days.length} дней плана`)
+console.log(`Сейф: ${saved.tasks.length} задач, ${saved.notes.length} заметок, ${saved.days.length} дней плана, ${saved.signups.length} заявок`)

@@ -40,18 +40,19 @@ export default function AccessModal({ mode, error, busy, onMode, onClose, onLogi
   return (
     <Modal title={titles[mode] || 'Вход'} onClose={onClose}>
       <div className="mb-5 grid grid-cols-3 rounded-full bg-card p-1 text-sm">
-        {[['login', 'Вход'], ['register', 'Регистрация'], ['recover', 'Забыл пароль']].map(([id, label]) => (
-          <button key={id} type="button" onClick={() => onMode(id)} className={`rounded-full py-2.5 ${mode === id ? 'bg-[#C9A96A] font-semibold text-[#0A0F0B] shadow-sm' : 'text-ink/60'}`}>{label}</button>
+        {[['login', 'Вход'], ['register', 'Заявка'], ['recover', 'Пароль']].map(([id, label]) => (
+          <button key={id} type="button" onClick={() => onMode(id)} className={`min-h-11 rounded-full py-2.5 ${mode === id ? 'bg-[#C9A96A] font-semibold text-[#0A0F0B] shadow-sm' : 'text-ink/60'}`}>{label}</button>
         ))}
       </div>
       <form className="space-y-3" onSubmit={(event) => {
         event.preventDefault()
+        if (busy) return
         if (mode === 'register') onRegister({ name, email, password, role, phrase })
         else if (mode === 'recover') onReset({ email, phrase, password })
         else onLogin({ email, password })
       }}>
-        {mode === 'register' && <input required value={name} onChange={(event) => setName(event.target.value)} placeholder="Имя" className={field} />}
-        <input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Почта" autoComplete="email" className={field} />
+        {mode === 'register' && <input required value={name} onChange={(event) => setName(event.target.value)} placeholder="Имя" autoComplete="name" className={field} />}
+        <input required type="email" inputMode="email" autoCapitalize="none" autoCorrect="off" spellCheck={false} value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Почта" autoComplete="email" className={field} />
         {mode !== 'login' && (
           <HiddenField name="phrase" minLength={4} value={phrase} onChange={(event) => setPhrase(event.target.value)} placeholder="Секретная фраза, от 4 символов" autoComplete="off" />
         )}
@@ -69,9 +70,11 @@ export default function AccessModal({ mode, error, busy, onMode, onClose, onLogi
           </div>
         )}
         {error && <p className="text-sm text-rose-700">{error}</p>}
-        <Button3D type="submit" className="w-full py-3" disabled={busy}>
-          {mode === 'register' ? 'Отправить заявку' : mode === 'recover' ? 'Создать новый пароль' : 'Войти'}
-        </Button3D>
+        <div className="sticky bottom-0 bg-[#121A14] pt-1">
+          <Button3D type="submit" className="w-full min-h-12 py-3" disabled={busy}>
+            {busy ? 'Отправляем…' : mode === 'register' ? 'Отправить заявку' : mode === 'recover' ? 'Создать новый пароль' : 'Войти'}
+          </Button3D>
+        </div>
         {mode === 'recover' && (
           <button type="button" className="w-full text-sm text-gold" onClick={() => onRequest(email)}>
             Не помню фразу — отправить заявку разработчику

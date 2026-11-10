@@ -233,6 +233,8 @@ export default function App() {
   const sessionRef = useRef(null)
   const canActRef = useRef(false)
   const syncTeamRef = useRef(async () => {})
+  const vaultPullAt = useRef(0)
+  const teamCursor = useRef('all')
   const tabRef = useRef('overview')
   const undoRef = useRef([])
   const [undoCount, setUndoCount] = useState(0)
@@ -337,7 +339,7 @@ export default function App() {
       syncTeamRef.current().then(() => alive && setTeamState('online')).catch(() => alive && setTeamState('offline'))
     }
     run()
-    const timer = setInterval(run, 8000)
+    const timer = setInterval(run, 20000)
     window.addEventListener('focus', run)
     window.addEventListener('online', run)
     window.addEventListener('pageshow', run)
@@ -606,10 +608,43 @@ export default function App() {
     setTrashOpen(true)
   }
 
+  function absorbRemoteSignups(list) {
+    const incoming = []
+    setAccess((current) => {
+      const known = new Set(current.users.map((user) => user.email))
+      incoming.length = 0
+      for (const event of list || []) {
+        const email = String(event.email || '').trim().toLowerCase()
+        if (!email || known.has(email)) continue
+        incoming.push({
+          id: event.id || uid(),
+          name: event.name || 'Сотрудник',
+          email,
+          role: event.role || 'director',
+          status: event.status === 'rejected' ? 'rejected' : 'pending',
+          at: event.at || stamp(),
+          remote: true,
+        })
+        known.add(email)
+      }
+      if (!incoming.length) return current
+      return {
+        ...current,
+        users: [...current.users, ...incoming],
+        notices: [...incoming.map((item) => ({ id: uid(), text: `${item.name} (${roleLabel(item.role)}) зарегистрировался: ${item.email}`, at: stamp() })), ...current.notices],
+      }
+    })
+    return incoming
+  }
+
   async function syncTeam() {
     const person = sessionRef.current
     const acting = canActRef.current
-    const events = await pollTeam()
+    const events = await pollTeam(teamCursor.current)
+    if (events.length) {
+      const last = events[events.length - 1]
+      if (last.relayId) teamCursor.current = last.relayId
+    }
     const fresh = events.filter((event) => !teamSeen.current.has(event.relayId))
     fresh.forEach((event) => teamSeen.current.add(event.relayId))
     const owner = ownerKey(person)
@@ -664,10 +699,35 @@ export default function App() {
         }
       }
     }
+    const decisions = events.filter((event) => event.type === 'decision' && event.email)
+    if (decisions.length) {
+      setAccess((current) => ({
+        ...current,
+        users: current.users.map((user) => {
+          const hit = decisions.filter((item) => item.email === user.email).at(-1)
+          if (!hit || user.status !== 'pending' || !user.passwordHash) return user
+          return { ...user, status: hit.status === 'active' ? 'active' : 'rejected' }
+        }),
+      }))
+    }
     collectDesk(events).forEach((snap) => { next = absorbDesk(next, snap, owner) })
-    if (!RELAY_TEST) {
+    let vaultSignups = []
+    if (!RELAY_TEST && Date.now() - vaultPullAt.current > 90000) {
+      vaultPullAt.current = Date.now()
       const vault = await pullTeamVault()
       next = absorbDesk(next, vault, owner)
+      vaultSignups = vault.signups || []
+    }
+    const actingDev = Boolean(person?.status === 'active' && (person.role === 'developer' || person.email === ADMIN_EMAIL))
+    if (actingDev) {
+      const added = absorbRemoteSignups([
+        ...events.filter((event) => event.type === 'signup'),
+        ...vaultSignups,
+      ])
+      if (added.length) {
+        notify(added.length === 1 ? `Новая заявка: ${added[0].name}. Откройте «Заявки».` : `Новых заявок: ${added.length}. Откройте «Заявки».`)
+        showSystemNotice('RESTPRIME: новая заявка', added.map((item) => `${item.name} · ${item.email}`).join('\n'))
+      }
     }
     if (person?.email) next = { ...next, notes: claimGuestNotes(next.notes, person.email) }
     deskLocal.current = next
@@ -1299,8 +1359,16 @@ export default function App() {
 
   async function register({ name, email, password, role, phrase }) {
     const clean = email.trim().toLowerCase()
+    if (!name.trim()) {
+      setAuthError('Напишите имя.')
+      return
+    }
     if (normalizePhrase(phrase).length < 4) {
       setAuthError('Секретная фраза короче четырёх символов.')
+      return
+    }
+    if (String(password || '').length < 6) {
+      setAuthError('Пароль короче шести символов.')
       return
     }
     if (access.users.some((user) => user.email === clean)) {
@@ -1308,8 +1376,17 @@ export default function App() {
       return
     }
     setAuthBusy(true)
-    const passwordHash = await hashPassword(password)
-    const secretHash = await hashPassword(normalizePhrase(phrase))
+    setAuthError('')
+    let passwordHash = ''
+    let secretHash = ''
+    try {
+      passwordHash = await hashPassword(password)
+      secretHash = await hashPassword(normalizePhrase(phrase))
+    } catch {
+      setAuthBusy(false)
+      setAuthError('Не удалось сохранить пароль. Обновите страницу и попробуйте снова.')
+      return
+    }
     const person = {
       id: uid(),
       name: name.trim(),
@@ -1323,23 +1400,31 @@ export default function App() {
     setAccess((current) => ({
       ...current,
       sessionEmail: clean,
-      users: [...current.users, person],
+      users: current.users.some((user) => user.email === clean) ? current.users : [...current.users, person],
       notices: [{ id: uid(), text: `${person.name} (${roleLabel(role)}) зарегистрировался: ${person.email}`, at: stamp() }, ...current.notices],
     }))
     setAuthMode(null)
-    setAuthError('')
     notify('Отправляем заявку разработчику…')
-    const sent = await announceSignup(person)
-    setAuthBusy(false)
-    try { localStorage.setItem(`restprime-ping-${clean}`, String(Date.now())) } catch { /* память закрыта */ }
-    notify(sent ? 'Заявка ушла разработчику: пуш и письмо. Кнопки откроются сами, как только он подтвердит.' : 'Заявка сохранена, но сеть не ответила. Нажмите «Отправить ещё раз» в плашке сверху.')
+    try {
+      const sent = await announceSignup(person)
+      try { localStorage.setItem(`restprime-ping-${clean}`, String(Date.now())) } catch { /* память закрыта */ }
+      notify(sent ? 'Заявка ушла разработчику. Кнопки откроются, как только он подтвердит.' : 'Заявка сохранена на этом телефоне. Нажмите «Отправить ещё раз» в плашке сверху.')
+    } catch {
+      notify('Заявка сохранена. Сеть не ответила — нажмите «Отправить ещё раз» в плашке сверху.')
+    } finally {
+      setAuthBusy(false)
+    }
   }
 
   async function resendMine() {
     if (!session || session.status !== 'pending') return
-    const sent = await announceSignup(session)
-    try { localStorage.setItem(`restprime-ping-${session.email}`, String(Date.now())) } catch { /* память закрыта */ }
-    notify(sent ? 'Заявка отправлена ещё раз.' : 'Сеть не ответила. Проверьте интернет и попробуйте снова.')
+    try {
+      const sent = await announceSignup(session)
+      try { localStorage.setItem(`restprime-ping-${session.email}`, String(Date.now())) } catch { /* память закрыта */ }
+      notify(sent ? 'Заявка отправлена ещё раз.' : 'Сеть не ответила. Проверьте интернет и попробуйте снова.')
+    } catch {
+      notify('Сеть не ответила. Проверьте интернет и попробуйте снова.')
+    }
   }
 
   async function syncRelay() {
@@ -1457,8 +1542,16 @@ export default function App() {
       return
     }
     setAuthBusy(true)
-    const secretHash = await hashPassword(normalizePhrase(phrase))
-    const passwordHash = await hashPassword(password)
+    let secretHash = ''
+    let passwordHash = ''
+    try {
+      secretHash = await hashPassword(normalizePhrase(phrase))
+      passwordHash = await hashPassword(password)
+    } catch {
+      setAuthBusy(false)
+      setAuthError('Не удалось проверить фразу. Обновите страницу и попробуйте снова.')
+      return
+    }
     setAuthBusy(false)
     if (secretHash !== person.secretHash) {
       setAuthError('Фраза не совпала.')

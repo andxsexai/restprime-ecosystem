@@ -4,8 +4,21 @@ import { absorbDesk, emptyPurged } from './deskSync.js'
 
 const RAW = 'https://raw.githubusercontent.com/andxsexai/restprime-ecosystem/main/src/data/teamVault.json'
 
+function compactSignup(item) {
+  const email = String(item?.email || '').trim().toLowerCase()
+  if (!email) return null
+  return {
+    id: item.id || '',
+    name: String(item.name || 'Сотрудник').slice(0, 80),
+    email,
+    role: item.role || 'director',
+    at: item.at || '',
+    status: item.status === 'rejected' ? 'rejected' : item.status === 'active' ? 'active' : 'pending',
+  }
+}
+
 function emptyVault() {
-  return { at: 0, tasks: [], notes: [], taskLog: [], days: [], purged: emptyPurged() }
+  return { at: 0, tasks: [], notes: [], taskLog: [], days: [], purged: emptyPurged(), signups: [] }
 }
 
 export function seedTeamVault() {
@@ -24,6 +37,7 @@ function normalizeVault(raw) {
       tasks: Array.isArray(raw.purged?.tasks) ? raw.purged.tasks : [],
       notes: Array.isArray(raw.purged?.notes) ? raw.purged.notes : [],
     },
+    signups: Array.isArray(raw.signups) ? raw.signups.map(compactSignup).filter(Boolean) : [],
   }
 }
 
@@ -53,7 +67,7 @@ export async function pullTeamVault() {
       if (!response.ok) continue
       const raw = await response.json()
       const vault = normalizeVault(raw)
-      if (vault.tasks.length || vault.notes.length || vault.days.length) return vault
+      if (vault.tasks.length || vault.notes.length || vault.days.length || vault.signups.length) return vault
     } catch {
       /* сейф ещё не доступен по этой ссылке — пробуем следующую */
     }
