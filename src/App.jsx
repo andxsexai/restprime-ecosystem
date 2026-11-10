@@ -29,12 +29,13 @@ import { rebuildReel } from './lib/rebuild.js'
 import { applyOccupancy, occupancyForDay } from './data/november2026.js'
 import { addChannel, hiddenDefaults, liveChannels, normalizePrefs, removeChannel, restoreAll, restoreChannel } from './lib/channelCatalog.js'
 import { REEL_BANK } from './data/reelBank.js'
-import { announceDecision, announceRecovery, announceSignup, pollRelay, pollTeam, publishTeam, resendSignup, sendTeam } from './lib/relay.js'
+import { RELAY_TEST, announceDecision, announceRecovery, announceSignup, pollRelay, pollTeam, publishTeam, resendSignup, sendTeam } from './lib/relay.js'
 import TaskDesk, { taskStamp } from './components/TaskDesk.jsx'
 import NotesDesk from './components/NotesDesk.jsx'
 import TrashDesk, { trashCount } from './components/TrashDesk.jsx'
 import { GROUP_LIMIT, PERSONAL_LIMIT, authorName, canEditNote, claimGuestNotes, isTrashed, livingNotes, livingOf, moveToTrash, noteStamp, ownerKey, takeFromTrash, upsertNote } from './lib/notes.js'
-import { absorbDesk, collectDesk, emptyPurged, packDesk, pushDeskSnapshot, rememberPurged, sameList } from './lib/deskSync.js'
+import { absorbDayPatches, absorbDesk, collectDesk, emptyPurged, packDays, packDesk, pushDeskSnapshot, rememberPurged, sameList } from './lib/deskSync.js'
+import { mergeVault, pullTeamVault, seedTeamVault } from './lib/teamVault.js'
 import { applyStaff, loadAccess, saveAccess } from './lib/access.js'
 import { ADMIN_EMAIL, ROLES, SIGNUP_ROLES, hashPassword, normalizePhrase, roleLabel } from './lib/auth.js'
 import {
@@ -104,6 +105,28 @@ function loadState() {
   }
 }
 
+function bootCabinet() {
+  const saved = loadState()
+  const vault = RELAY_TEST ? { tasks: [], notes: [], taskLog: [], days: [], purged: emptyPurged() } : seedTeamVault()
+  const days = seedNovember(absorbDayPatches(saved?.days || contentPlan, vault.days))
+  const desk = mergeVault({
+    tasks: saved?.tasks || [],
+    notes: saved?.notes || [],
+    taskLog: saved?.taskLog || [],
+    purged: saved?.purged || emptyPurged(),
+    days,
+    owner: 'guest',
+  }, vault)
+  return {
+    saved,
+    days: desk.days?.length ? seedNovember(desk.days) : days,
+    tasks: desk.tasks || [],
+    notes: desk.notes || [],
+    taskLog: desk.taskLog || [],
+    purged: desk.purged || emptyPurged(),
+  }
+}
+
 const MENU_FILE = starterFiles[0]
 
 function feedLabel(iso) {
@@ -168,24 +191,25 @@ function ProfileEditor({ session, onSave }) {
 }
 
 export default function App() {
-  const saved = useMemo(loadState, [])
+  const boot = useMemo(bootCabinet, [])
+  const saved = boot.saved
   const [clock, setClock] = useState(() => moscowToday())
   const todayNumber = planDayForDate(clock)
   const [tab, setTab] = useState('overview')
   const [navOpen, setNavOpen] = useState(false)
-  const [days, setDays] = useState(() => seedNovember(loadState()?.days || contentPlan))
+  const [days, setDays] = useState(boot.days)
   const [focus, setFocus] = useState(() => planDayForDate(moscowToday()) || saved?.focus || 1)
   const [goalOpen, setGoalOpen] = useState(false)
   const [goalSource, setGoalSource] = useState(null)
   const [reviewDay, setReviewDay] = useState(null)
   const [extraReels, setExtraReels] = useState(saved?.extraReels || [])
-  const [tasks, setTasks] = useState(saved?.tasks || [])
-  const [taskLog, setTaskLog] = useState(saved?.taskLog || [])
+  const [tasks, setTasks] = useState(boot.tasks)
+  const [taskLog, setTaskLog] = useState(boot.taskLog)
   const [tasksOpen, setTasksOpen] = useState(false)
-  const [notes, setNotes] = useState(saved?.notes || [])
+  const [notes, setNotes] = useState(boot.notes)
   const [purged, setPurged] = useState(() => ({
-    tasks: Array.isArray(saved?.purged?.tasks) ? saved.purged.tasks : [],
-    notes: Array.isArray(saved?.purged?.notes) ? saved.purged.notes : [],
+    tasks: Array.isArray(boot.purged?.tasks) ? boot.purged.tasks : [],
+    notes: Array.isArray(boot.purged?.notes) ? boot.purged.notes : [],
   }))
   const [notesOpen, setNotesOpen] = useState(false)
   const [noteFocus, setNoteFocus] = useState('')
@@ -240,7 +264,7 @@ export default function App() {
   const canAct = session?.status === 'active'
   sessionRef.current = session
   canActRef.current = canAct
-  deskLocal.current = { tasks, taskLog, notes, purged }
+  deskLocal.current = { tasks, taskLog, notes, purged, days }
   const isDeveloper = canAct && (session?.role === 'developer' || session?.email === ADMIN_EMAIL)
   const pending = access.users.filter((user) => user.status === 'pending')
   const members = access.users.filter((user) => user.status === 'active')
@@ -595,6 +619,7 @@ export default function App() {
       tasks: [...deskLocal.current.tasks],
       taskLog: [...deskLocal.current.taskLog],
       notes: [...deskLocal.current.notes],
+      days: [...(deskLocal.current.days || [])],
       purged: { ...deskLocal.current.purged, tasks: [...(deskLocal.current.purged.tasks || [])], notes: [...(deskLocal.current.purged.notes || [])] },
     }
     if (fresh.length) {
@@ -640,12 +665,19 @@ export default function App() {
       }
     }
     collectDesk(events).forEach((snap) => { next = absorbDesk(next, snap, owner) })
+    if (!RELAY_TEST) {
+      const vault = await pullTeamVault()
+      next = absorbDesk(next, vault, owner)
+    }
     if (person?.email) next = { ...next, notes: claimGuestNotes(next.notes, person.email) }
     deskLocal.current = next
     setTasks((current) => (sameList(current, next.tasks) ? current : next.tasks))
     setTaskLog((current) => (sameList(current, next.taskLog) ? current : next.taskLog))
     setNotes((current) => (sameList(current, next.notes) ? current : next.notes))
     setPurged((current) => (JSON.stringify(current) === JSON.stringify(next.purged) ? current : next.purged))
+    if (next.days?.length) {
+      setDays((current) => (JSON.stringify(packDays(current)) === JSON.stringify(packDays(next.days)) ? current : next.days))
+    }
     const got = next.tasks.length + next.notes.filter((note) => note.scope === 'group' || note.owner === owner).length
     if (!deskNotice.current && got > had) {
       deskNotice.current = true
@@ -1830,7 +1862,7 @@ export default function App() {
           onOpenNotes={openNotesWindow}
           onOpenTrash={openTrashWindow}
           onSync={pullDeskNow}
-          syncHint={teamState === 'offline' ? 'Сейчас нет сети — виден список с этого устройства. Когда сеть вернётся, подтянется общее.' : teamState === 'online' ? 'Подтянуто с компьютера и телефона. Можно нажать «Подтянуть», если список ещё старый.' : 'Подключаюсь к общему списку задач и заметок…'}
+          syncHint={teamState === 'offline' ? 'Сейчас нет сети — виден сейф с GitHub и список с этого устройства.' : teamState === 'online' ? 'Сейф команды в GitHub плюс живой канал. Нажмите «Подтянуть», если список ещё старый.' : 'Открываю сейф задач и заметок…'}
         />
       )}
       {notesOpen && (

@@ -40,6 +40,10 @@ export function mergePurged(a = emptyPurged(), b = emptyPurged()) {
   }
 }
 
+function titleKey(item) {
+  return String(item?.title || '').replace(/\s+/g, ' ').trim().toLowerCase()
+}
+
 export function mergeItems(local = [], remote = [], dead = []) {
   const purged = new Set(dead || [])
   const map = new Map()
@@ -48,8 +52,25 @@ export function mergeItems(local = [], remote = [], dead = []) {
     const prev = map.get(item.id)
     if (!prev || stampOf(item) >= stampOf(prev)) map.set(item.id, item)
   }
-  for (const id of purged) map.delete(id)
-  return [...map.values()]
+  const unique = new Map()
+  for (const item of map.values()) {
+    const key = titleKey(item)
+    if (!key) {
+      unique.set(item.id, item)
+      continue
+    }
+    const twin = [...unique.values()].find((other) => titleKey(other) === key)
+    if (!twin) {
+      unique.set(item.id, item)
+      continue
+    }
+    if (stampOf(item) >= stampOf(twin)) {
+      unique.delete(twin.id)
+      unique.set(item.id, item)
+    }
+  }
+  for (const id of purged) unique.delete(id)
+  return [...unique.values()]
 }
 
 export function mergeLog(local = [], remote = []) {
@@ -110,7 +131,42 @@ function compactNote(note) {
   }
 }
 
-export function packDesk({ tasks = [], taskLog = [], notes = [], purged = emptyPurged(), email = '' }) {
+export function packDays(days = []) {
+  return (days || []).map((day) => ({
+    day: day.day,
+    status: day.status || '',
+    decidedBy: day.decidedBy || '',
+    decidedRole: day.decidedRole || '',
+    decidedAt: day.decidedAt || '',
+    format: day.format || '',
+    variant: Number(day.variant) || 0,
+    manual: Boolean(day.manual),
+    postText: day.manual ? String(day.postText || '').slice(0, 1800) : '',
+  })).filter((day) => (day.status && day.status !== 'review') || day.manual || day.decidedAt)
+}
+
+export function absorbDayPatches(localDays = [], patches = []) {
+  if (!Array.isArray(localDays) || !localDays.length) return Array.isArray(patches) ? patches : []
+  if (!patches?.length) return localDays
+  const map = new Map(patches.map((item) => [Number(item.day), item]))
+  return localDays.map((day) => {
+    const patch = map.get(Number(day.day))
+    if (!patch) return day
+    return {
+      ...day,
+      status: patch.status || day.status,
+      decidedBy: patch.decidedBy || day.decidedBy,
+      decidedRole: patch.decidedRole || day.decidedRole,
+      decidedAt: patch.decidedAt || day.decidedAt,
+      format: patch.format || day.format,
+      variant: patch.variant ?? day.variant,
+      manual: Boolean(patch.manual) || Boolean(day.manual),
+      postText: patch.manual && patch.postText ? patch.postText : day.postText,
+    }
+  })
+}
+
+export function packDesk({ tasks = [], taskLog = [], notes = [], purged = emptyPurged(), days = [], email = '' }) {
   const syncNotes = (notes || [])
     .filter((note) => note.scope === 'group' || (email && note.owner === email))
     .map(compactNote)
@@ -120,6 +176,7 @@ export function packDesk({ tasks = [], taskLog = [], notes = [], purged = emptyP
     tasks: (tasks || []).map(compactTask).filter(Boolean).slice(0, TASK_CAP),
     taskLog: (taskLog || []).slice(0, 40),
     notes: syncNotes.slice(0, NOTES_CAP),
+    days: packDays(days),
     purged: {
       tasks: (purged.tasks || []).slice(-PURGE_CAP),
       notes: (purged.notes || []).slice(-PURGE_CAP),
@@ -136,6 +193,7 @@ export function absorbDesk(local, snap, owner) {
     tasks: mergeItems(local.tasks, snap.tasks, purged.tasks).slice(0, TASK_CAP),
     taskLog: mergeLog(local.taskLog, snap.taskLog),
     notes: [...othersPersonal, ...mergeItems(ownAndGroup, incomingNotes, purged.notes)].slice(0, NOTES_CAP),
+    days: absorbDayPatches(local.days, snap.days),
     purged,
   }
 }
@@ -187,8 +245,9 @@ export async function pushDeskSnapshot(publishTeam, snap) {
   const notes = (snap.notes || []).map(compactNote).filter(Boolean)
   const taskLog = (snap.taskLog || []).slice(0, 40)
   const purged = snap.purged || emptyPurged()
+  const days = packDays(snap.days)
   const slices = []
-  let bag = { tasks: [], notes: [], taskLog: [] }
+  let bag = { tasks: [], notes: [], taskLog: [], days: [] }
 
   const trial = (next, withPurged) => ({
     type: 'desk',
@@ -196,21 +255,22 @@ export async function pushDeskSnapshot(publishTeam, snap) {
     tasks: next.tasks,
     notes: next.notes,
     taskLog: next.taskLog,
+    days: next.days || [],
     purged: withPurged ? purged : emptyPurged(),
   })
 
   const commit = (withPurged = false) => {
-    if (bag.tasks.length || bag.notes.length || bag.taskLog.length || !slices.length) {
+    if (bag.tasks.length || bag.notes.length || bag.taskLog.length || bag.days.length || !slices.length) {
       slices.push(trial(bag, withPurged))
     }
-    bag = { tasks: [], notes: [], taskLog: [] }
+    bag = { tasks: [], notes: [], taskLog: [], days: [] }
   }
 
   const add = (key, item) => {
     const next = { ...bag, [key]: [...bag[key], item] }
-    if (!deskFits(trial(next, false)) && (bag.tasks.length || bag.notes.length || bag.taskLog.length)) {
+    if (!deskFits(trial(next, false)) && (bag.tasks.length || bag.notes.length || bag.taskLog.length || bag.days.length)) {
       commit(false)
-      bag = { tasks: [], notes: [], taskLog: [], [key]: [item] }
+      bag = { tasks: [], notes: [], taskLog: [], days: [], [key]: [item] }
       return
     }
     bag = next
@@ -219,6 +279,7 @@ export async function pushDeskSnapshot(publishTeam, snap) {
   tasks.forEach((item) => add('tasks', item))
   notes.forEach((item) => add('notes', item))
   taskLog.forEach((item) => add('taskLog', item))
+  days.forEach((item) => add('days', item))
   commit(true)
   if (slices.length) slices[slices.length - 1] = { ...slices[slices.length - 1], purged }
 

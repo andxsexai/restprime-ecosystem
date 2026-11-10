@@ -29,6 +29,9 @@ jobs:
       - name: Parse Telegram
         run: node scripts/parse-telegram.mjs
         continue-on-error: true
+      - name: Merge team vault
+        run: node scripts/backup-vault.mjs
+        continue-on-error: true
       - name: Check content
         run: node scripts/check-content.mjs
       - run: GITHUB_PAGES=true npm run build
