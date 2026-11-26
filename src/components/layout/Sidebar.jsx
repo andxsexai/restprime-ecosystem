@@ -1,10 +1,11 @@
-import { CalendarRange, Clapperboard, Compass, FolderUp, Instagram, LayoutDashboard, Lightbulb, MessagesSquare, Newspaper, PartyPopper, PenLine, ScanText, Send, Settings2, ShieldCheck, Sparkles, X } from 'lucide-react'
+import { CalendarRange, Clapperboard, ClipboardCheck, Compass, FolderUp, Instagram, LayoutDashboard, Lightbulb, MessagesSquare, Newspaper, PartyPopper, PenLine, ScanText, Send, Settings2, ShieldCheck, Sparkles, X } from 'lucide-react'
 import RouletteText from '../RouletteText.jsx'
 
 export const NAV = [
   { id: 'overview', title: 'Сегодня', note: 'Пост этого дня', icon: LayoutDashboard },
   { id: 'calendar-year', title: 'Календарь', note: 'Ноябрь: бронь и события', icon: CalendarRange },
   { id: 'agent', title: 'Агент', note: 'День и пересборка', icon: Sparkles },
+  { id: 'daily-desk', title: 'Автомат дня', note: 'Пост, кадры, учёт', icon: ClipboardCheck },
   { id: 'check', title: 'Проверка', note: 'Агент по текстам', icon: ShieldCheck },
   { id: 'three-days', title: '3 дня', note: '3 поста и 3 рилс в день', icon: Lightbulb },
   { id: 'rework', title: 'Переработка', note: 'Пересобиратор · каждый пост', icon: ScanText },

@@ -7,6 +7,10 @@
     "build": "vite build",
     "parse:tg": "node scripts/parse-telegram.mjs",
     "check:content": "node scripts/check-content.mjs",
+    "post:day": "node scripts/daily-post.mjs",
+    "post:log": "node scripts/daily-post.mjs --log",
+    "post:week": "node scripts/daily-post.mjs --summary",
+    "post:plan": "node scripts/daily-post.mjs --plan",
     "preview": "vite preview --host 127.0.0.1 --port 4173"
   },
   "dependencies": {

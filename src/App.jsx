@@ -58,6 +58,7 @@ const TrendFeed = lazy(() => import('./components/TrendFeed.jsx'))
 const SiteDesk = lazy(() => import('./pages/SiteDesk.jsx'))
 const ThreeDaysDesk = lazy(() => import('./pages/ThreeDaysDesk.jsx'))
 const ReworkDesk = lazy(() => import('./pages/ReworkDesk.jsx'))
+const DailyDesk = lazy(() => import('./pages/DailyDesk.jsx'))
 
 const KEY = 'restprime-cabinet-v3'
 const PLAN_EDITION = 'moscow-days'
@@ -1705,6 +1706,15 @@ export default function App() {
             onCopy={async (text) => { await copyText(text); notify('Текст агента скопирован.') }}
             onOpenRework={() => openRework()}
             packCount={reworkPack?.items?.length || 0}
+          />
+        )}
+        {tab === 'daily-desk' && (
+          <DailyDesk
+            days={days}
+            today={todayDay}
+            canAct={canAct}
+            onCopy={async (text) => { await copyText(text); notify('Скопировано.') }}
+            onStatus={setDayStatus}
           />
         )}
         {tab === 'rework' && (
